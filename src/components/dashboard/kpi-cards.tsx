@@ -1,0 +1,123 @@
+"use client";
+
+import { motion } from "framer-motion";
+import { AnimatedNumber } from "./animated-number";
+import { CallRecord } from "@/lib/types";
+import {
+  CalendarCheck,
+  PhoneCall,
+  PhoneIncoming,
+  Target,
+  DollarSign,
+  Banknote,
+  UserPlus,
+} from "lucide-react";
+
+interface KPICardsProps {
+  calls: CallRecord[];
+}
+
+export function KPICards({ calls }: KPICardsProps) {
+  const total = calls.length;
+  const showed = calls.filter((c) => c.outcome !== "No show");
+  const showRate = total > 0 ? Math.round((showed.length / total) * 100) : 0;
+  const customers = calls.filter((c) => c.outcome === "Customer");
+  const closeRate = showed.length > 0 ? Math.round((customers.length / showed.length) * 100) : 0;
+  const totalRevenue = customers.reduce(
+    (sum, c) => sum + (c.price_closed ?? 0),
+    0
+  );
+  const totalCashCollected = customers.reduce(
+    (sum, c) => sum + (c.cash_collected ?? 0),
+    0
+  );
+
+  const kpis = [
+    {
+      label: "Calls Kept",
+      value: total,
+      format: "number" as const,
+      icon: CalendarCheck,
+      accent: false,
+    },
+    {
+      label: "Show Rate",
+      value: showRate,
+      format: "percent" as const,
+      icon: PhoneIncoming,
+      accent: false,
+    },
+    {
+      label: "Calls Taken",
+      value: showed.length,
+      format: "number" as const,
+      icon: PhoneCall,
+      accent: false,
+    },
+    {
+      label: "Close Rate",
+      value: closeRate,
+      format: "percent" as const,
+      icon: Target,
+      accent: false,
+    },
+    {
+      label: "New Customers",
+      value: customers.length,
+      format: "number" as const,
+      icon: UserPlus,
+      accent: false,
+    },
+    {
+      label: "Cash Collected",
+      value: totalCashCollected,
+      format: "currency" as const,
+      icon: Banknote,
+      accent: true,
+    },
+    {
+      label: "Revenue",
+      value: totalRevenue,
+      format: "currency" as const,
+      icon: DollarSign,
+      accent: true,
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-7 lg:gap-4">
+      {kpis.map((kpi, i) => (
+        <motion.div
+          key={kpi.label}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.08, duration: 0.4, ease: "easeOut" }}
+          className={`group relative overflow-hidden rounded-xl border border-white/[0.06] p-4 lg:p-5 transition-all duration-300 hover:border-white/[0.12] ${
+            kpi.accent
+              ? "bg-gradient-to-br from-gold-500/[0.08] to-transparent glow-gold"
+              : "glass-card"
+          }`}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
+              {kpi.label}
+            </span>
+            <kpi.icon
+              className={`h-4 w-4 ${
+                kpi.accent ? "text-gold-500" : "text-zinc-600"
+              }`}
+              strokeWidth={1.5}
+            />
+          </div>
+          <AnimatedNumber
+            value={kpi.value}
+            format={kpi.format}
+            className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
+              kpi.accent ? "text-gold-400" : "text-zinc-100"
+            }`}
+          />
+        </motion.div>
+      ))}
+    </div>
+  );
+}
