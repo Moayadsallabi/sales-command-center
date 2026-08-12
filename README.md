@@ -149,12 +149,19 @@ problem and the fix instead of an error page. The two most common causes:
 An empty database is not an error — the dashboard renders zeroed KPIs until the
 first call lands.
 
-## Deploying to Vercel
+## Deploying
+
+It's a standard Next.js app with no platform-specific code, so any Node host works.
+On Railway (the default here):
 
 1. Push this repo to GitHub.
-2. In Vercel, import the repo.
-3. Add the same environment variables under Settings → Environment Variables.
-4. Deploy.
+2. In Railway: New Project → Deploy from GitHub repo → pick this repo.
+3. Add the same environment variables on the service's Variables tab.
+4. Settings → Networking → Generate Domain to get the public URL.
+
+Hosting more than one client? One Railway service per client, each with its own
+`NOTION_API_KEY`, `NOTION_DATABASE_ID` and `DASHBOARD_PASSWORD` — never share a
+deployment or a password between clients.
 
 `.env.local` is gitignored and never leaves your machine. The Notion secret is
 only ever read server-side.
