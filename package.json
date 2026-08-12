@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:notion": "node scripts/check-notion.mjs",
+    "fix:notion": "node scripts/fix-notion.mjs",
     "build:rubric": "node scripts/build-rubric.mjs",
     "check:workflow": "node scripts/check-workflow.mjs"
   },
