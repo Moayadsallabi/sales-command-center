@@ -9,10 +9,10 @@ import { OutcomeChart } from "./outcome-chart";
 import { RevenueChart } from "./revenue-chart";
 import { LeadSourceChart } from "./lead-source-chart";
 import { TierChart } from "./tier-chart";
-import { QualityChart } from "./quality-chart";
 import { CallTable } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
-import { DimensionProfile } from "./dimension-profile";
+import { WhatsCostingYou } from "./whats-costing-you";
+import { DimensionImpact } from "./dimension-impact";
 import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
 import { Activity, Filter, X } from "lucide-react";
@@ -87,6 +87,18 @@ export function Dashboard({
     });
   }, [calls, dateRange, selectedOutcomes, selectedSources, today]);
 
+  // The window immediately before the visible one. Every "vs last period"
+  // figure on the page is measured against this, so they all agree.
+  const previous = useMemo(() => {
+    const days = RANGE_DAYS[dateRange];
+    if (days === null) return [];
+    const from = daysBefore(today, days * 2);
+    const to = daysBefore(today, days);
+    return calls.filter(
+      (c) => c.call_date && c.call_date >= from && c.call_date < to
+    );
+  }, [calls, dateRange, today]);
+
   // The leaderboard always shows every closer — picking one narrows everything
   // below it, but never hides the people you are being compared against.
   const scoped = useMemo(
@@ -95,6 +107,14 @@ export function Dashboard({
         ? filtered
         : filtered.filter((c) => (c.closer ?? UNASSIGNED) === selectedCloser),
     [filtered, selectedCloser]
+  );
+
+  const previousScoped = useMemo(
+    () =>
+      selectedCloser === null
+        ? previous
+        : previous.filter((c) => (c.closer ?? UNASSIGNED) === selectedCloser),
+    [previous, selectedCloser]
   );
 
   const toggleOutcome = (outcome: string) => {
@@ -242,15 +262,18 @@ export function Dashboard({
 
         <CloserLeaderboard
           calls={filtered}
+          previousCalls={previous}
           selected={selectedCloser}
           onSelect={setSelectedCloser}
         />
 
-        <DimensionProfile
+        <WhatsCostingYou
           calls={scoped}
-          allCalls={filtered}
+          previousCalls={previousScoped}
           closer={selectedCloser}
         />
+
+        <DimensionImpact calls={scoped} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <OutcomeChart calls={scoped} />
@@ -262,7 +285,6 @@ export function Dashboard({
           <TierChart calls={scoped} />
         </div>
 
-        <QualityChart calls={scoped} />
         <CallTable calls={scoped} onSelect={setOpenCall} />
       </main>
 

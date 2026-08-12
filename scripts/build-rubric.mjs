@@ -200,9 +200,11 @@ function buildDimensionsModule(r) {
   const entries = r.dimensions
     .map(
       (d) =>
-        `  {\n    key: "${d.key}",\n    name: ${JSON.stringify(d.name)},\n    column: ${JSON.stringify(
-          d.column
-        )},\n    question: ${JSON.stringify(d.question)},\n  },`
+        `  {\n    key: "${d.key}",\n    name: ${JSON.stringify(d.name)},\n` +
+        `    plainName: ${JSON.stringify(d.plainName)},\n` +
+        `    plainQuestion: ${JSON.stringify(d.plainQuestion)},\n` +
+        `    column: ${JSON.stringify(d.column)},\n` +
+        `    question: ${JSON.stringify(d.question)},\n  },`
     )
     .join("\n");
 
@@ -218,13 +220,20 @@ ${r.dimensions.map((d) => `  | "${d.key}"`).join("\n")};
 export interface Dimension {
   /** Field name in the scorer's output and on the CallRecord. */
   key: DimensionKey;
-  /** Label shown in the dashboard. */
+  /** Internal name. Matches the Notion column; not shown in the dashboard. */
   name: string;
+  /** What the dashboard shows. Readable without knowing the methodology. */
+  plainName: string;
+  /** One line saying what this dimension is actually asking. */
+  plainQuestion: string;
   /** Notion column this dimension is written to. */
   column: string;
-  /** What the dimension asks — used as tooltip copy. */
+  /** The scoring instruction given to the model. */
   question: string;
 }
+
+/** The score at or above which a dimension counts as done well. */
+export const GOOD_SCORE = 7;
 
 export const DIMENSIONS: Dimension[] = [
 ${entries}

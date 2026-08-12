@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import { closerLeaderboard } from "@/lib/stats";
-import { Trophy } from "lucide-react";
+import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
 
 const currency = (value: number) =>
   value.toLocaleString("en-US", {
@@ -20,16 +20,39 @@ function scoreColor(score: number | null): string {
   return "text-red-400";
 }
 
+/** Movement under this is measurement wobble rather than a real change. */
+const TREND_NOISE = 0.3;
+
+function Trend({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-zinc-700">—</span>;
+  if (Math.abs(value) < TREND_NOISE) return <span className="text-zinc-600">flat</span>;
+  const better = value > 0;
+  const Icon = better ? TrendingUp : TrendingDown;
+  return (
+    <span
+      className={`inline-flex items-center justify-end gap-1 ${
+        better ? "text-emerald-400" : "text-red-400"
+      }`}
+    >
+      <Icon className="h-3 w-3" strokeWidth={2} />
+      {better ? "+" : ""}
+      {value.toFixed(1)}
+    </span>
+  );
+}
+
 export function CloserLeaderboard({
   calls,
+  previousCalls,
   selected,
   onSelect,
 }: {
   calls: CallRecord[];
+  previousCalls: CallRecord[];
   selected: string | null;
   onSelect: (closer: string | null) => void;
 }) {
-  const rows = closerLeaderboard(calls);
+  const rows = closerLeaderboard(calls, previousCalls);
 
   return (
     <motion.div
@@ -62,18 +85,26 @@ export function CloserLeaderboard({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {["Closer", "Calls", "Taken", "Closed", "Close rate", "Cash", "Avg score", "Weakest dimension"].map(
-                  (heading, i) => (
+                {[
+                  "Closer",
+                  "Calls",
+                  "Taken",
+                  "Closed",
+                  "Close rate",
+                  "Cash",
+                  "Avg score",
+                  "Trend",
+                  "Weakest part of their call",
+                ].map((heading, i) => (
                     <th
                       key={heading}
                       className={`text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 px-5 py-3 whitespace-nowrap ${
-                        i === 0 || i === 7 ? "text-left" : "text-right"
+                        i === 0 || i === 8 ? "text-left" : "text-right"
                       }`}
                     >
                       {heading}
                     </th>
-                  )
-                )}
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -112,10 +143,13 @@ export function CloserLeaderboard({
                     >
                       {row.avgScore == null ? "—" : row.avgScore.toFixed(1)}
                     </td>
+                    <td className="px-5 py-3 text-right font-mono text-[12px] tabular-nums">
+                      <Trend value={row.trend} />
+                    </td>
                     <td className="px-5 py-3 whitespace-nowrap text-zinc-500 text-[13px]">
                       {row.weakest ? (
                         <>
-                          {row.weakest.name}{" "}
+                          {row.weakest.dimension.plainName}{" "}
                           <span className="font-mono tabular-nums text-zinc-600">
                             {row.weakest.score.toFixed(1)}
                           </span>

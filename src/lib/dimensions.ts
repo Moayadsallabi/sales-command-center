@@ -13,66 +13,89 @@ export type DimensionKey =
 export interface Dimension {
   /** Field name in the scorer's output and on the CallRecord. */
   key: DimensionKey;
-  /** Label shown in the dashboard. */
+  /** Internal name. Matches the Notion column; not shown in the dashboard. */
   name: string;
+  /** What the dashboard shows. Readable without knowing the methodology. */
+  plainName: string;
+  /** One line saying what this dimension is actually asking. */
+  plainQuestion: string;
   /** Notion column this dimension is written to. */
   column: string;
-  /** What the dimension asks — used as tooltip copy. */
+  /** The scoring instruction given to the model. */
   question: string;
 }
+
+/** The score at or above which a dimension counts as done well. */
+export const GOOD_SCORE = 7;
 
 export const DIMENSIONS: Dimension[] = [
   {
     key: "frame_ownership",
     name: "Frame Ownership",
+    plainName: "Running the call",
+    plainQuestion: "Who was steering — the caller or the prospect?",
     column: "Frame Ownership",
     question: "Did the caller control the conversation's direction, pacing, and agenda throughout?",
   },
   {
     key: "discovery_depth",
     name: "Discovery Depth",
+    plainName: "Digging deep",
+    plainQuestion: "Did they get past the first answer to the real problem?",
     column: "Discovery Depth",
     question: "How many layers deep did the caller go?",
   },
   {
     key: "belief_architecture",
     name: "Belief Architecture",
+    plainName: "Building the case",
+    plainQuestion: "Did they make the prospect want it before pitching it?",
     column: "Belief Architecture",
     question: "Were the seven buying beliefs built during the call?",
   },
   {
     key: "pitch_precision",
     name: "Pitch Precision",
+    plainName: "Tailoring the pitch",
+    plainQuestion: "Was the pitch built for this prospect, or could it have been for anyone?",
     column: "Pitch Precision",
     question: "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables?",
   },
   {
     key: "tension_management",
     name: "Tension Management",
+    plainName: "Holding their nerve",
+    plainQuestion: "Could they sit in silence after saying the price?",
     column: "Tension Management",
     question: "Could the caller hold tension without becoming needy?",
   },
   {
     key: "objection_resolution",
     name: "Objection Resolution",
+    plainName: "Handling pushback",
+    plainQuestion: "Did they find the real objection before answering it?",
     column: "Objection Resolution",
     question: "Were objections handled in the correct sequence?",
   },
   {
     key: "qualification",
     name: "Qualification",
+    plainName: "Qualifying",
+    plainQuestion: "Did they check this was a real buyer, and act on what they found?",
     column: "Qualification",
     question: "Did the caller establish early whether this is a real prospect, and act on what they found?",
   },
   {
     key: "strategic_awareness",
     name: "Strategic Awareness",
+    plainName: "Reading the room",
+    plainQuestion: "Did they notice what was happening on the call and adjust?",
     column: "Strategic Awareness",
     question: "Did the caller read the room and adapt in real time?",
   },
 ];
 
-export const RUBRIC_VERSION = "1.0.0";
+export const RUBRIC_VERSION = "1.1.0";
 
 /** Verdict bands, highest threshold first. */
 export const VERDICTS: { min: number; label: string }[] = [
