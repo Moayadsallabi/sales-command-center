@@ -2,12 +2,24 @@
 // Run with: npm run check:notion
 
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const NOTION_VERSION = "2022-06-28";
 
-// Property name -> the CallRecord field src/lib/notion.ts maps it to.
+const rubric = JSON.parse(
+  readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "..", "rubric", "rubric.json"),
+    "utf8"
+  )
+);
+
+// Property name -> the Notion type src/lib/notion.ts expects. The scorecard
+// columns come from the rubric so adding a dimension only means editing
+// rubric/rubric.json.
 const REQUIRED_PROPS = {
   Name: "title",
+  Closer: "select",
   "Call Date": "date",
   Outcome: "select",
   Tier: "select",
@@ -23,6 +35,12 @@ const REQUIRED_PROPS = {
   "Duration (min)": "number",
   "Recording URL": "url",
   Summary: "rich_text",
+  "The Moment": "rich_text",
+  "Next Call Drill": "rich_text",
+  ...Object.fromEntries(rubric.dimensions.map((d) => [d.column, "number"])),
+  ...Object.fromEntries(
+    rubric.bonusFlags.map((f) => [f.column, f.type === "enum" ? "select" : "checkbox"])
+  ),
 };
 
 function loadEnv() {

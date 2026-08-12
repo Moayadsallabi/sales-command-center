@@ -1,0 +1,458 @@
+{
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "Customer",
+        "BAMFAM",
+        "No offer made",
+        "No deal",
+        "No show",
+        "REFUND"
+      ]
+    },
+    "tier": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "price_discussed": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "price_closed": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cash_collected": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payment_structure": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "PIF",
+            "installments",
+            "custom"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "prospect_revenue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "niche": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "location": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lead_source": {
+      "type": "string",
+      "enum": [
+        "Skool",
+        "IG",
+        "YouTube",
+        "Referral",
+        "Direct",
+        "Unknown"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "scores": {
+      "type": "object",
+      "properties": {
+        "frame_ownership": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Did the caller control the conversation's direction, pacing, and agenda throughout?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Frame Ownership score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "discovery_depth": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "How many layers deep did the caller go?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Discovery Depth score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "belief_architecture": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Were the seven buying beliefs built during the call?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Belief Architecture score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "pitch_precision": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Pitch Precision score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "tension_management": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Could the caller hold tension without becoming needy?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Tension Management score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "objection_resolution": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Were objections handled in the correct sequence?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Objection Resolution score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "qualification": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Did the caller establish early whether this is a real prospect, and act on what they found?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Qualification score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "strategic_awareness": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
+              ],
+              "description": "Did the caller read the room and adapt in real time?"
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Strategic Awareness score, quoting the transcript."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "frame_ownership",
+        "discovery_depth",
+        "belief_architecture",
+        "pitch_precision",
+        "tension_management",
+        "objection_resolution",
+        "qualification",
+        "strategic_awareness"
+      ],
+      "additionalProperties": false
+    },
+    "flags": {
+      "type": "object",
+      "properties": {
+        "value_leak": {
+          "type": "boolean",
+          "description": "Did the caller give away consulting or strategy before getting a commitment?"
+        },
+        "follow_up_trap": {
+          "type": "boolean",
+          "description": "Was a follow-up booked when a harder push was warranted?"
+        },
+        "price_drop_too_early": {
+          "type": "boolean",
+          "description": "Was the price dropped before the caller confirmed the prospect was certain about the solution?"
+        },
+        "weakest_belief": {
+          "type": "string",
+          "enum": [
+            "Pain",
+            "Doubt",
+            "Cost",
+            "Desire",
+            "Money",
+            "Support",
+            "Trust",
+            "None"
+          ],
+          "description": "Which of the seven beliefs was weakest or missing on this call?"
+        }
+      },
+      "required": [
+        "value_leak",
+        "follow_up_trap",
+        "price_drop_too_early",
+        "weakest_belief"
+      ],
+      "additionalProperties": false
+    },
+    "narrative": {
+      "type": "object",
+      "properties": {
+        "best_moment": {
+          "type": "string",
+          "description": "The single strongest move the caller made. Quote it."
+        },
+        "biggest_miss": {
+          "type": "string",
+          "description": "The single highest-leverage thing that could have been different. Quote it."
+        },
+        "the_moment": {
+          "type": "string",
+          "description": "Identify the single highest-leverage point on the call where a different move would have changed the outcome. Quote the transcript, explain what happened, what should have happened, and why it matters. Two to four sentences."
+        },
+        "next_call_drill": {
+          "type": "string",
+          "description": "One specific, concrete behaviour the caller can apply on their very next call. Not \"work on your discovery\" but \"when the prospect gives a surface-level answer, say 'tell me more about that' and then wait.\" One or two sentences."
+        }
+      },
+      "required": [
+        "best_moment",
+        "biggest_miss",
+        "the_moment",
+        "next_call_drill"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "outcome",
+    "tier",
+    "price_discussed",
+    "price_closed",
+    "cash_collected",
+    "payment_structure",
+    "prospect_revenue",
+    "niche",
+    "location",
+    "lead_source",
+    "summary",
+    "scores",
+    "flags",
+    "narrative"
+  ],
+  "additionalProperties": false
+}

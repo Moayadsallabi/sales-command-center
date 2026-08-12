@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { CallRecord, OUTCOMES } from "@/lib/types";
+import { UNASSIGNED } from "@/lib/stats";
 import { KPICards } from "./kpi-cards";
 import { OutcomeChart } from "./outcome-chart";
 import { RevenueChart } from "./revenue-chart";
@@ -10,6 +11,9 @@ import { LeadSourceChart } from "./lead-source-chart";
 import { TierChart } from "./tier-chart";
 import { QualityChart } from "./quality-chart";
 import { CallTable } from "./call-table";
+import { CloserLeaderboard } from "./closer-leaderboard";
+import { DimensionProfile } from "./dimension-profile";
+import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
 import { Activity, Filter, X } from "lucide-react";
 
@@ -39,9 +43,11 @@ function daysBefore(isoDate: string, days: number): string {
 export function Dashboard({
   calls,
   today,
+  demo = false,
 }: {
   calls: CallRecord[];
   today: string;
+  demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
   const [selectedOutcomes, setSelectedOutcomes] = useState<Set<string>>(
@@ -50,6 +56,8 @@ export function Dashboard({
   const [selectedSources, setSelectedSources] = useState<Set<string>>(
     new Set()
   );
+  const [selectedCloser, setSelectedCloser] = useState<string | null>(null);
+  const [openCall, setOpenCall] = useState<CallRecord | null>(null);
 
   const allSources = useMemo(() => {
     const sources = new Set<string>();
@@ -79,6 +87,16 @@ export function Dashboard({
     });
   }, [calls, dateRange, selectedOutcomes, selectedSources, today]);
 
+  // The leaderboard always shows every closer — picking one narrows everything
+  // below it, but never hides the people you are being compared against.
+  const scoped = useMemo(
+    () =>
+      selectedCloser === null
+        ? filtered
+        : filtered.filter((c) => (c.closer ?? UNASSIGNED) === selectedCloser),
+    [filtered, selectedCloser]
+  );
+
   const toggleOutcome = (outcome: string) => {
     setSelectedOutcomes((prev) => {
       const next = new Set(prev);
@@ -97,7 +115,8 @@ export function Dashboard({
     });
   };
 
-  const hasFilters = selectedOutcomes.size > 0 || selectedSources.size > 0;
+  const hasFilters =
+    selectedOutcomes.size > 0 || selectedSources.size > 0 || selectedCloser !== null;
 
   return (
     <div className="min-h-screen">
@@ -118,7 +137,8 @@ export function Dashboard({
                 Sales Command Center
               </h1>
               <p className="text-[11px] text-zinc-600">
-                {filtered.length} of {calls.length} calls
+                {scoped.length} of {calls.length} calls
+                {selectedCloser ? ` · ${selectedCloser}` : ""}
               </p>
             </div>
           </motion.div>
@@ -198,6 +218,7 @@ export function Dashboard({
               onClick={() => {
                 setSelectedOutcomes(new Set());
                 setSelectedSources(new Set());
+                setSelectedCloser(null);
               }}
               className="flex items-center gap-1 px-2 py-1 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
             >
@@ -208,23 +229,44 @@ export function Dashboard({
         </div>
       </header>
 
+      {demo && (
+        <div className="border-b border-amber-500/20 bg-amber-500/[0.07] px-6 py-2 text-center text-[11px] text-amber-300">
+          Demo data — every call on this page is invented. Unset DASHBOARD_DEMO_DATA to read
+          from Notion.
+        </div>
+      )}
+
       {/* Content */}
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
-        <KPICards calls={filtered} />
+        <KPICards calls={scoped} />
+
+        <CloserLeaderboard
+          calls={filtered}
+          selected={selectedCloser}
+          onSelect={setSelectedCloser}
+        />
+
+        <DimensionProfile
+          calls={scoped}
+          allCalls={filtered}
+          closer={selectedCloser}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <OutcomeChart calls={filtered} />
-          <RevenueChart calls={filtered} />
+          <OutcomeChart calls={scoped} />
+          <RevenueChart calls={scoped} />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <LeadSourceChart calls={filtered} />
-          <TierChart calls={filtered} />
+          <LeadSourceChart calls={scoped} />
+          <TierChart calls={scoped} />
         </div>
 
-        <QualityChart calls={filtered} />
-        <CallTable calls={filtered} />
+        <QualityChart calls={scoped} />
+        <CallTable calls={scoped} onSelect={setOpenCall} />
       </main>
+
+      <ScorecardPanel call={openCall} onClose={() => setOpenCall(null)} />
 
       {/* Footer */}
       <footer className="border-t border-white/[0.04] mt-8">

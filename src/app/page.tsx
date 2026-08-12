@@ -22,14 +22,20 @@ async function loadCalls(): Promise<LoadResult> {
 }
 
 export default async function Home() {
-  const result = await loadCalls();
-
-  if (!result.ok) return <SetupNotice failure={result.failure} />;
-
   // Resolved once per request so the date filter agrees between the server
   // render and hydration — reading the clock in the client component instead
   // makes the two disagree across a midnight boundary or any clock skew.
   const today = new Date().toISOString().split("T")[0];
+
+  // Preview the dashboard without Notion. Unset in any real deployment.
+  if (process.env.DASHBOARD_DEMO_DATA === "1") {
+    const { demoCalls } = await import("@/lib/demo-data");
+    return <Dashboard calls={demoCalls(today)} today={today} demo />;
+  }
+
+  const result = await loadCalls();
+
+  if (!result.ok) return <SetupNotice failure={result.failure} />;
 
   return <Dashboard calls={result.calls} today={today} />;
 }

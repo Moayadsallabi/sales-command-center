@@ -1,4 +1,5 @@
 import { CallRecord } from "./types";
+import { DIMENSIONS, DimensionKey } from "./dimensions";
 
 /** Why a Notion read failed, in terms the setup screen can explain. */
 export type NotionFailure =
@@ -26,6 +27,7 @@ type NotionProperty = {
   select?: { name?: string } | null;
   number?: number | null;
   url?: string | null;
+  checkbox?: boolean;
 };
 
 type NotionPage = {
@@ -69,6 +71,31 @@ function normalizeSource(source: string | null): string | null {
 
 function extractUrl(prop?: NotionProperty): string | null {
   return prop?.url ?? null;
+}
+
+function extractCheckbox(prop?: NotionProperty): boolean {
+  return prop?.checkbox ?? false;
+}
+
+/** A Notion page id is a dashed UUID; the web URL wants it without dashes. */
+function pageUrl(id: string): string {
+  return `https://www.notion.so/${id.replace(/-/g, "")}`;
+}
+
+/**
+ * Reads the eight scorecard columns. A call recorded before the scorecard
+ * shipped has none of them, which reads as all-null rather than zeros — the
+ * dashboard then leaves that call out of score averages instead of dragging
+ * them down.
+ */
+function extractScores(
+  props: Record<string, NotionProperty | undefined>
+): Record<DimensionKey, number | null> {
+  const scores = {} as Record<DimensionKey, number | null>;
+  for (const dimension of DIMENSIONS) {
+    scores[dimension.key] = extractNumber(props[dimension.column]);
+  }
+  return scores;
 }
 
 export async function queryAllCalls(): Promise<CallRecord[]> {
@@ -128,6 +155,7 @@ export async function queryAllCalls(): Promise<CallRecord[]> {
       results.push({
         id: page.id,
         name: extractTitle(props.Name),
+        closer: extractSelect(props.Closer),
         call_date: extractDate(props["Call Date"]),
         outcome: extractSelect(props.Outcome),
         tier: extractSelect(props.Tier),
@@ -143,6 +171,16 @@ export async function queryAllCalls(): Promise<CallRecord[]> {
         duration: extractNumber(props["Duration (min)"]),
         recording_url: extractUrl(props["Recording URL"]),
         summary: extractRichText(props.Summary),
+        scores: extractScores(props),
+        flags: {
+          value_leak: extractCheckbox(props["Value Leak"]),
+          follow_up_trap: extractCheckbox(props["Follow-Up Trap"]),
+          early_price_drop: extractCheckbox(props["Early Price Drop"]),
+          weakest_belief: extractSelect(props["Weakest Belief"]),
+        },
+        the_moment: extractRichText(props["The Moment"]),
+        next_call_drill: extractRichText(props["Next Call Drill"]),
+        notion_url: pageUrl(page.id),
       });
     }
 

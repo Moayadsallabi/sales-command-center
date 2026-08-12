@@ -4,7 +4,13 @@ import { motion } from "framer-motion";
 import { CallRecord, OUTCOME_COLORS } from "@/lib/types";
 import { ExternalLink } from "lucide-react";
 
-export function CallTable({ calls }: { calls: CallRecord[] }) {
+export function CallTable({
+  calls,
+  onSelect,
+}: {
+  calls: CallRecord[];
+  onSelect: (call: CallRecord) => void;
+}) {
   const sorted = [...calls].sort((a, b) => {
     if (!a.call_date) return 1;
     if (!b.call_date) return -1;
@@ -19,9 +25,12 @@ export function CallTable({ calls }: { calls: CallRecord[] }) {
       className="rounded-xl border border-white/[0.06] glass-card overflow-hidden"
     >
       <div className="p-5 pb-0">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500 mb-4">
+        <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500 mb-1">
           All Calls
         </h3>
+        <p className="text-[10px] text-zinc-600 mb-4">
+          Click a row to open its scorecard.
+        </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -29,6 +38,7 @@ export function CallTable({ calls }: { calls: CallRecord[] }) {
             <tr className="border-b border-white/[0.06]">
               {[
                 "Name",
+                "Closer",
                 "Date",
                 "Outcome",
                 "Tier",
@@ -36,7 +46,7 @@ export function CallTable({ calls }: { calls: CallRecord[] }) {
                 "Revenue",
                 "Niche",
                 "Source",
-                "Quality",
+                "Score",
               ].map((h) => (
                 <th
                   key={h}
@@ -51,7 +61,8 @@ export function CallTable({ calls }: { calls: CallRecord[] }) {
             {sorted.map((call) => (
               <tr
                 key={call.id}
-                className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                onClick={() => onSelect(call)}
+                className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors cursor-pointer"
               >
                 <td className="px-5 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
@@ -63,12 +74,16 @@ export function CallTable({ calls }: { calls: CallRecord[] }) {
                         href={call.recording_url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-zinc-600 hover:text-gold-400 transition-colors"
                       >
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
                   </div>
+                </td>
+                <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-400">
+                  {call.closer ?? <span className="text-zinc-700">—</span>}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap font-mono text-xs text-zinc-500 tabular-nums">
                   {call.call_date

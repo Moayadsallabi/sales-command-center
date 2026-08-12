@@ -49,7 +49,7 @@ export function QualityChart({ calls }: { calls: CallRecord[] }) {
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-          Call Quality Over Time
+          Overall Score Over Time
         </h3>
         <span className="font-mono text-xs text-zinc-500 tabular-nums">
           avg {avgQuality.toFixed(1)}
