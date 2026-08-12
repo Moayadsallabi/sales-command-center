@@ -94,12 +94,19 @@ npm run build:rubric
 | `rubric/system-prompt.txt` | The prompt the workflow sends to Claude |
 | `rubric/output-schema.json` | Constrains the reply so it always matches the schema |
 | `rubric/scorecard-rubric.md` | The readable rubric — share this with your closers |
+| `rubric/skill.md` | A Claude chat skill for reviewing a call manually, same rubric |
 | `src/lib/dimensions.ts` | The dimension list the dashboard renders |
 | `automation/sales-call-tracker.json` | The n8n workflow you import |
 
-Do not hand-edit those five. Edit `rubric/rubric.json` (or
+Do not hand-edit those six. Edit `rubric/rubric.json` (or
 `automation/sales-call-tracker.template.json` for workflow wiring) and re-run the
 build. Changing the dimensions also means adding the matching Notion columns.
+
+The chat skill ships with the same `[OFFER CONTEXT]` placeholder as the workflow
+prompt. To build a copy with your real offer context, describe the offer in
+`rubric/offer-context.local.md` (gitignored) and re-run the build — it writes
+`rubric/skill.local.md` (also gitignored), which is the version to install as a
+Claude skill.
 
 ```bash
 npm run check:workflow
@@ -107,6 +114,26 @@ npm run check:workflow
 
 runs the generated workflow's expressions against a mock Fathom payload, so a broken
 expression fails on your machine rather than on a real sales call.
+
+## What the workflow does with a call
+
+Fathom fires the webhook when a transcript is ready. The workflow then:
+
+1. **Checks the meeting title** contains the sales-call keyword (default "Strategy
+   Call") — anything else is ignored.
+2. **Checks for a duplicate** by looking the recording's `Recording ID` up in
+   Notion, so a webhook redelivery or manual re-run never writes a second row.
+3. **Checks there is a transcript.** Under 50 words, the call is logged as a
+   `No show` with no scorecard instead of being scored on nothing.
+4. **Scores the call** against the rubric and writes the full row, including the
+   rubric version that produced the scores.
+
+The Claude and Notion calls retry three times on transient failures. For anything
+that still fails, import [`automation/error-alert.json`](automation/error-alert.json)
+as a second workflow, point its webhook URL at a Slack incoming webhook (or any
+endpoint that accepts JSON), and set it as the tracker workflow's error workflow
+under **Settings → Error Workflow**. Without it a failed run dies silently — Fathom
+already got its 200 and will not retry, so the call would simply never appear.
 
 ## Troubleshooting
 
@@ -138,6 +165,7 @@ only ever read server-side.
 rubric/rubric.json                        the scoring rubric — the one file to edit
 automation/*.template.json                n8n workflow wiring
 automation/sales-call-tracker.json        generated; import this into n8n
+automation/error-alert.json               error workflow — alerts when a run fails
 docs/notion-schema.md                     the columns your Notion database needs
 
 src/app/page.tsx                          server component, fetches from Notion
@@ -149,7 +177,8 @@ src/lib/stats.ts                          per-closer aggregation, pattern detect
 src/lib/demo-data.ts                      sample calls for DASHBOARD_DEMO_DATA=1
 src/components/dashboard/                 KPI cards, charts, call table
 src/components/dashboard/closer-leaderboard.tsx  per-closer table
-src/components/dashboard/dimension-profile.tsx   dimension averages + patterns
+src/components/dashboard/whats-costing-you.tsx   the dimensions worth acting on
+src/components/dashboard/dimension-impact.tsx    close rate when done well vs not
 src/components/dashboard/scorecard-panel.tsx     per-call scorecard drawer
 src/components/dashboard/setup-notice.tsx connection-failure screen
 src/components/ui/                        shadcn primitives

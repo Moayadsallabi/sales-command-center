@@ -32,15 +32,21 @@ function evalExpr(expr, scope) {
 
 /* ------------------------------------------------- mock upstream node data */
 
+const longTranscript = Array.from(
+  { length: 40 },
+  (_, i) => `Closer: Question number ${i}?\nAlex Morgan: A considered answer to number ${i}.`
+).join("\n");
+
 const mockDirect = {
   call_date: "2026-08-11",
   prospect_name: "Alex Morgan",
   duration_minutes: 47,
   share_url: "https://fathom.video/share/example",
-  transcript: "Closer: Thanks for jumping on.\nAlex Morgan: No problem.",
+  transcript: longTranscript,
   attendees: "Sam Rep <sam@agency.com>, Alex Morgan <alex@prospect.com>",
   external_attendees: "Alex Morgan <alex@prospect.com>",
   closer: "Sam Rep",
+  recording_id: 987654,
 };
 
 const mockAi = {
@@ -55,8 +61,14 @@ const mockAi = {
   location: "Dubai",
   lead_source: "IG",
   summary: "Alex closed on tier 2 with a two-part payment.",
+  // One null score, so the average must skip it rather than counting it as 0.
   scores: Object.fromEntries(
-    rubric.dimensions.map((d) => [d.key, { score: 7, reasoning: `Reasoning for ${d.name}.` }])
+    rubric.dimensions.map((d, i) => [
+      d.key,
+      i === rubric.dimensions.length - 1
+        ? { score: null, reasoning: `No evidence for ${d.name} on this call.` }
+        : { score: 7, reasoning: `Reasoning for ${d.name}.` },
+    ])
   ),
   flags: {
     value_leak: false,
@@ -150,6 +162,69 @@ if (claudeBody) {
   else pass("closer reaches the user message");
 }
 
+/* --------------------------------------- 2b. Dedupe and no-transcript gates */
+
+const dedupeScope = {
+  $json: mockDirect,
+  $: () => ({ item: { json: mockDirect } }),
+};
+
+try {
+  const body = JSON.parse(
+    evalExpr(nodeByName["Already Logged?"].parameters.jsonBody, dedupeScope)
+  );
+  if (body.filter?.property !== "Recording ID" || body.filter?.number?.equals !== mockDirect.recording_id)
+    fail("dedupe query does not filter on Recording ID");
+  else pass("dedupe query filters on Recording ID");
+} catch (err) {
+  fail(`dedupe query body: ${err.message}`);
+}
+
+const isNewExpr = nodeByName["Is New Call?"].parameters.conditions.conditions[0].leftValue;
+try {
+  const fresh = evalExpr(isNewExpr, { $json: { results: [] }, $: () => ({}) });
+  const dupe = evalExpr(isNewExpr, { $json: { results: [{ id: "existing" }] }, $: () => ({}) });
+  if (fresh !== true || dupe !== false) fail("Is New Call? gate gives the wrong answer");
+  else pass("Is New Call? passes a fresh recording and blocks a duplicate");
+} catch (err) {
+  fail(`Is New Call? expression: ${err.message}`);
+}
+
+const hasTranscriptExpr =
+  nodeByName["Has Transcript?"].parameters.conditions.conditions[0].leftValue;
+try {
+  const full = evalExpr(hasTranscriptExpr, {
+    $json: {},
+    $: () => ({ item: { json: mockDirect } }),
+  });
+  const empty = evalExpr(hasTranscriptExpr, {
+    $json: {},
+    $: () => ({ item: { json: { ...mockDirect, transcript: "Closer: Hello? Anyone there?" } } }),
+  });
+  if (full !== true || empty !== false) fail("Has Transcript? gate gives the wrong answer");
+  else pass("Has Transcript? scores a real transcript and diverts an empty one");
+} catch (err) {
+  fail(`Has Transcript? expression: ${err.message}`);
+}
+
+try {
+  const noShow = JSON.parse(
+    evalExpr(nodeByName["Log No-Show"].parameters.jsonBody, {
+      $json: {},
+      $: () => ({ item: { json: mockDirect } }),
+    })
+  );
+  if (noShow.properties?.Outcome?.select?.name !== "No show")
+    fail("Log No-Show does not set the outcome to No show");
+  else if (noShow.properties?.["Recording ID"]?.number !== mockDirect.recording_id)
+    fail("Log No-Show does not write the Recording ID");
+  else if (noShow.properties?.["Quality Score"])
+    fail("Log No-Show writes a Quality Score — a no-show must stay unscored");
+  else pass("Log No-Show writes an unscored row with outcome, closer and Recording ID");
+} catch (err) {
+  fail(`Log No-Show body: ${err.message}`);
+}
+
 /* --------------------------------------------------- 3. Parse AI Response */
 
 const parseExpr = nodeByName["Parse AI Response"].parameters.assignments.assignments[0].value;
@@ -183,8 +258,10 @@ try {
 const notionScope = {
   $json: { ai: mockAi },
   $: (name) => {
-    if (name !== "Extract Direct Fields") throw new Error(`unexpected node reference: ${name}`);
-    return { item: { json: mockDirect } };
+    if (name === "Extract Direct Fields") return { item: { json: mockDirect } };
+    if (name === "Load Rubric")
+      return { item: { json: { rubric_version: rubric.version } } };
+    throw new Error(`unexpected node reference: ${name}`);
   },
 };
 
@@ -202,14 +279,27 @@ if (notionBody) {
   if (props.Closer?.select?.name !== "Sam Rep") fail("Closer is not being written");
   else pass("Closer is written as a select");
 
-  const missingDims = rubric.dimensions.filter((d) => props[d.column]?.number !== 7);
-  if (missingDims.length)
-    fail(`dimension columns missing or wrong: ${missingDims.map((d) => d.column).join(", ")}`);
-  else pass(`all ${rubric.dimensions.length} dimension columns written`);
+  const wrongDims = rubric.dimensions.filter((d, i) => {
+    const expected = i === rubric.dimensions.length - 1 ? null : 7;
+    return props[d.column]?.number !== expected;
+  });
+  if (wrongDims.length)
+    fail(`dimension columns missing or wrong: ${wrongDims.map((d) => d.column).join(", ")}`);
+  else pass(`all ${rubric.dimensions.length} dimension columns written (null carried as null)`);
 
+  // Seven 7s and one null must average to 7 — a null counted as 0 gives 6.1.
   if (props["Quality Score"]?.number !== 7)
-    fail(`Quality Score should hold the average (expected 7, got ${props["Quality Score"]?.number})`);
-  else pass("Quality Score holds the overall average");
+    fail(`Quality Score should skip null scores (expected 7, got ${props["Quality Score"]?.number})`);
+  else pass("Quality Score averages only the scored dimensions");
+
+  if (props["Recording ID"]?.number !== mockDirect.recording_id)
+    fail("Recording ID is not written — dedupe has nothing to match against");
+  else pass("Recording ID is written");
+
+  const versionText = props["Rubric Version"]?.rich_text?.[0]?.text?.content;
+  if (versionText !== rubric.version)
+    fail(`Rubric Version should be ${rubric.version}, got ${versionText}`);
+  else pass(`Rubric Version ${rubric.version} is written`);
 
   // 1 scorecard heading + a heading and a paragraph per dimension + 1 divider
   // + 3 section headings + 2 narrative paragraphs + 6 flag bullets.
@@ -241,6 +331,26 @@ for (const [label, pattern] of [
 }
 if (workflow.active !== false) fail("workflow ships with active: true");
 else pass("workflow ships inactive with no credentials embedded");
+
+// A transient Claude or Notion error must not lose the call.
+const needRetry = ["Already Logged?", "Claude Analysis", "Write to Notion", "Log No-Show"];
+const noRetry = needRetry.filter((n) => nodeByName[n]?.retryOnFail !== true);
+if (noRetry.length) fail(`nodes without retryOnFail: ${noRetry.join(", ")}`);
+else pass("every external call retries on failure");
+
+/* ----------------------------------------------------- 6. Error alert flow */
+
+try {
+  const alert = JSON.parse(readFileSync(join(root, "automation/error-alert.json"), "utf8"));
+  if (!alert.nodes.some((n) => n.type === "n8n-nodes-base.errorTrigger"))
+    fail("error-alert.json has no Error Trigger node");
+  else if (alert.active !== false) fail("error-alert.json ships active");
+  else if (!JSON.stringify(alert).includes("YOUR_ALERT_WEBHOOK_URL"))
+    fail("error-alert.json is missing the webhook placeholder — is a real URL embedded?");
+  else pass("error alert workflow parses, ships inactive, webhook is a placeholder");
+} catch (err) {
+  fail(`error-alert.json: ${err.message}`);
+}
 
 console.log(failures === 0 ? "\nAll workflow checks passed." : `\n${failures} check(s) failed.`);
 process.exit(failures ? 1 : 0);

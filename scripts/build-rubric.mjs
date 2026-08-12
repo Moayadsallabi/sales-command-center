@@ -2,13 +2,16 @@
 // written in exactly one place. Run with: npm run build:rubric
 //
 // Reads   rubric/rubric.json
+//         rubric/offer-context.local.md      optional, gitignored — your own offer
+//                                            context, injected into the chat skill
 // Writes  rubric/system-prompt.txt          the system prompt the n8n workflow sends
 //         rubric/output-schema.json          the JSON schema that constrains the reply
 //         rubric/scorecard-rubric.md         the human-readable rubric (ships to clients)
+//         rubric/skill.md                    the Claude chat skill (SKILL.md) for manual reviews
 //         automation/sales-call-tracker.json the importable n8n workflow
 //         src/lib/dimensions.ts              the dimension list the dashboard renders
 //
-// Never hand-edit the four generated files — edit rubric/rubric.json (or the
+// Never hand-edit the generated files — edit rubric/rubric.json (or the
 // workflow template) and re-run this script.
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -79,7 +82,7 @@ function buildSystemPrompt(r) {
     "",
     `Also extract the commercial facts of the call. Outcome definitions: ${r.commercial.outcomeGuide}`,
     "",
-    "For any commercial field the transcript does not establish, return null rather than guessing. `cash_collected` is the amount actually taken on the call — the same as `price_closed` when the prospect paid in full.",
+    "For any commercial field the transcript does not establish, return null rather than guessing. `cash_collected` is the amount actually taken on the call — the same as `price_closed` when the prospect paid in full. `lead_source` cannot be null: when the transcript never establishes where the prospect came from, answer Unknown rather than guessing.",
     "",
     "`summary` is two to three sentences on what happened, written for someone who did not attend the call."
   );
@@ -115,10 +118,15 @@ function buildOutputSchema(r) {
   const scores = {};
   for (const d of r.dimensions) {
     scores[d.key] = obj({
-      score: { type: "integer", enum: SCORE_VALUES, description: d.question },
+      // Nullable so a dimension the call never reached is recorded as "no
+      // evidence" instead of a guessed middle score that pollutes averages.
+      score: {
+        anyOf: [{ type: "integer", enum: SCORE_VALUES }, { type: "null" }],
+        description: `${d.question} Null when the transcript gives no evidence to judge this.`,
+      },
       reasoning: {
         type: "string",
-        description: `Two to four sentences justifying the ${d.name} score, quoting the transcript.`,
+        description: `Two to four sentences justifying the ${d.name} score, quoting the transcript. When score is null, say what evidence was missing.`,
       },
     });
   }
@@ -191,6 +199,92 @@ function buildMarkdown(r) {
   for (const n of r.narrative) out.push(`- **${n.heading}** — ${n.instruction}`);
 
   out.push("");
+  return out.join("\n");
+}
+
+/* ------------------------------------------------------------- chat skill */
+
+// The Claude chat skill for reviewing a call manually — same rubric, same
+// output shape, so a manual review can be pasted into the same Notion tracker
+// the automated workflow writes to.
+function buildSkill(r, offerContext) {
+  const out = [];
+
+  out.push(
+    "---",
+    "name: sales-call-reviewer",
+    "description: Reviews sales call transcripts and produces a detailed 8-dimension scorecard with direct, transcript-specific feedback. Use this skill whenever the user shares a sales call, discovery call, or closing call transcript (or recording/notes) and wants it scored, reviewed, critiqued, analyzed, or graded — even if they don't say \"scorecard.\" Also trigger when the user asks \"how did this call go,\" \"where did I lose the deal,\" \"what should I do better next call,\" pastes call dialogue and asks for feedback, or mentions reviewing a closer's or sales rep's call. Built around the Perceptionism Lab methodology (frame, discovery depth, belief architecture, tension, objection sequencing). Do NOT use for writing scripts, hooks, captions, or content strategy — that's the perceptionism-engine skill.",
+    "---",
+    "",
+    `<!-- ${GENERATED_BY} Rubric v${r.version}. -->`,
+    "",
+    "# Sales Call Reviewer",
+    "",
+    "You are a sales call analyst. You review the transcript of a single sales call and produce a scorecard of that call with actionable feedback.",
+    "",
+    "You are reviewing the person who was selling — the caller — not the prospect. If no transcript is present, ask the user to paste or upload one before scoring.",
+    "",
+    "## The offer being sold",
+    "",
+    offerContext,
+    "",
+    "## How to score",
+    ""
+  );
+
+  for (const p of r.scoringPrinciples) out.push(`- ${p}`);
+
+  out.push(
+    "",
+    `## The ${numberWord(r.dimensions.length)} dimensions`,
+    "",
+    "Score each dimension from 1 to 10 and write a two-to-four sentence breakdown explaining the score with specific reference to the transcript.",
+    ""
+  );
+
+  r.dimensions.forEach((d, i) => {
+    out.push(`### ${i + 1}. ${d.name}`, "", d.question, "", d.detail, "", "Scoring bands:");
+    for (const b of d.bands) out.push(`- ${b.range}: ${b.text}`);
+    out.push("", "Look for:");
+    for (const f of d.flags) out.push(`- ${f}`);
+    out.push("");
+  });
+
+  out.push(
+    "## Overall score and verdict",
+    "",
+    "The overall score is the plain average of the scored dimensions (dimensions with no evidence are left out, and you say so)."
+  );
+  out.push("", "| Overall | Verdict |", "| --- | --- |");
+  r.verdicts.forEach((v, i) => {
+    const range =
+      i === 0
+        ? `${v.min.toFixed(1)}–10`
+        : `${v.min.toFixed(1)}–${(r.verdicts[i - 1].min - 0.1).toFixed(1)}`;
+    out.push(`| ${range} | ${v.label} |`);
+  });
+
+  out.push("", "## Bonus flags", "");
+  for (const f of r.bonusFlags) {
+    const opts = f.type === "enum" ? ` Answer with one of: ${f.options.join(", ")}.` : "";
+    out.push(`- **${f.column}** — ${f.question}${opts}`);
+  }
+
+  out.push("", "## Written feedback", "", "Every review ends with these sections:", "");
+  for (const n of r.narrative) out.push(`- **${n.heading}** — ${n.instruction}`);
+
+  out.push(
+    "",
+    "## Output format",
+    "",
+    "Present the review as a readable scorecard in this order: the eight scores with the overall and verdict, then a short breakdown per dimension, then the bonus flags, then the written-feedback sections. Quote the transcript throughout.",
+    "",
+    "## Logging the review",
+    "",
+    "Pattern detection across calls (recurring weaknesses, per-closer trends) lives in the Sales Command Center dashboard, not in this chat — a review that never reaches the Notion tracker is invisible to it. So after the scorecard, offer to output the review as JSON matching the tracker's schema (`rubric/output-schema.json` in the sales-command-center repo: outcome, tier, prices, lead_source, summary, scores with reasoning, flags, narrative), so the user can add it to the tracker and keep manual and automated reviews in one dataset.",
+    ""
+  );
+
   return out.join("\n");
 }
 
@@ -285,6 +379,17 @@ const schema = buildOutputSchema(rubric);
 write("rubric/system-prompt.txt", systemPrompt);
 write("rubric/output-schema.json", JSON.stringify(schema, null, 2) + "\n");
 write("rubric/scorecard-rubric.md", buildMarkdown(rubric));
+write("rubric/skill.md", buildSkill(rubric, rubric.offerContextPlaceholder));
+
+// When the gitignored local offer context exists, also build the installable
+// skill with the real context. Only skill.local.md gets it — the committed
+// skill.md keeps the placeholder so the repo stays client-shippable.
+try {
+  const offerContext = read("rubric/offer-context.local.md").trim();
+  write("rubric/skill.local.md", buildSkill(rubric, offerContext));
+} catch {
+  console.log("  no rubric/offer-context.local.md — skipping skill.local.md");
+}
 write("src/lib/dimensions.ts", buildDimensionsModule(rubric));
 write(
   "automation/sales-call-tracker.json",

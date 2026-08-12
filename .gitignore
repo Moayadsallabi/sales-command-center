@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 .vercel
+
+# rubric — your own offer context and the skill built with it stay local
+rubric/offer-context.local.md
+rubric/skill.local.md

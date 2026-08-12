@@ -37,6 +37,9 @@ const REQUIRED_PROPS = {
   Summary: "rich_text",
   "The Moment": "rich_text",
   "Next Call Drill": "rich_text",
+  // Written by the workflow, not read by the dashboard: dedupe + provenance.
+  "Recording ID": "number",
+  "Rubric Version": "rich_text",
   ...Object.fromEntries(rubric.dimensions.map((d) => [d.column, "number"])),
   ...Object.fromEntries(
     rubric.bonusFlags.map((f) => [f.column, f.type === "enum" ? "select" : "checkbox"])

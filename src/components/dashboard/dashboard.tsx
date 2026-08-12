@@ -88,16 +88,26 @@ export function Dashboard({
   }, [calls, dateRange, selectedOutcomes, selectedSources, today]);
 
   // The window immediately before the visible one. Every "vs last period"
-  // figure on the page is measured against this, so they all agree.
+  // figure on the page is measured against this, so they all agree. It applies
+  // the same outcome and source filters as the visible window — otherwise a
+  // filtered view would be compared against an unfiltered past.
   const previous = useMemo(() => {
     const days = RANGE_DAYS[dateRange];
     if (days === null) return [];
     const from = daysBefore(today, days * 2);
     const to = daysBefore(today, days);
-    return calls.filter(
-      (c) => c.call_date && c.call_date >= from && c.call_date < to
-    );
-  }, [calls, dateRange, today]);
+    return calls.filter((c) => {
+      if (!c.call_date || c.call_date < from || c.call_date >= to) return false;
+      if (selectedOutcomes.size > 0 && !selectedOutcomes.has(c.outcome ?? ""))
+        return false;
+      if (
+        selectedSources.size > 0 &&
+        !selectedSources.has(c.lead_source ?? "")
+      )
+        return false;
+      return true;
+    });
+  }, [calls, dateRange, selectedOutcomes, selectedSources, today]);
 
   // The leaderboard always shows every closer — picking one narrows everything
   // below it, but never hides the people you are being compared against.

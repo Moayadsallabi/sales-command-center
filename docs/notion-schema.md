@@ -11,10 +11,11 @@ missing or the wrong type before you ever run a real call through the workflow.
 | Column | Type | Set by |
 | --- | --- | --- |
 | `Name` | Title | The prospect's name, taken from the meeting title |
-| `Closer` | Select | The internal person on the invite — who took the call |
+| `Closer` | Select | Who took the call — see the note on how it is picked |
 | `Call Date` | Date | The recording date |
 | `Duration (min)` | Number | Recording length |
 | `Recording URL` | URL | Fathom share link |
+| `Recording ID` | Number | Fathom's id for the recording — the duplicate check matches on this |
 | `Summary` | Text | Two or three sentences on what happened |
 
 ## Commercial
@@ -48,6 +49,12 @@ dashboard charts over time.
 | `Objection Resolution` | Number |
 | `Qualification` | Number |
 | `Strategic Awareness` | Number |
+| `Rubric Version` | Text |
+
+A dimension the call never gave evidence for is left empty rather than scored, and
+`Quality Score` averages only the dimensions that were scored. `Rubric Version`
+records which version of the rubric produced the scores, so when the rubric changes
+you can tell a v1.2 six from a v1.1 six instead of mixing them in one trend line.
 
 ## Flags and coaching
 
@@ -67,9 +74,29 @@ the first time the workflow writes it, so you do not have to type the option lis
 advance. Setting them up anyway is worth doing for `Outcome` and `Tier`, because it
 lets you colour-code them and stops a typo becoming a new option.
 
-**`Closer` is deliberately left empty.** The workflow fills it with whoever was on the
-calendar invite from your side, so the options build up as your team takes calls. If a
-name comes through wrong, fix the calendar invite rather than the Notion row.
+**`Closer` is deliberately left empty.** The workflow fills it with the internal person
+on the calendar invite, so the options build up as your team takes calls. When several
+internal people are on one invite, the workflow credits whichever of them actually
+spoke the most in the transcript — a manager silently shadowing does not steal the
+call. Cleanest is still one internal invitee: the closer. If a name comes through
+wrong, fix the calendar invite rather than the Notion row.
+
+**A no-show still gets a row.** When fewer than 50 words of transcript come through,
+the workflow logs the call — name, closer, date, recording link — with the outcome
+`No show` and no scorecard, so show rate stays honest without fake scores dragging
+the averages. If the outcome guess is wrong (say the recording simply failed), correct
+the row by hand.
+
+**When a BAMFAM closes later, update the original row.** A two-call close otherwise
+sits in the tracker as one loss and one win for the same deal, which understates the
+close rate. When the follow-up call lands the deal, open the first call's row and
+change its outcome from BAMFAM to Customer (leave the money on whichever call
+collected it, so cash is never counted twice).
+
+**Cash Collected is what was taken on the call.** A REFUND outcome removes that
+call's revenue and cash from every dashboard total, so in a month with a refund the
+dashboard will read lower than the bank statement — that is deliberate: the dashboard
+shows what the calls are worth, not the ledger.
 
 **The written breakdown lives on the page, not in a column.** Open any row in Notion
 and the page body holds the dimension-by-dimension reasoning, the best moment, the

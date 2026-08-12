@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "title": "Sales Call Scorecard",
   "subtitle": "Eight dimensions, scored 1-10, applied to every recorded sales call.",
   "offerContextPlaceholder": "[OFFER CONTEXT — replace this paragraph during setup. Describe what the business sells, to whom, at what price points, and what language the pitch should use. The scorer uses this to judge whether a pitch was on-message. See the setup manual.]",
@@ -8,7 +8,7 @@
     "Every judgement must be anchored to a specific moment in the transcript. Quote the caller's exact words so they can find the moment.",
     "Be direct. If the call was bad, say so. If a dimension scored a 3, explain exactly why without softening it.",
     "Do not over-praise. A 7 is a good score. An 8 is strong. A 9 means near-flawless execution on that dimension. A 10 is reserved for exceptional, textbook-worthy moments.",
-    "If the transcript is too short or unclear to judge a dimension, score it 5 and say in the breakdown that there was not enough evidence, rather than guessing."
+    "If the transcript gives no evidence for a dimension — it never came up, or the call ended before it could — return null for that score and say in the reasoning what was missing. Never fill the gap with a middle score; a guessed number poisons every average built on it."
   ],
   "dimensions": [
     {
@@ -120,7 +120,7 @@
       "plainQuestion": "Was the pitch built for this prospect, or could it have been for anyone?",
       "column": "Pitch Precision",
       "question": "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables?",
-      "detail": "Two things matter. First, did the pitch reference specific things the prospect said in discovery — their exact words, their numbers, their personal goals — or could it have been delivered to anyone? Second, did the caller pitch the transformation or the deliverables? Describing what you will do is weak. Describing what changes for the prospect as a result is strong.",
+      "detail": "Two things matter. First, did the pitch reference specific things the prospect said in discovery — their exact words, their numbers, their personal goals — or could it have been delivered to anyone? Second, did the caller pitch the transformation or the deliverables? Describing what you will do is weak. Describing what changes for the prospect as a result is strong. The strong shape is a bridge built from discovery: name the deliverable, connect it to the logical benefit, then to the emotional benefit, and tie down after each pillar — or open with the prospect's own words: \"You told me [their pain]... so what we do is [solution]... so that you can [what changes for them].\" A pitch assembled this way cannot be generic.",
       "bands": [
         {
           "range": "1-3",

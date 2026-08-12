@@ -12,7 +12,10 @@
       "name": "Fathom Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-560, -112]
+      "position": [
+        -560,
+        -112
+      ]
     },
     {
       "parameters": {
@@ -22,7 +25,10 @@
       "name": "Respond to Fathom",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [-368, -112]
+      "position": [
+        -368,
+        -112
+      ]
     },
     {
       "parameters": {
@@ -52,7 +58,10 @@
       "name": "Is Sales Call?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-176, -112]
+      "position": [
+        -176,
+        -112
+      ]
     },
     {
       "parameters": {},
@@ -60,7 +69,10 @@
       "name": "Not a Sales Call",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [16, 64]
+      "position": [
+        16,
+        64
+      ]
     },
     {
       "parameters": {
@@ -117,7 +129,7 @@
             {
               "id": "set-closer",
               "name": "closer",
-              "value": "={{ (($('Fathom Webhook').item.json.body.calendar_invitees ?? []).find(i => !i.is_external)?.name) ?? $('Fathom Webhook').item.json.body.recorded_by?.name ?? 'Unassigned' }}",
+              "value": "={{ (() => { const body = $('Fathom Webhook').item.json.body; const internal = (body.calendar_invitees ?? []).filter(i => !i.is_external); if (internal.length === 0) return body.recorded_by?.name ?? 'Unassigned'; if (internal.length === 1) return internal[0].name; const t = body.transcript ?? []; const counts = internal.map(i => ({ name: i.name, lines: t.filter(s => s.speaker.display_name === i.name).length })); counts.sort((a, b) => b.lines - a.lines); return counts[0].lines > 0 ? counts[0].name : internal[0].name; })() }}",
               "type": "string"
             },
             {
@@ -134,7 +146,11 @@
       "name": "Extract Meeting Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [16, -208]
+      "position": [
+        16,
+        -208
+      ],
+      "notes": "With several internal people on the invite, the closer is the one who actually spoke the most in the transcript — not whoever Fathom happens to list first."
     },
     {
       "parameters": {
@@ -187,6 +203,12 @@
               "name": "closer",
               "value": "={{ $json.closer }}",
               "type": "string"
+            },
+            {
+              "id": "direct-recording-id",
+              "name": "recording_id",
+              "value": "={{ $json.recording_id }}",
+              "type": "number"
             }
           ]
         },
@@ -196,7 +218,10 @@
       "name": "Extract Direct Fields",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [208, -208]
+      "position": [
+        208,
+        -208
+      ]
     },
     {
       "parameters": {
@@ -222,14 +247,17 @@
             }
           ]
         },
-        "includeOtherFields": true,
+        "includeOtherFields": false,
         "options": {}
       },
       "id": "a1000000-0000-4000-8000-000000000007",
       "name": "Load Rubric",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [400, -208],
+      "position": [
+        976,
+        -208
+      ],
       "notes": "Generated from rubric/rubric.json. Do not edit the prompt here — edit the rubric and re-run `npm run build:rubric`."
     },
     {
@@ -249,7 +277,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: 'claude-opus-5', max_tokens: 16000, thinking: { type: 'adaptive' }, output_config: { effort: 'high', format: { type: 'json_schema', schema: JSON.parse($json.output_schema) } }, system: $json.system_prompt, messages: [{ role: 'user', content: 'Review this sales call.\\n\\nTHE CALLER (the person selling, the one you are scoring): ' + $json.closer + '\\nPROSPECT: ' + $json.prospect_name + '\\nALL ATTENDEES: ' + $json.attendees + '\\nCALL DATE: ' + $json.call_date + '\\nDURATION: ' + $json.duration_minutes + ' minutes\\n\\n--- TRANSCRIPT ---\\n\\n' + $json.transcript }] }) }}",
+        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; return JSON.stringify({ model: 'claude-opus-5', max_tokens: 16000, thinking: { type: 'adaptive' }, output_config: { effort: 'high', format: { type: 'json_schema', schema: JSON.parse($json.output_schema) } }, system: $json.system_prompt, messages: [{ role: 'user', content: 'Review this sales call.\\n\\nTHE CALLER (the person selling, the one you are scoring): ' + d.closer + '\\nPROSPECT: ' + d.prospect_name + '\\nALL ATTENDEES: ' + d.attendees + '\\nCALL DATE: ' + d.call_date + '\\nDURATION: ' + d.duration_minutes + ' minutes\\n\\n--- TRANSCRIPT ---\\n\\n' + d.transcript }] }); })() }}",
         "options": {
           "timeout": 300000
         }
@@ -258,8 +286,14 @@
       "name": "Claude Analysis",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [592, -208],
-      "notes": "Structured outputs guarantee the reply matches the rubric schema, so no JSON repair is needed downstream. Timeout is 5 minutes because scoring a long transcript with thinking enabled is not fast."
+      "position": [
+        1168,
+        -208
+      ],
+      "notes": "Structured outputs guarantee the reply matches the rubric schema, so no JSON repair is needed downstream. Timeout is 5 minutes because scoring a long transcript with thinking enabled is not fast. Retries 3 times so a rate limit or an overloaded minute does not lose the call.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 15000
     },
     {
       "parameters": {
@@ -279,7 +313,10 @@
       "name": "Parse AI Response",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [784, -208],
+      "position": [
+        1360,
+        -208
+      ],
       "notes": "Finds the text block by type rather than taking content[0] — with thinking enabled the first block is a thinking block."
     },
     {
@@ -299,7 +336,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const ai = $json.ai; const d = $('Extract Direct Fields').item.json; const S = ai.scores; const DIMS = [['frame_ownership','Frame Ownership'],['discovery_depth','Discovery Depth'],['belief_architecture','Belief Architecture'],['pitch_precision','Pitch Precision'],['tension_management','Tension Management'],['objection_resolution','Objection Resolution'],['qualification','Qualification'],['strategic_awareness','Strategic Awareness']]; const overall = Math.round((DIMS.reduce((t, k) => t + S[k[0]].score, 0) / DIMS.length) * 10) / 10; const verdict = overall >= 8.5 ? 'Elite execution' : overall >= 7 ? 'Strong call' : overall >= 5.5 ? 'Average' : 'Fundamentals need work'; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; const blk = (type, s) => ({ object: 'block', type: type, [type]: { rich_text: txt(s) } }); const num = (v) => ({ number: (v === null || v === undefined || v === '') ? null : Number(v) }); const sel = (v) => v ? { select: { name: String(v) } } : { select: null }; const rt = (v) => ({ rich_text: v ? txt(v) : [] }); const yn = (v) => v ? 'yes' : 'no'; const children = [blk('heading_2', 'Scorecard: ' + overall + '/10 — ' + verdict)].concat(DIMS.flatMap(k => [blk('heading_3', k[1] + ' — ' + S[k[0]].score + '/10'), blk('paragraph', S[k[0]].reasoning)])).concat([{ object: 'block', type: 'divider', divider: {} }, blk('heading_2', 'The moment'), blk('paragraph', ai.narrative.the_moment), blk('heading_2', 'Next call drill'), blk('paragraph', ai.narrative.next_call_drill), blk('heading_2', 'Flags'), blk('bulleted_list_item', 'Best moment: ' + ai.narrative.best_moment), blk('bulleted_list_item', 'Biggest miss: ' + ai.narrative.biggest_miss), blk('bulleted_list_item', 'Weakest belief: ' + ai.flags.weakest_belief), blk('bulleted_list_item', 'Value leak: ' + yn(ai.flags.value_leak)), blk('bulleted_list_item', 'Follow-up trap: ' + yn(ai.flags.follow_up_trap)), blk('bulleted_list_item', 'Early price drop: ' + yn(ai.flags.price_drop_too_early))]); const props = { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': sel(d.closer), 'Call Date': { date: { start: d.call_date } }, 'Outcome': sel(ai.outcome || 'No deal'), 'Tier': ai.tier ? { select: { name: 'Tier ' + ai.tier } } : { select: null }, 'Price Discussed': num(ai.price_discussed), 'Price Closed': num(ai.price_closed), 'Cash Collected': num(ai.cash_collected), 'Payment Structure': sel(ai.payment_structure), 'Prospect Revenue': rt(ai.prospect_revenue), 'Niche': rt(ai.niche), 'Location': rt(ai.location), 'Lead Source': sel(ai.lead_source === 'ManyChat' ? 'IG' : ai.lead_source), 'Quality Score': num(overall), 'Value Leak': { checkbox: !!ai.flags.value_leak }, 'Follow-Up Trap': { checkbox: !!ai.flags.follow_up_trap }, 'Early Price Drop': { checkbox: !!ai.flags.price_drop_too_early }, 'Weakest Belief': sel(ai.flags.weakest_belief), 'The Moment': rt(ai.narrative.the_moment), 'Next Call Drill': rt(ai.narrative.next_call_drill), 'Duration (min)': num(d.duration_minutes), 'Recording URL': { url: d.share_url || null }, 'Summary': rt(ai.summary) }; DIMS.forEach(k => { props[k[1]] = num(S[k[0]].score); }); return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: props, children: children }); })() }}",
+        "jsonBody": "={{ (() => { const ai = $json.ai; const d = $('Extract Direct Fields').item.json; const S = ai.scores; const DIMS = [['frame_ownership','Frame Ownership'],['discovery_depth','Discovery Depth'],['belief_architecture','Belief Architecture'],['pitch_precision','Pitch Precision'],['tension_management','Tension Management'],['objection_resolution','Objection Resolution'],['qualification','Qualification'],['strategic_awareness','Strategic Awareness']]; const vals = DIMS.map(k => S[k[0]].score).filter(v => v != null); const overall = vals.length ? Math.round((vals.reduce((t, v) => t + v, 0) / vals.length) * 10) / 10 : null; const verdict = overall == null ? null : overall >= 8.5 ? 'Elite execution' : overall >= 7 ? 'Strong call' : overall >= 5.5 ? 'Average' : 'Fundamentals need work'; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; const blk = (type, s) => ({ object: 'block', type: type, [type]: { rich_text: txt(s) } }); const num = (v) => ({ number: (v === null || v === undefined || v === '') ? null : Number(v) }); const sel = (v) => v ? { select: { name: String(v) } } : { select: null }; const rt = (v) => ({ rich_text: v ? txt(v) : [] }); const yn = (v) => v ? 'yes' : 'no'; const children = [blk('heading_2', overall == null ? 'Scorecard: not scored — no evidence in the transcript' : 'Scorecard: ' + overall + '/10 — ' + verdict)].concat(DIMS.flatMap(k => [blk('heading_3', k[1] + ' — ' + (S[k[0]].score == null ? 'no evidence' : S[k[0]].score + '/10')), blk('paragraph', S[k[0]].reasoning)])).concat([{ object: 'block', type: 'divider', divider: {} }, blk('heading_2', 'The moment'), blk('paragraph', ai.narrative.the_moment), blk('heading_2', 'Next call drill'), blk('paragraph', ai.narrative.next_call_drill), blk('heading_2', 'Flags'), blk('bulleted_list_item', 'Best moment: ' + ai.narrative.best_moment), blk('bulleted_list_item', 'Biggest miss: ' + ai.narrative.biggest_miss), blk('bulleted_list_item', 'Weakest belief: ' + ai.flags.weakest_belief), blk('bulleted_list_item', 'Value leak: ' + yn(ai.flags.value_leak)), blk('bulleted_list_item', 'Follow-up trap: ' + yn(ai.flags.follow_up_trap)), blk('bulleted_list_item', 'Early price drop: ' + yn(ai.flags.price_drop_too_early))]); const props = { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': sel(d.closer), 'Call Date': { date: { start: d.call_date } }, 'Outcome': sel(ai.outcome || 'No deal'), 'Tier': ai.tier ? { select: { name: 'Tier ' + ai.tier } } : { select: null }, 'Price Discussed': num(ai.price_discussed), 'Price Closed': num(ai.price_closed), 'Cash Collected': num(ai.cash_collected), 'Payment Structure': sel(ai.payment_structure), 'Prospect Revenue': rt(ai.prospect_revenue), 'Niche': rt(ai.niche), 'Location': rt(ai.location), 'Lead Source': sel(ai.lead_source), 'Quality Score': num(overall), 'Recording ID': num(d.recording_id), 'Rubric Version': rt($('Load Rubric').item.json.rubric_version), 'Value Leak': { checkbox: !!ai.flags.value_leak }, 'Follow-Up Trap': { checkbox: !!ai.flags.follow_up_trap }, 'Early Price Drop': { checkbox: !!ai.flags.price_drop_too_early }, 'Weakest Belief': sel(ai.flags.weakest_belief), 'The Moment': rt(ai.narrative.the_moment), 'Next Call Drill': rt(ai.narrative.next_call_drill), 'Duration (min)': num(d.duration_minutes), 'Recording URL': { url: d.share_url || null }, 'Summary': rt(ai.summary) }; DIMS.forEach(k => { props[k[1]] = num(S[k[0]].score); }); return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: props, children: children }); })() }}",
         "options": {
           "timeout": 30000
         }
@@ -308,37 +345,308 @@
       "name": "Write to Notion",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [976, -208],
-      "notes": "Writes the eight dimension scores as columns and the full written breakdown as the page body. 'Quality Score' holds the overall average."
+      "position": [
+        1552,
+        -208
+      ],
+      "notes": "Writes the eight dimension scores as columns and the full written breakdown as the page body. 'Quality Score' averages only the dimensions that had evidence — a null score is left out, not counted as zero. Retries 3 times so a transient Notion error does not lose the call.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/YOUR_NOTION_DATABASE_ID/query",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: { property: 'Recording ID', number: { equals: $json.recording_id } }, page_size: 1 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000011",
+      "name": "Already Logged?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        -208
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "Looks the recording up by Recording ID before doing anything expensive. A webhook redelivery or a manual re-run then skips instead of writing a duplicate row that double-counts cash and close rate."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "no-existing-row",
+              "leftValue": "={{ ($json.results ?? []).length === 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000012",
+      "name": "Is New Call?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        592,
+        -208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a1000000-0000-4000-8000-000000000013",
+      "name": "Duplicate — Already Logged",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        784,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "transcript-long-enough",
+              "leftValue": "={{ (($('Extract Direct Fields').item.json.transcript ?? '').split(/\\s+/).filter(Boolean).length) >= 50 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000014",
+      "name": "Has Transcript?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        784,
+        -208
+      ],
+      "notes": "Under 50 words of transcript there is no call to score — a no-show or a recording failure. Scoring it anyway would fill the tracker with meaningless neutral numbers that drag every average."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': d.closer ? { select: { name: String(d.closer) } } : { select: null }, 'Call Date': { date: { start: d.call_date } }, 'Duration (min)': { number: d.duration_minutes ?? null }, 'Recording URL': { url: d.share_url || null }, 'Recording ID': { number: d.recording_id ?? null }, 'Outcome': { select: { name: 'No show' } }, 'Summary': { rich_text: txt('No usable transcript came through (under 50 words), so this call was not scored. Logged as a no-show — check the recording and correct the outcome if that is wrong.') } } }); })() }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000015",
+      "name": "Log No-Show",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        -32
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "The call still gets a row — outcome, closer, date, recording link — just no scorecard."
     }
   ],
   "connections": {
     "Fathom Webhook": {
-      "main": [[{ "node": "Respond to Fathom", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Respond to Fathom",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Respond to Fathom": {
-      "main": [[{ "node": "Is Sales Call?", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Is Sales Call?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Is Sales Call?": {
       "main": [
-        [{ "node": "Extract Meeting Data", "type": "main", "index": 0 }],
-        [{ "node": "Not a Sales Call", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Extract Meeting Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Not a Sales Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Extract Meeting Data": {
-      "main": [[{ "node": "Extract Direct Fields", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Extract Direct Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Direct Fields": {
-      "main": [[{ "node": "Load Rubric", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Already Logged?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Load Rubric": {
-      "main": [[{ "node": "Claude Analysis", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Claude Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Claude Analysis": {
-      "main": [[{ "node": "Parse AI Response", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Parse AI Response": {
-      "main": [[{ "node": "Write to Notion", "type": "main", "index": 0 }]]
+      "main": [
+        [
+          {
+            "node": "Write to Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already Logged?": {
+      "main": [
+        [
+          {
+            "node": "Is New Call?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is New Call?": {
+      "main": [
+        [
+          {
+            "node": "Has Transcript?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Duplicate — Already Logged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Transcript?": {
+      "main": [
+        [
+          {
+            "node": "Load Rubric",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log No-Show",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,

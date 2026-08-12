@@ -1,0 +1,54 @@
+{
+  "name": "Sales Call Tracker — Error Alert",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-560, -112]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_ALERT_WEBHOOK_URL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: '🚨 Sales Call Tracker failed and the call was NOT logged.\\n\\nWorkflow: ' + ($json.workflow?.name ?? 'unknown') + '\\nError: ' + ($json.execution?.error?.message ?? 'unknown error') + '\\nFailed at node: ' + ($json.execution?.lastNodeExecuted ?? 'unknown') + '\\nExecution: ' + ($json.execution?.url ?? 'open the n8n executions list') + '\\n\\nFix the cause, then re-run that execution from the n8n executions list so the call gets scored and logged.' }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-368, -112],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "Replace YOUR_ALERT_WEBHOOK_URL with a Slack incoming-webhook URL (or any endpoint that accepts JSON with a `text` field). Without this workflow wired up, a failed run dies silently — Fathom already got its 200 response and will not retry, so the call simply never appears in the tracker."
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

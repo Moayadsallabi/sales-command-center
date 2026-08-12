@@ -29,7 +29,8 @@ export function DimensionImpact({ calls }: { calls: CallRecord[] }) {
       </div>
       <p className="mb-5 text-[12px] text-zinc-600">
         How often you close when this goes well, against how often you close when it
-        does not. Measured on your own calls.
+        does not. Measured on your own calls. A strong prospect lifts both the score
+        and the close, so read these as patterns worth drilling — not promises.
       </p>
 
       {!result.ready ? (
