@@ -1,5 +1,10 @@
 import { CallRecord, overallScore } from "./types";
 import { DIMENSIONS, Dimension, DimensionKey, GOOD_SCORE } from "./dimensions";
+import {
+  reportingCashOnCall,
+  reportingCollected,
+  reportingRevenue,
+} from "./money";
 
 export const UNASSIGNED = "Unassigned";
 
@@ -39,7 +44,10 @@ export interface CloserStats {
   taken: number;
   customers: number;
   closeRate: number | null;
+  /** Every payment received on these deals so far, in the reporting currency. */
   cashCollected: number;
+  /** The subset of that taken during the call itself — the closer's own number. */
+  cashOnCall: number;
   revenue: number;
   avgScore: number | null;
   scoredCalls: number;
@@ -96,8 +104,9 @@ function statsFor(
     taken: taken.length,
     customers: customers.length,
     closeRate: closeRate(taken),
-    cashCollected: customers.reduce((sum, c) => sum + (c.cash_collected ?? 0), 0),
-    revenue: customers.reduce((sum, c) => sum + (c.price_closed ?? 0), 0),
+    cashCollected: customers.reduce((sum, c) => sum + reportingCollected(c), 0),
+    cashOnCall: customers.reduce((sum, c) => sum + reportingCashOnCall(c), 0),
+    revenue: customers.reduce((sum, c) => sum + reportingRevenue(c), 0),
     avgScore: now,
     scoredCalls: scoredCalls(calls).length,
     trend: now != null && before != null ? now - before : null,
@@ -141,11 +150,21 @@ export interface DimensionImpact {
   /** Close rate on calls where this was done well (score of 7 or better). */
   goodCloseRate: number;
   goodCalls: number;
+  goodCloses: number;
   /** Close rate on calls where it was not. */
   poorCloseRate: number;
   poorCalls: number;
+  poorCloses: number;
   /** Percentage points between the two. The number that argues for itself. */
   gap: number;
+  /**
+   * How far the smaller bucket's close rate moves if one call in it had gone
+   * the other way. On buckets this size that is 8–20 points, which is wider
+   * than most of the gaps — so it is the bar a gap has to clear.
+   */
+  swing: number;
+  /** Whether the gap is bigger than that one call. */
+  conclusive: boolean;
 }
 
 export interface ImpactResult {
@@ -177,13 +196,20 @@ export function dimensionImpact(calls: CallRecord[]): ImpactResult {
 
     const goodRate = closeRate(good) ?? 0;
     const poorRate = closeRate(poor) ?? 0;
+    const gap = goodRate - poorRate;
+    // The smaller bucket is the fragile one, so it sets the bar.
+    const swing = 100 / Math.min(good.length, poor.length);
     impacts.push({
       dimension,
       goodCloseRate: goodRate,
       goodCalls: good.length,
+      goodCloses: good.filter((c) => c.outcome === "Customer").length,
       poorCloseRate: poorRate,
       poorCalls: poor.length,
-      gap: goodRate - poorRate,
+      poorCloses: poor.filter((c) => c.outcome === "Customer").length,
+      gap,
+      swing,
+      conclusive: gap >= swing,
     });
   }
 
@@ -191,7 +217,10 @@ export function dimensionImpact(calls: CallRecord[]): ImpactResult {
     ready: scored.length >= MIN_SCORED_FOR_IMPACT && impacts.length > 0,
     callsShort: Math.max(0, MIN_SCORED_FOR_IMPACT - scored.length),
     scored: scored.length,
-    impacts: impacts.sort((a, b) => b.gap - a.gap),
+    // Gaps that clear their own noise first, each group widest gap down.
+    impacts: impacts.sort(
+      (a, b) => Number(b.conclusive) - Number(a.conclusive) || b.gap - a.gap
+    ),
   };
 }
 
@@ -207,7 +236,7 @@ export interface Cost {
   scope: "team" | "individual" | "unknown";
   /** Named only when the weakness is individual. */
   closers: string[];
-  /** Close-rate cost, when there are enough calls to measure it. */
+  /** Close-rate cost, when the gap is big enough to outlast a single call. */
   gap: number | null;
   /** Change against the previous window of the same length. */
   trend: number | null;
@@ -229,10 +258,13 @@ export function biggestCosts(
   const averages = dimensionAverages(scored);
   const previousAverages = dimensionAverages(scoredCalls(previousCalls));
   const impacts = dimensionImpact(calls);
-  const gapFor = (key: DimensionKey) =>
-    impacts.ready
-      ? impacts.impacts.find((i) => i.dimension.key === key)?.gap ?? null
-      : null;
+  // Only a gap that survived its own noise gets quoted as a cost — this panel
+  // states it as a flat fact, with none of the impact panel's hedging.
+  const gapFor = (key: DimensionKey) => {
+    if (!impacts.ready) return null;
+    const impact = impacts.impacts.find((i) => i.dimension.key === key);
+    return impact?.conclusive ? impact.gap : null;
+  };
 
   // Which closers are weak here, among those with enough calls to judge.
   const byCloser = [...groupByCloser(scored).entries()].filter(
