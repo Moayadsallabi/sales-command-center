@@ -59,7 +59,15 @@ export function DimensionImpact({ calls }: { calls: CallRecord[] }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {result.impacts.map((impact) => (
+          {result.impacts.map((impact) => {
+            // Both bars and the gap are rounded off the same two numbers, or a
+            // row reads as broken arithmetic: 46.2 and 28.6 render as 46 and 29
+            // but their raw gap of 17.6 rounds to 18. Ordering still uses the
+            // full-precision gap from stats.
+            const good = Math.round(impact.goodCloseRate);
+            const poor = Math.round(impact.poorCloseRate);
+            const gap = good - poor;
+            return (
             <div
               key={impact.dimension.key}
               className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5"
@@ -78,7 +86,7 @@ export function DimensionImpact({ calls }: { calls: CallRecord[] }) {
                     style={{ width: `${impact.goodCloseRate}%` }}
                   />
                   <span className="absolute inset-y-0 left-2 flex items-center font-mono text-[11px] tabular-nums text-zinc-100">
-                    {Math.round(impact.goodCloseRate)}%
+                    {good}%
                   </span>
                 </div>
                 <div className="relative h-6 flex-1 overflow-hidden rounded bg-white/[0.03]">
@@ -87,20 +95,21 @@ export function DimensionImpact({ calls }: { calls: CallRecord[] }) {
                     style={{ width: `${impact.poorCloseRate}%` }}
                   />
                   <span className="absolute inset-y-0 left-2 flex items-center font-mono text-[11px] tabular-nums text-zinc-400">
-                    {Math.round(impact.poorCloseRate)}%
+                    {poor}%
                   </span>
                 </div>
               </div>
 
               <span
                 className={`w-20 shrink-0 text-right font-mono text-[12px] font-medium tabular-nums ${
-                  impact.gap > 0 ? "text-gold-400" : "text-zinc-600"
+                  gap > 0 ? "text-gold-400" : "text-zinc-600"
                 }`}
               >
-                {impact.gap > 0 ? `+${Math.round(impact.gap)} pts` : "no effect"}
+                {gap > 0 ? `+${gap} pts` : "no effect"}
               </span>
             </div>
-          ))}
+            );
+          })}
 
           <div className="flex items-center gap-4 pt-2 text-[10px] text-zinc-600">
             <span className="flex items-center gap-1.5">
