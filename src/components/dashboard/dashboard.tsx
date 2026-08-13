@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
+import { callsMissingFxRate } from "@/lib/money";
 import { KPICards } from "./kpi-cards";
 import { OutcomeChart } from "./outcome-chart";
 import { RevenueChart } from "./revenue-chart";
@@ -15,7 +16,8 @@ import { WhatsCostingYou } from "./whats-costing-you";
 import { DimensionImpact } from "./dimension-impact";
 import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
-import { Activity, Filter, X } from "lucide-react";
+import { SalesCommandMark } from "@/components/brand/logo";
+import { Filter, X } from "lucide-react";
 
 type DateRange = "30d" | "7d" | "90d" | "all";
 
@@ -127,6 +129,8 @@ export function Dashboard({
     [previous, selectedCloser]
   );
 
+  const unrated = useMemo(() => callsMissingFxRate(scoped), [scoped]);
+
   const toggleOutcome = (outcome: string) => {
     setSelectedOutcomes((prev) => {
       const next = new Set(prev);
@@ -160,7 +164,7 @@ export function Dashboard({
             className="flex items-center gap-3"
           >
             <div className="w-8 h-8 rounded-lg bg-gold-500/10 border border-gold-500/20 flex items-center justify-center">
-              <Activity className="w-4 h-4 text-gold-500" />
+              <SalesCommandMark size={19} className="text-gold-500" />
             </div>
             <div>
               <h1 className="text-base font-semibold tracking-tight text-zinc-100">
@@ -263,6 +267,17 @@ export function Dashboard({
         <div className="border-b border-amber-500/20 bg-amber-500/[0.07] px-6 py-2 text-center text-[11px] text-amber-300">
           Demo data — every call on this page is invented. Unset DASHBOARD_DEMO_DATA to read
           from Notion.
+        </div>
+      )}
+
+      {/* A deal in another currency with no FX Rate would be converted at 1:1
+          and quietly misstate every total below, so it gets named instead. */}
+      {unrated.length > 0 && (
+        <div className="border-b border-amber-500/20 bg-amber-500/[0.07] px-6 py-2 text-center text-[11px] text-amber-300">
+          {unrated.length === 1
+            ? `${unrated[0].name || "One call"} is priced in ${unrated[0].currency} with no FX Rate set, so it is counted at 1:1 in the totals below.`
+            : `${unrated.length} calls are priced in another currency with no FX Rate set, so they are counted at 1:1 in the totals below.`}{" "}
+          Fill in FX Rate in Notion to fix the figures.
         </div>
       )}
 
