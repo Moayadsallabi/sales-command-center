@@ -82,7 +82,11 @@ function buildSystemPrompt(r) {
     "",
     `Also extract the commercial facts of the call. Outcome definitions: ${r.commercial.outcomeGuide}`,
     "",
-    "For any commercial field the transcript does not establish, return null rather than guessing. `cash_collected` is the amount actually taken on the call — the same as `price_closed` when the prospect paid in full. `lead_source` cannot be null: when the transcript never establishes where the prospect came from, answer Unknown rather than guessing.",
+    "For any commercial field the transcript does not establish, return null rather than guessing. `lead_source` cannot be null: when the transcript never establishes where the prospect came from, answer Unknown rather than guessing.",
+    "",
+    "`collected_on_call` is money that actually changed hands **during the call** — a card taken while the prospect was still on the line. A deal that was agreed on the call but paid afterwards collected nothing on the call, so it is 0, not the price. Payments that land later are recorded by hand afterwards and are not your job to predict.",
+    "",
+    `\`currency\` is the currency the price was quoted in, one of ${r.commercial.currencies.join(", ")}. Take it from how the caller said the number — "three thousand euros" or "€3,000" is EUR, "$6,000" is USD. When no currency is stated anywhere in the call, answer ${r.commercial.defaultCurrency}. Every money field you return must be in that one currency; never convert.`,
     "",
     "`summary` is two to three sentences on what happened, written for someone who did not attend the call."
   );
@@ -149,7 +153,10 @@ function buildOutputSchema(r) {
     tier: nullable({ type: "integer", enum: r.commercial.tiers }),
     price_discussed: nullable({ type: "number" }),
     price_closed: nullable({ type: "number" }),
-    cash_collected: nullable({ type: "number" }),
+    collected_on_call: nullable({ type: "number" }),
+    // Which currency the three amounts above are in. Never converted here —
+    // the dashboard applies the row's FX Rate when it totals across calls.
+    currency: { type: "string", enum: r.commercial.currencies },
     payment_structure: nullable({
       type: "string",
       enum: r.commercial.paymentStructures,

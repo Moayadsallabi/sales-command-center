@@ -54,7 +54,10 @@ const mockAi = {
   tier: 2,
   price_discussed: 9000,
   price_closed: 9000,
-  cash_collected: 4500,
+  collected_on_call: 4500,
+  // Deliberately not the default currency, so a workflow that drops the field
+  // or hardcodes USD fails here rather than on a real euro deal.
+  currency: "EUR",
   payment_structure: "installments",
   prospect_revenue: "40k/mo",
   niche: "Trading education",
@@ -279,6 +282,19 @@ if (notionBody) {
   if (props.Closer?.select?.name !== "Sam Rep") fail("Closer is not being written");
   else pass("Closer is written as a select");
 
+  if (props.Currency?.select?.name !== "EUR")
+    fail("Currency is not being written — money totals would mix currencies");
+  else pass("Currency is written as a select");
+
+  // The workflow must never touch `Cash Collected` or `Outstanding`: at scoring
+  // time nobody knows what lands later, and writing them would overwrite the
+  // figures a human filled in by hand.
+  if (props["Collected On Call"]?.number !== 4500)
+    fail("Collected On Call is not being written");
+  else if ("Cash Collected" in props || "Outstanding" in props)
+    fail("workflow writes a hand-maintained payment column");
+  else pass("Collected On Call written; hand-maintained payment columns untouched");
+
   const wrongDims = rubric.dimensions.filter((d, i) => {
     const expected = i === rubric.dimensions.length - 1 ? null : 7;
     return props[d.column]?.number !== expected;
@@ -318,6 +334,76 @@ if (notionBody) {
   if (overLong.length) fail(`${overLong.length} blocks exceed Notion's 2000-character limit`);
   else pass("no block exceeds Notion's 2000-character limit");
 }
+
+/* ------------------------------------------ 4b. Prospect name extraction */
+
+// Real titles seen in Fathom: "Karan: Strategy Call" (correct), "Alphazone.ai
+// Strategy Call" (no colon) and "Impromptu Zoom Meeting" (no invite at all).
+// The first is easy; the other two used to produce a row named after the
+// meeting, which reads as a real prospect in the table.
+const prospectExpr = nodeByName["Extract Direct Fields"].parameters.assignments.assignments.find(
+  (a) => a.name === "prospect_name"
+).value;
+
+const nameFrom = (title, invitees = []) =>
+  evalExpr(prospectExpr, {
+    $json: { meeting_title: title },
+    $: () => ({ item: { json: { body: { calendar_invitees: invitees } } } }),
+  });
+
+const externalInvitee = [{ name: "Alex Morgan", email: "alex@prospect.com", is_external: true }];
+
+if (nameFrom("Alex Morgan: Strategy Call", externalInvitee) !== "Alex Morgan")
+  fail("prospect name is not taken from the part before the colon");
+else pass("prospect name comes from the title before the colon");
+
+if (nameFrom("Alphazone.ai Strategy Call", externalInvitee) !== "Alex Morgan")
+  fail("a title with no colon does not fall back to the external invitee");
+else pass("a title with no colon falls back to the external invitee");
+
+if (nameFrom("Impromptu Zoom Meeting", []) !== "Unknown")
+  fail("an impromptu call with no invitees is not named Unknown");
+else pass("an impromptu call with no invitees is named Unknown");
+
+/* ------------------------------------------- 4c. Untracked recordings */
+
+const untracked = nodeByName["Untracked — Alert"];
+if (!untracked) {
+  fail("no Untracked — Alert node: unmatched recordings vanish with no trace");
+} else if (untracked.type !== "n8n-nodes-base.slack") {
+  fail("Untracked — Alert is not a Slack node");
+} else if (!JSON.stringify(untracked.parameters).includes("__CLIENT_NAME__")) {
+  // Every client posts into one channel, so an unlabelled alert is unactionable.
+  fail("Untracked — Alert does not name its client — the __CLIENT_NAME__ placeholder is gone");
+} else if (untracked.onError !== "continueRegularOutput") {
+  // Otherwise a missing Slack credential fails the branch on every internal meeting.
+  fail("Untracked — Alert must not fail its branch: set onError continueRegularOutput");
+} else {
+  const text = evalExpr(untracked.parameters.text, {
+    $json: {},
+    $: () => ({
+      item: {
+        json: {
+          body: {
+            meeting_title: "Impromptu Zoom Meeting",
+            recorded_by: { name: "MomoFX" },
+            share_url: "https://fathom.video/share/example",
+          },
+        },
+      },
+    }),
+  });
+  if (!text.includes("Impromptu Zoom Meeting"))
+    fail("the untracked alert does not name the recording it skipped");
+  else if (!text.includes("https://fathom.video/share/example"))
+    fail("the untracked alert does not link the recording");
+  else pass("unmatched recordings alert with their client, title and link");
+}
+
+const falseBranch = workflow.connections["Is Sales Call?"]?.main?.[1] ?? [];
+if (!falseBranch.some((l) => l.node === "Untracked — Alert"))
+  fail("the not-a-sales-call branch is not wired to the alert");
+else pass("the not-a-sales-call branch reaches the alert");
 
 /* -------------------------------------------------------------- 5. Safety */
 

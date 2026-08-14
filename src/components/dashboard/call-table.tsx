@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CallRecord, OUTCOME_COLORS } from "@/lib/types";
+import { collectedToDate, formatMoney } from "@/lib/money";
 import { ExternalLink } from "lucide-react";
 
 export function CallTable({
@@ -114,10 +115,17 @@ export function CallTable({
                 <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-500">
                   {call.tier ?? "—"}
                 </td>
+                {/* Shown in the deal's own currency — never converted, so the
+                    row always matches the contract. */}
                 <td className="px-5 py-3 whitespace-nowrap font-mono text-xs tabular-nums">
-                  {call.cash_collected ? (
+                  {collectedToDate(call) ? (
                     <span className="text-gold-400">
-                      ${call.cash_collected.toLocaleString()}
+                      {formatMoney(collectedToDate(call), call.currency)}
+                      {call.outstanding ? (
+                        <span className="ml-1 text-[10px] text-zinc-500">
+                          +{formatMoney(call.outstanding, call.currency)} due
+                        </span>
+                      ) : null}
                     </span>
                   ) : (
                     <span className="text-zinc-700">—</span>
@@ -126,7 +134,7 @@ export function CallTable({
                 <td className="px-5 py-3 whitespace-nowrap font-mono text-xs tabular-nums">
                   {call.price_closed ? (
                     <span className="text-gold-400/50">
-                      ${call.price_closed.toLocaleString()}
+                      {formatMoney(call.price_closed, call.currency)}
                     </span>
                   ) : (
                     <span className="text-zinc-700">—</span>

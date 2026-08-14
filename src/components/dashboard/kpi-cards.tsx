@@ -4,12 +4,20 @@ import { motion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
 import { CallRecord } from "@/lib/types";
 import {
+  reportingCashOnCall,
+  reportingCollected,
+  reportingOutstanding,
+  reportingRevenue,
+} from "@/lib/money";
+import {
   CalendarCheck,
   PhoneCall,
   PhoneIncoming,
   Target,
   DollarSign,
   Banknote,
+  HandCoins,
+  Hourglass,
   UserPlus,
 } from "lucide-react";
 
@@ -23,14 +31,15 @@ export function KPICards({ calls }: KPICardsProps) {
   const showRate = total > 0 ? Math.round((showed.length / total) * 100) : 0;
   const customers = calls.filter((c) => c.outcome === "Customer");
   const closeRate = showed.length > 0 ? Math.round((customers.length / showed.length) * 100) : 0;
-  const totalRevenue = customers.reduce(
-    (sum, c) => sum + (c.price_closed ?? 0),
-    0
-  );
+  // Every total below is converted into the reporting currency first, so a
+  // euro retainer and a dollar sprint can sit in the same number honestly.
+  const totalRevenue = customers.reduce((sum, c) => sum + reportingRevenue(c), 0);
   const totalCashCollected = customers.reduce(
-    (sum, c) => sum + (c.cash_collected ?? 0),
+    (sum, c) => sum + reportingCollected(c),
     0
   );
+  const cashOnCall = customers.reduce((sum, c) => sum + reportingCashOnCall(c), 0);
+  const outstanding = customers.reduce((sum, c) => sum + reportingOutstanding(c), 0);
 
   const kpis = [
     {
@@ -69,11 +78,25 @@ export function KPICards({ calls }: KPICardsProps) {
       accent: false,
     },
     {
+      label: "On the Call",
+      value: cashOnCall,
+      format: "currency" as const,
+      icon: HandCoins,
+      accent: false,
+    },
+    {
       label: "Cash Collected",
       value: totalCashCollected,
       format: "currency" as const,
       icon: Banknote,
       accent: true,
+    },
+    {
+      label: "Outstanding",
+      value: outstanding,
+      format: "currency" as const,
+      icon: Hourglass,
+      accent: false,
     },
     {
       label: "Revenue",
@@ -85,7 +108,9 @@ export function KPICards({ calls }: KPICardsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-7 lg:gap-4">
+    // Five across, two rows. Nine in one row leaves each card too narrow for a
+    // six-figure total, which clips the number the card exists to show.
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
       {kpis.map((kpi, i) => (
         <motion.div
           key={kpi.label}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useSpring, useTransform } from "framer-motion";
+import { formatReporting } from "@/lib/money";
 
 interface AnimatedNumberProps {
   value: number;
@@ -41,8 +42,10 @@ export function AnimatedNumber({
 function formatValue(v: number, format: string): string {
   const rounded = Math.round(v);
   switch (format) {
+    // Every currency KPI is a total across calls, so it has already been
+    // converted into the reporting currency by the money helpers.
     case "currency":
-      return `$${rounded.toLocaleString()}`;
+      return formatReporting(rounded);
     case "percent":
       return `${rounded}%`;
     default:

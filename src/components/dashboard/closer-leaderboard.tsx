@@ -3,14 +3,11 @@
 import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import { closerLeaderboard } from "@/lib/stats";
+import { formatReporting } from "@/lib/money";
 import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
 
-const currency = (value: number) =>
-  value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
+/** Leaderboard figures are cross-call totals, so already in one currency. */
+const currency = (value: number) => formatReporting(value);
 
 /** Gold above 7.5, amber 6 to 7.5, red below 6 — same thresholds everywhere. */
 function scoreColor(score: number | null): string {
@@ -91,6 +88,7 @@ export function CloserLeaderboard({
                   "Taken",
                   "Closed",
                   "Close rate",
+                  "On call",
                   "Cash",
                   "Avg score",
                   "Trend",
@@ -132,6 +130,9 @@ export function CloserLeaderboard({
                     </td>
                     <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-200">
                       {row.closeRate == null ? "—" : `${Math.round(row.closeRate)}%`}
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400">
+                      {currency(row.cashOnCall)}
                     </td>
                     <td className="px-5 py-3 text-right font-mono tabular-nums text-gold-400">
                       {currency(row.cashCollected)}

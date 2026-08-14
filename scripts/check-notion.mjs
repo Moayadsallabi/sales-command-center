@@ -26,7 +26,16 @@ const REQUIRED_PROPS = {
   "Price Discussed": "number",
   "Price Closed": "number",
   "Payment Structure": "select",
+  // Taken during the call itself — the only one of the three the workflow writes.
+  "Collected On Call": "number",
+  // Everything received to date, and what is still owed. Filled in by hand as
+  // later payments land, so the workflow never touches them.
   "Cash Collected": "number",
+  Outstanding: "number",
+  // Which currency this row's amounts are in, and the rate used to fold them
+  // into the dashboard's reporting currency.
+  Currency: "select",
+  "FX Rate": "number",
   "Prospect Revenue": "rich_text",
   Niche: "rich_text",
   Location: "rich_text",

@@ -34,7 +34,7 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "caseSensitive": false,
             "leftValue": "",
             "typeValidation": "strict",
             "version": 2
@@ -64,15 +64,35 @@
       ]
     },
     {
-      "parameters": {},
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "sales-tracker",
+          "mode": "name"
+        },
+        "text": "={{ '👀 *__CLIENT_NAME__* — a Fathom recording was NOT tracked. Its title matched none of the sales-call phrases.\\n\\nTitle: ' + ($('Fathom Webhook').item.json.body.meeting_title ?? 'untitled') + '\\nRecorded by: ' + ($('Fathom Webhook').item.json.body.recorded_by?.name ?? 'unknown') + '\\nRecording: ' + ($('Fathom Webhook').item.json.body.share_url ?? $('Fathom Webhook').item.json.body.url ?? 'no link') + '\\n\\nIf that was a sales call, the invite was titled wrong — or it was impromptu and has no invite at all. Log it by hand, and remind the closer of the title rule.' }}",
+        "otherOptions": {}
+      },
       "id": "a1000000-0000-4000-8000-000000000004",
-      "name": "Not a Sales Call",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
+      "name": "Untracked — Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
       "position": [
         16,
         64
-      ]
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Fires when a recording's title matched none of the sales-call phrases. Every client's workflow posts to the same Slack channel, so the message leads with the client name.",
+      "credentials": {
+        "slackApi": {
+          "id": "guLVXOTG5iaHvoZT",
+          "name": "Slack account"
+        }
+      }
     },
     {
       "parameters": {
@@ -165,7 +185,7 @@
             {
               "id": "direct-prospect-name",
               "name": "prospect_name",
-              "value": "={{ $json.meeting_title.split(':')[0].trim() }}",
+              "value": "={{ (() => { const t = String($json.meeting_title ?? '').trim(); const i = t.indexOf(':'); if (i > 0) { const n = t.slice(0, i).trim(); if (n) return n; } const ext = ($('Fathom Webhook').item.json.body.calendar_invitees ?? []).filter(x => !!x && x.is_external && x.name); if (ext.length) return String(ext[0].name).trim(); return 'Unknown'; })() }}",
               "type": "string"
             },
             {
@@ -277,7 +297,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; return JSON.stringify({ model: 'claude-opus-5', max_tokens: 16000, thinking: { type: 'adaptive' }, output_config: { effort: 'high', format: { type: 'json_schema', schema: JSON.parse($json.output_schema) } }, system: $json.system_prompt, messages: [{ role: 'user', content: 'Review this sales call.\\n\\nTHE CALLER (the person selling, the one you are scoring): ' + d.closer + '\\nPROSPECT: ' + d.prospect_name + '\\nALL ATTENDEES: ' + d.attendees + '\\nCALL DATE: ' + d.call_date + '\\nDURATION: ' + d.duration_minutes + ' minutes\\n\\n--- TRANSCRIPT ---\\n\\n' + d.transcript }] }); })() }}",
+        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; return JSON.stringify({ model: 'claude-opus-5', max_tokens: 32000, thinking: { type: 'adaptive' }, output_config: { effort: 'high', format: { type: 'json_schema', schema: JSON.parse($json.output_schema) } }, system: $json.system_prompt, messages: [{ role: 'user', content: 'Review this sales call.\\n\\nTHE CALLER (the person selling, the one you are scoring): ' + d.closer + '\\nPROSPECT: ' + d.prospect_name + '\\nALL ATTENDEES: ' + d.attendees + '\\nCALL DATE: ' + d.call_date + '\\nDURATION: ' + d.duration_minutes + ' minutes\\n\\n--- TRANSCRIPT ---\\n\\n' + d.transcript }] }); })() }}",
         "options": {
           "timeout": 300000
         }
@@ -336,7 +356,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const ai = $json.ai; const d = $('Extract Direct Fields').item.json; const S = ai.scores; const DIMS = [['frame_ownership','Frame Ownership'],['discovery_depth','Discovery Depth'],['belief_architecture','Belief Architecture'],['pitch_precision','Pitch Precision'],['tension_management','Tension Management'],['objection_resolution','Objection Resolution'],['qualification','Qualification'],['strategic_awareness','Strategic Awareness']]; const vals = DIMS.map(k => S[k[0]].score).filter(v => v != null); const overall = vals.length ? Math.round((vals.reduce((t, v) => t + v, 0) / vals.length) * 10) / 10 : null; const verdict = overall == null ? null : overall >= 8.5 ? 'Elite execution' : overall >= 7 ? 'Strong call' : overall >= 5.5 ? 'Average' : 'Fundamentals need work'; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; const blk = (type, s) => ({ object: 'block', type: type, [type]: { rich_text: txt(s) } }); const num = (v) => ({ number: (v === null || v === undefined || v === '') ? null : Number(v) }); const sel = (v) => v ? { select: { name: String(v) } } : { select: null }; const rt = (v) => ({ rich_text: v ? txt(v) : [] }); const yn = (v) => v ? 'yes' : 'no'; const children = [blk('heading_2', overall == null ? 'Scorecard: not scored — no evidence in the transcript' : 'Scorecard: ' + overall + '/10 — ' + verdict)].concat(DIMS.flatMap(k => [blk('heading_3', k[1] + ' — ' + (S[k[0]].score == null ? 'no evidence' : S[k[0]].score + '/10')), blk('paragraph', S[k[0]].reasoning)])).concat([{ object: 'block', type: 'divider', divider: {} }, blk('heading_2', 'The moment'), blk('paragraph', ai.narrative.the_moment), blk('heading_2', 'Next call drill'), blk('paragraph', ai.narrative.next_call_drill), blk('heading_2', 'Flags'), blk('bulleted_list_item', 'Best moment: ' + ai.narrative.best_moment), blk('bulleted_list_item', 'Biggest miss: ' + ai.narrative.biggest_miss), blk('bulleted_list_item', 'Weakest belief: ' + ai.flags.weakest_belief), blk('bulleted_list_item', 'Value leak: ' + yn(ai.flags.value_leak)), blk('bulleted_list_item', 'Follow-up trap: ' + yn(ai.flags.follow_up_trap)), blk('bulleted_list_item', 'Early price drop: ' + yn(ai.flags.price_drop_too_early))]); const props = { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': sel(d.closer), 'Call Date': { date: { start: d.call_date } }, 'Outcome': sel(ai.outcome || 'No deal'), 'Tier': ai.tier ? { select: { name: 'Tier ' + ai.tier } } : { select: null }, 'Price Discussed': num(ai.price_discussed), 'Price Closed': num(ai.price_closed), 'Cash Collected': num(ai.cash_collected), 'Payment Structure': sel(ai.payment_structure), 'Prospect Revenue': rt(ai.prospect_revenue), 'Niche': rt(ai.niche), 'Location': rt(ai.location), 'Lead Source': sel(ai.lead_source), 'Quality Score': num(overall), 'Recording ID': num(d.recording_id), 'Rubric Version': rt($('Load Rubric').item.json.rubric_version), 'Value Leak': { checkbox: !!ai.flags.value_leak }, 'Follow-Up Trap': { checkbox: !!ai.flags.follow_up_trap }, 'Early Price Drop': { checkbox: !!ai.flags.price_drop_too_early }, 'Weakest Belief': sel(ai.flags.weakest_belief), 'The Moment': rt(ai.narrative.the_moment), 'Next Call Drill': rt(ai.narrative.next_call_drill), 'Duration (min)': num(d.duration_minutes), 'Recording URL': { url: d.share_url || null }, 'Summary': rt(ai.summary) }; DIMS.forEach(k => { props[k[1]] = num(S[k[0]].score); }); return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: props, children: children }); })() }}",
+        "jsonBody": "={{ (() => { const ai = $json.ai; const d = $('Extract Direct Fields').item.json; const S = ai.scores; const DIMS = [['frame_ownership','Frame Ownership'],['discovery_depth','Discovery Depth'],['belief_architecture','Belief Architecture'],['pitch_precision','Pitch Precision'],['tension_management','Tension Management'],['objection_resolution','Objection Resolution'],['qualification','Qualification'],['strategic_awareness','Strategic Awareness']]; const vals = DIMS.map(k => S[k[0]].score).filter(v => v != null); const overall = vals.length ? Math.round((vals.reduce((t, v) => t + v, 0) / vals.length) * 10) / 10 : null; const verdict = overall == null ? null : overall >= 8.5 ? 'Elite execution' : overall >= 7 ? 'Strong call' : overall >= 5.5 ? 'Average' : 'Fundamentals need work'; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; const blk = (type, s) => ({ object: 'block', type: type, [type]: { rich_text: txt(s) } }); const num = (v) => ({ number: (v === null || v === undefined || v === '') ? null : Number(v) }); const sel = (v) => v ? { select: { name: String(v) } } : { select: null }; const rt = (v) => ({ rich_text: v ? txt(v) : [] }); const yn = (v) => v ? 'yes' : 'no'; const children = [blk('heading_2', overall == null ? 'Scorecard: not scored — no evidence in the transcript' : 'Scorecard: ' + overall + '/10 — ' + verdict)].concat(DIMS.flatMap(k => [blk('heading_3', k[1] + ' — ' + (S[k[0]].score == null ? 'no evidence' : S[k[0]].score + '/10')), blk('paragraph', S[k[0]].reasoning)])).concat([{ object: 'block', type: 'divider', divider: {} }, blk('heading_2', 'The moment'), blk('paragraph', ai.narrative.the_moment), blk('heading_2', 'Next call drill'), blk('paragraph', ai.narrative.next_call_drill), blk('heading_2', 'Flags'), blk('bulleted_list_item', 'Best moment: ' + ai.narrative.best_moment), blk('bulleted_list_item', 'Biggest miss: ' + ai.narrative.biggest_miss), blk('bulleted_list_item', 'Weakest belief: ' + ai.flags.weakest_belief), blk('bulleted_list_item', 'Value leak: ' + yn(ai.flags.value_leak)), blk('bulleted_list_item', 'Follow-up trap: ' + yn(ai.flags.follow_up_trap)), blk('bulleted_list_item', 'Early price drop: ' + yn(ai.flags.price_drop_too_early))]); const props = { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': sel(d.closer), 'Call Date': { date: { start: d.call_date } }, 'Outcome': sel(ai.outcome || 'No deal'), 'Tier': ai.tier ? { select: { name: 'Tier ' + ai.tier } } : { select: null }, 'Price Discussed': num(ai.price_discussed), 'Price Closed': num(ai.price_closed), 'Collected On Call': num(ai.collected_on_call), 'Payment Structure': sel(ai.payment_structure), 'Currency': sel(ai.currency), 'Prospect Revenue': rt(ai.prospect_revenue), 'Niche': rt(ai.niche), 'Location': rt(ai.location), 'Lead Source': sel(ai.lead_source), 'Quality Score': num(overall), 'Recording ID': num(d.recording_id), 'Rubric Version': rt($('Load Rubric').item.json.rubric_version), 'Value Leak': { checkbox: !!ai.flags.value_leak }, 'Follow-Up Trap': { checkbox: !!ai.flags.follow_up_trap }, 'Early Price Drop': { checkbox: !!ai.flags.price_drop_too_early }, 'Weakest Belief': sel(ai.flags.weakest_belief), 'The Moment': rt(ai.narrative.the_moment), 'Next Call Drill': rt(ai.narrative.next_call_drill), 'Duration (min)': num(d.duration_minutes), 'Recording URL': { url: d.share_url || null }, 'Summary': rt(ai.summary) }; DIMS.forEach(k => { props[k[1]] = num(S[k[0]].score); }); return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: props, children: children }); })() }}",
         "options": {
           "timeout": 30000
         }
@@ -539,7 +559,7 @@
         ],
         [
           {
-            "node": "Not a Sales Call",
+            "node": "Untracked — Alert",
             "type": "main",
             "index": 0
           }

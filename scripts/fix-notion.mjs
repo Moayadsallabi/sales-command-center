@@ -4,6 +4,10 @@
 //
 // Dry run (default): npm run fix:notion
 // Apply:             npm run fix:notion -- --apply
+//
+// Defaults to NOTION_DATABASE_ID. Pass --database <id> to point it at another
+// tracker — the master template, or a client's — without editing any env file.
+// The integration must be added to that database under ••• → Connections first.
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -39,7 +43,15 @@ const SPEC = {
   "Payment Structure": {
     select: { options: ["PIF", "installments", "custom"].map((name) => ({ name })) },
   },
+  "Collected On Call": { number: {} },
   "Cash Collected": { number: {} },
+  Outstanding: { number: {} },
+  Currency: {
+    select: {
+      options: (rubric.commercial.currencies ?? ["USD"]).map((name) => ({ name })),
+    },
+  },
+  "FX Rate": { number: {} },
   "Prospect Revenue": { rich_text: {} },
   Niche: { rich_text: {} },
   Location: { rich_text: {} },
@@ -97,10 +109,13 @@ function fail(message, hint) {
 loadEnv();
 
 const key = process.env.NOTION_API_KEY;
-const rawId = process.env.NOTION_DATABASE_ID;
+const flagIndex = process.argv.indexOf("--database");
+const overrideId = flagIndex === -1 ? null : process.argv[flagIndex + 1];
+const rawId = overrideId ?? process.env.NOTION_DATABASE_ID;
 
 if (!key) fail("NOTION_API_KEY is not set.", "Put it in .env.local, or run through `railway run`.");
-if (!rawId) fail("NOTION_DATABASE_ID is not set.");
+if (flagIndex !== -1 && !overrideId) fail("--database needs an id after it.");
+if (!rawId) fail("NOTION_DATABASE_ID is not set.", "Or pass --database <id>.");
 
 const id = rawId.replace(/-/g, "");
 if (!/^[0-9a-f]{32}$/i.test(id)) {

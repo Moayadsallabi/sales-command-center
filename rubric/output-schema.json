@@ -46,7 +46,7 @@
         }
       ]
     },
-    "cash_collected": {
+    "collected_on_call": {
       "anyOf": [
         {
           "type": "number"
@@ -54,6 +54,14 @@
         {
           "type": "null"
         }
+      ]
+    },
+    "currency": {
+      "type": "string",
+      "enum": [
+        "USD",
+        "EUR",
+        "GBP"
       ]
     },
     "payment_structure": {
@@ -499,7 +507,8 @@
     "tier",
     "price_discussed",
     "price_closed",
-    "cash_collected",
+    "collected_on_call",
+    "currency",
     "payment_structure",
     "prospect_revenue",
     "niche",

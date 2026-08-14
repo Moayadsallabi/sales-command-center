@@ -10,7 +10,15 @@ export interface CallRecord {
   price_discussed: number | null;
   price_closed: number | null;
   payment_structure: string | null;
+  /** Taken during the call itself. Money that landed later belongs in the two below. */
+  collected_on_call: number | null;
+  /** Every payment received so far, filled in by hand as instalments land. */
   cash_collected: number | null;
+  outstanding: number | null;
+  /** The currency every money field on this row is denominated in. */
+  currency: string | null;
+  /** Rate from this row's currency to the reporting currency, fixed at signing. */
+  fx_rate: number | null;
   prospect_revenue: string;
   niche: string;
   location: string;

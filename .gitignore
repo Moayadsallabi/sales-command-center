@@ -46,3 +46,6 @@ next-env.d.ts
 # rubric — your own offer context and the skill built with it stay local
 rubric/offer-context.local.md
 rubric/skill.local.md
+# generated per-client workflow copies — rebuild with npm run configure:client
+automation/generated/
+rubric/clients/*.local.md

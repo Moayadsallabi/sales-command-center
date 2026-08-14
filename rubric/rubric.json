@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.4.0",
   "title": "Sales Call Scorecard",
   "subtitle": "Eight dimensions, scored 1-10, applied to every recorded sales call.",
   "offerContextPlaceholder": "[OFFER CONTEXT — replace this paragraph during setup. Describe what the business sells, to whom, at what price points, and what language the pitch should use. The scorer uses this to judge whether a pitch was on-message. See the setup manual.]",
@@ -373,6 +373,12 @@
       "installments",
       "custom"
     ],
+    "currencies": [
+      "USD",
+      "EUR",
+      "GBP"
+    ],
+    "defaultCurrency": "USD",
     "leadSources": [
       "Skool",
       "IG",

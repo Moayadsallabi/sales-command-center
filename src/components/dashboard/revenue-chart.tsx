@@ -12,16 +12,18 @@ import {
   Tooltip,
 } from "recharts";
 import { CallRecord } from "@/lib/types";
+import { reportingRevenue } from "@/lib/money";
 
 export function RevenueChart({ calls }: { calls: CallRecord[] }) {
   const customers = calls
     .filter((c) => c.outcome === "Customer" && c.call_date && c.price_closed)
     .sort((a, b) => a.call_date!.localeCompare(b.call_date!));
 
+  // Converted first: a line that adds euros to dollars is not a revenue line.
   const byDate: Record<string, number> = {};
   customers.forEach((c) => {
     const d = c.call_date!;
-    byDate[d] = (byDate[d] ?? 0) + (c.price_closed ?? 0);
+    byDate[d] = (byDate[d] ?? 0) + reportingRevenue(c);
   });
 
   let cumulative = 0;

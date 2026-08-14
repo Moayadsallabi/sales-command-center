@@ -28,10 +28,18 @@ missing or the wrong type before you ever run a real call through the workflow.
 | `Lead Source` | Select | Skool, IG, YouTube, Referral, Direct, Unknown |
 | `Price Discussed` | Number | |
 | `Price Closed` | Number | |
-| `Cash Collected` | Number | |
+| `Collected On Call` | Number | Taken during the call itself |
+| `Cash Collected` | Number | Every payment received so far — filled in by hand |
+| `Outstanding` | Number | Still owed — filled in by hand |
+| `Currency` | Select | USD, EUR, GBP |
+| `FX Rate` | Number | Rate from this row's currency to the reporting currency |
 | `Prospect Revenue` | Text | |
 | `Niche` | Text | |
 | `Location` | Text | |
+
+Leave the number columns on Notion's plain **Number** format rather than Dollar.
+The row's own `Currency` says what the amounts are, and a dollar sign stamped on
+every column would misprice every non-USD deal on sight.
 
 ## Scorecard
 
@@ -69,13 +77,18 @@ you can tell a v1.2 six from a v1.1 six instead of mixing them in one trend line
 
 ## Notes
 
-**Select options create themselves.** Notion adds a missing option to a Select column
-the first time the workflow writes it, so you do not have to type the option lists in
-advance. Setting them up anyway is worth doing for `Outcome` and `Tier`, because it
-lets you colour-code them and stops a typo becoming a new option.
+**Set the Select options up in advance.** Notion's page-creation API will add a
+missing option to a Select column as it writes, but not every API surface does —
+writing to a data source directly is rejected outright with "the data source must
+be updated to add it", and an option list you have typed out yourself also lets you
+colour-code the values and stops a typo quietly becoming a ninth option. `npm run
+fix:notion` fills in every option list for you.
 
-**`Closer` is deliberately left empty.** The workflow fills it with the internal person
-on the calendar invite, so the options build up as your team takes calls. When several
+**`Closer` ships with no options, so type your closers' names in before the first
+call.** It is the one Select whose values cannot be known in advance, which also makes
+it the one most likely to be rejected on a first write if the list is empty. The
+workflow fills it with the internal person on the calendar invite, matching the name
+exactly as the invite spells it. When several
 internal people are on one invite, the workflow credits whichever of them actually
 spoke the most in the transcript — a manager silently shadowing does not steal the
 call. Cleanest is still one internal invitee: the closer. If a name comes through
@@ -93,10 +106,36 @@ close rate. When the follow-up call lands the deal, open the first call's row an
 change its outcome from BAMFAM to Customer (leave the money on whichever call
 collected it, so cash is never counted twice).
 
-**Cash Collected is what was taken on the call.** A REFUND outcome removes that
-call's revenue and cash from every dashboard total, so in a month with a refund the
-dashboard will read lower than the bank statement — that is deliberate: the dashboard
-shows what the calls are worth, not the ledger.
+**`Collected On Call` is only what was taken during the call.** A deal agreed on the
+call but paid the next morning collected nothing on the call, so it is `0` — that
+column measures the closer, and cash in hand before the prospect hangs up is a
+different skill from cash that arrives once they have slept on it. It is the only one
+of the three payment columns the workflow writes.
+
+**`Cash Collected` is everything received to date, and `Outstanding` is what is
+still owed.** Both are filled in by hand as payments arrive; the workflow never
+touches them, because at scoring time no one knows what will land later. While
+`Cash Collected` is blank the dashboard treats the on-call figure as everything
+received so far, so a paid-in-full call needs no maintenance. The KPI row shows
+**On the Call**, **Cash Collected** and **Outstanding** separately, which is what
+stops a part-paid deal reading as a full one.
+
+**Every amount is in the row's own `Currency`.** A €3,000 retainer is stored as
+`3000` with `Currency` set to `EUR` — never pre-converted, so the row always matches
+the contract. `Currency` is the currency of the **deal**, not of the payment. When a
+client pays in something else — a €3,000 invoice settled with a $1,200 transfer —
+convert that payment at the rate it actually landed at and record the euro figure in
+`Cash Collected`, because a row that mixes a euro price with a dollar payment makes
+`Outstanding` meaningless. The bank or Stripe payout tells you what it credited as;
+whatever is left of the €3,000 after it is what is still owed. To total across currencies the dashboard multiplies by that row's
+`FX Rate`, the rate to the reporting currency fixed at signing (`NEXT_PUBLIC_REPORTING_CURRENCY`,
+default USD). Rows already in the reporting currency need no rate. If a foreign-currency
+row has no `FX Rate`, the dashboard counts it at 1:1 and says so in a banner rather than
+absorbing the error silently.
+
+**A REFUND outcome** removes that call's revenue and cash from every dashboard total,
+so in a month with a refund the dashboard will read lower than the bank statement —
+that is deliberate: the dashboard shows what the calls are worth, not the ledger.
 
 **The written breakdown lives on the page, not in a column.** Open any row in Notion
 and the page body holds the dimension-by-dimension reasoning, the best moment, the

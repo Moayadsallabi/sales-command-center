@@ -241,7 +241,17 @@ function buildCall({
     price_discussed: noShow ? null : price,
     price_closed: closed ? price : null,
     payment_structure: closed ? (pif ? "PIF" : "installments") : null,
-    cash_collected: closed ? (pif ? price : Math.round(price / 2)) : null,
+    collected_on_call: closed ? (pif ? price : Math.round(price / 2)) : null,
+    // Instalment deals show the rest landing after the call, so the sample data
+    // exercises the on-the-call / collected-to-date split rather than hiding it.
+    cash_collected: closed && !pif ? Math.round(price * 0.75) : null,
+    outstanding: closed && !pif ? price - Math.round(price * 0.75) : null,
+    // Every fourth deal is priced in euros, so the demo proves the conversion
+    // path works instead of only ever exercising the reporting currency.
+    currency: closed && i % 4 === 0 ? "EUR" : "USD",
+    // One euro deal is left without a rate on purpose, so the demo also shows
+    // the warning that fires when a foreign-currency row would be counted 1:1.
+    fx_rate: closed && i % 4 === 0 ? (i % 8 === 0 ? null : 1.085) : null,
     prospect_revenue: `${20 + Math.floor(rand() * 60)}k/mo`,
     niche: NICHES[i % NICHES.length],
     location: "—",
