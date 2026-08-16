@@ -35,6 +35,7 @@ type NotionProperty = {
   select?: { name?: string } | null;
   number?: number | null;
   url?: string | null;
+  email?: string | null;
   checkbox?: boolean;
   multi_select?: { name?: string }[] | null;
 };
@@ -80,6 +81,15 @@ function normalizeSource(source: string | null): string | null {
 
 function extractUrl(prop?: NotionProperty): string | null {
   return prop?.url ?? null;
+}
+
+/**
+ * Lower-cased on the way in, because it is a join key and nothing downstream
+ * should have to remember how the address was typed on the calendar invite.
+ */
+function extractEmail(prop?: NotionProperty): string | null {
+  const value = (prop?.email ?? "").trim().toLowerCase();
+  return value === "" ? null : value;
 }
 
 function extractCheckbox(prop?: NotionProperty): boolean {
@@ -192,6 +202,7 @@ export async function queryAllCalls(): Promise<CallRecord[]> {
       results.push({
         id: page.id,
         name: extractTitle(props.Name),
+        prospect_email: extractEmail(props["Prospect Email"]),
         closer: extractSelect(props.Closer),
         call_date: extractDate(props["Call Date"]),
         outcome: extractSelect(props.Outcome),

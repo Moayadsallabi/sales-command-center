@@ -1,4 +1,5 @@
 import { CallRecord } from "./types";
+import { BookingRecord } from "./calendly";
 import { DIMENSIONS, DimensionKey } from "./dimensions";
 import { LEAD_FACTORS, LeadFactorKey } from "./lead-quality";
 
@@ -180,6 +181,17 @@ function shiftDays(isoDate: string, days: number): string {
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
+/**
+ * A stable address per call index. It is the key the demo bookings join on, so
+ * it has to be derived the same way from both sides rather than stored twice.
+ * The names repeat every twenty calls, so the index goes in the address —
+ * otherwise the same person would appear to book ninety-six times.
+ */
+function demoEmail(i: number): string {
+  const slug = NAMES[i % NAMES.length].toLowerCase().replace(/[^a-z]+/g, ".");
+  return `${slug}.${i}@example.com`;
+}
+
 export function demoCalls(today: string): CallRecord[] {
   const rand = seeded(20260812);
   const calls: CallRecord[] = [];
@@ -338,6 +350,7 @@ function buildCall({
   return {
     id: `demo-${String(i).padStart(4, "0")}-0000-4000-8000-00000000${String(i).padStart(4, "0")}`,
     name: NAMES[i % NAMES.length],
+    prospect_email: demoEmail(i),
     closer,
     call_date: shiftDays(today, daysAgo),
     outcome,
@@ -389,4 +402,199 @@ function buildCall({
     next_call_drill: feedback?.drill ?? "",
     notion_url: "https://www.notion.so/",
   };
+}
+
+/* --------------------------------------------------------- demo bookings */
+
+const BOOKING_QUESTIONS = [
+  "What are you currently making per month?",
+  "What have you already tried?",
+  "How soon are you looking to start?",
+];
+const BOOKING_ANSWERS = [
+  ["$18k/mo", "$40k/mo", "$7k/mo", "Just under $30k"],
+  ["Ran ads myself, no system behind them", "Two agencies, neither retained", "Nothing yet"],
+  ["This month", "Next quarter", "As soon as it makes sense"],
+];
+
+/** An ISO timestamp `daysAgo` before `today`, at a stable hour per index. */
+function bookingTime(today: string, daysAgo: number, i: number): string {
+  const d = new Date(`${today}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  d.setUTCHours(13 + (i % 5), (i % 4) * 15, 0, 0);
+  return d.toISOString();
+}
+
+/**
+ * Sample bookings to sit under the sample calls, used when
+ * DASHBOARD_DEMO_DATA=1 so the funnel renders without a Calendly token.
+ *
+ * Built to contain the finding the feature exists to produce. Every recorded
+ * call gets the booking that produced it, and then the bookings that never
+ * became recordings are added on top: cancellations, people who never turned
+ * up, and a few that simply were not recorded. The recordings alone imply a
+ * show rate around 90%; counting what was actually booked puts it near 79%.
+ * That gap is the whole argument for connecting Calendly, so the demo has to
+ * show it rather than assert it.
+ *
+ * No-shows are also given longer booking lead times than shows, so the
+ * lead-time panel has a real pattern to find instead of noise.
+ */
+export function demoBookings(calls: CallRecord[], today: string): BookingRecord[] {
+  const rand = seeded(20260816);
+  const bookings: BookingRecord[] = [];
+  const todayMs = Date.parse(`${today}T00:00:00Z`);
+
+  const answersFor = (i: number) =>
+    BOOKING_QUESTIONS.map((question, q) => ({
+      question,
+      answer: BOOKING_ANSWERS[q][(i + q) % BOOKING_ANSWERS[q].length],
+    }));
+
+  const make = (
+    partial: Partial<BookingRecord> & {
+      id: string;
+      email: string;
+      name: string;
+      scheduled_at: string;
+      leadDays: number;
+    }
+  ): BookingRecord => {
+    const { leadDays, ...rest } = partial;
+    const bookedAt = new Date(
+      Date.parse(partial.scheduled_at) - leadDays * 864e5
+    ).toISOString();
+    return {
+      event_id: `demo-event-${partial.id}`,
+      event_type: "Strategy Call",
+      booked_at: bookedAt,
+      lead_time_days: leadDays,
+      status: "active",
+      canceled_by_side: null,
+      canceled_by: null,
+      cancel_reason: null,
+      canceled_at: null,
+      cancel_notice_hours: null,
+      marked_no_show: false,
+      rescheduled: false,
+      host: null,
+      host_email: null,
+      tracking: { source: null, medium: null, campaign: null, content: null, term: null },
+      answers: [],
+      ...rest,
+    } as BookingRecord;
+  };
+
+  // One booking per recorded call, tied to it by email and date.
+  calls.forEach((call, i) => {
+    if (!call.call_date || !call.prospect_email) return;
+    // Every so often a call has no booking behind it — booked by hand, or on
+    // an event type nobody is counting. The panel names these rather than
+    // absorbing them, so the sample data has to contain some.
+    if (i % 17 === 5) return;
+    const daysAgo = Math.round((todayMs - Date.parse(`${call.call_date}T00:00:00Z`)) / 864e5);
+    const noShow = call.outcome === "No show";
+    // Shows skew towards being booked in the next day or two, no-shows towards
+    // a week out. Overlapping rather than separated, because a lead-time panel
+    // where every long booking is a no-show would be showing the generator
+    // rather than a pattern — the point is a tendency you could act on, not a
+    // rule you could not miss.
+    const leadDays = noShow
+      ? 2 + Math.floor(rand() * 11)
+      : Math.floor(rand() * rand() * 14);
+
+    const assignedHost =
+      i % 29 === 8
+        ? CLOSERS[(CLOSERS.indexOf(call.closer as (typeof CLOSERS)[number]) + 1) % CLOSERS.length]
+        : call.closer;
+
+    bookings.push(
+      make({
+        id: `demo-booking-call-${i}`,
+        email: call.prospect_email,
+        name: call.name,
+        scheduled_at: bookingTime(today, daysAgo, i),
+        leadDays,
+        // Occasionally the call was assigned to one person and taken by
+        // another, which is the disagreement the panel is built to surface.
+        host: assignedHost,
+        host_email: assignedHost
+          ? `${assignedHost.toLowerCase().replace(/[^a-z]+/g, ".")}@example.com`
+          : null,
+        tracking: {
+          source: call.lead_source,
+          medium: call.lead_source === "Referral" ? "word-of-mouth" : "social",
+          campaign: "always-on",
+          content: null,
+          term: null,
+        },
+        answers: answersFor(i),
+      })
+    );
+  });
+
+  // Bookings that never produced a recording. Index offsets keep their emails
+  // clear of the call emails, so none of them match a call by accident.
+  const extra = (
+    kind: "canceled" | "marked-no-show" | "unrecorded" | "upcoming",
+    n: number,
+    spacing: number,
+    offset: number
+  ) => {
+    for (let k = 0; k < n; k++) {
+      const i = offset + k;
+      const daysAgo = kind === "upcoming" ? -(2 + k * 2) : Math.floor(k * spacing) + 1;
+      const scheduled = bookingTime(today, daysAgo, i);
+      // The no-shows with no recording behind them lean long too, for the same
+      // reason as above: they are most of what fills the far bucket.
+      const leadDays =
+        kind === "marked-no-show" ? 2 + Math.floor(rand() * 11) : 1 + Math.floor(rand() * 9);
+      const base = {
+        id: `demo-booking-${kind}-${k}`,
+        email: `${kind}.${i}@example.com`,
+        name: NAMES[i % NAMES.length],
+        scheduled_at: scheduled,
+        leadDays,
+        host: CLOSERS[i % CLOSERS.length],
+        tracking: {
+          source: SOURCES[i % SOURCES.length],
+          medium: "social",
+          campaign: "always-on",
+          content: null,
+          term: null,
+        },
+        answers: answersFor(i),
+      };
+
+      if (kind === "canceled") {
+        // Two in five call it off inside the last day, which is the number
+        // that reads as a confirmation problem rather than bad luck.
+        const noticeHours = k % 5 < 2 ? 2 + rand() * 20 : 30 + rand() * 90;
+        bookings.push(
+          make({
+            ...base,
+            status: "canceled",
+            canceled_at: new Date(
+              Date.parse(scheduled) - noticeHours * 36e5
+            ).toISOString(),
+            cancel_notice_hours: noticeHours,
+            canceled_by_side: k % 4 === 0 ? "host" : "invitee",
+            canceled_by: k % 4 === 0 ? CLOSERS[i % CLOSERS.length] : base.name,
+            cancel_reason: k % 3 === 0 ? "Something came up" : null,
+          })
+        );
+      } else if (kind === "marked-no-show") {
+        bookings.push(make({ ...base, marked_no_show: true }));
+      } else {
+        bookings.push(make(base));
+      }
+    }
+  };
+
+  extra("canceled", 19, 4.6, 200);
+  extra("marked-no-show", 13, 6.8, 300);
+  extra("unrecorded", 9, 9.5, 400);
+  extra("upcoming", 6, 1, 500);
+
+  return bookings;
 }

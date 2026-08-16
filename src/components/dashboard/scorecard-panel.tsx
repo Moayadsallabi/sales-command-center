@@ -12,8 +12,18 @@ import {
 import { DIMENSIONS, GOOD_SCORE, verdictFor } from "@/lib/dimensions";
 import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
 import { POOR_SCORE } from "@/lib/stats";
+import { LinkedBooking } from "@/lib/bookings";
 import { withTimestamps } from "@/lib/timestamps";
-import { X, ExternalLink, Video, ChevronDown, Target, Zap, UserSearch } from "lucide-react";
+import {
+  X,
+  ExternalLink,
+  Video,
+  ChevronDown,
+  Target,
+  Zap,
+  UserSearch,
+  CalendarClock,
+} from "lucide-react";
 
 function scoreHex(score: number): string {
   if (score >= 7.5) return "#d4af37";
@@ -26,6 +36,64 @@ function leadHex(score: number): string {
   if (score >= 75) return "#d4af37";
   if (score >= 55) return "#f59e0b";
   return "#ef4444";
+}
+
+/**
+ * The booking behind the call: how it arrived, how long it sat there, and what
+ * the prospect typed into the form before anyone spoke to them.
+ *
+ * Worth its place above the scorecard because it is the half a closer can
+ * prepare from. The form answers in particular are the prospect's own words on
+ * their situation, given without a salesperson in the room.
+ */
+function BeforeTheCall({ booking }: { booking: LinkedBooking }) {
+  const leadTime =
+    booking.lead_time_days == null
+      ? null
+      : booking.lead_time_days < 1
+      ? "same day"
+      : `${Math.round(booking.lead_time_days)} day${
+          Math.round(booking.lead_time_days) === 1 ? "" : "s"
+        } ahead`;
+
+  const facts = [
+    booking.event_type,
+    leadTime && `booked ${leadTime}`,
+    booking.tracking.source && `from ${booking.tracking.source}`,
+    booking.tracking.campaign,
+    booking.host && `assigned to ${booking.host}`,
+    booking.rescheduled ? "rescheduled from an earlier slot" : null,
+  ].filter((f): f is string => Boolean(f));
+
+  return (
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
+      <div className="mb-2 flex items-center gap-2">
+        <CalendarClock className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
+        <h4 className="text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600">
+          Before the call
+        </h4>
+      </div>
+
+      {facts.length > 0 && (
+        <p className="text-[12px] leading-relaxed text-zinc-400">
+          {facts.join(" · ")}
+        </p>
+      )}
+
+      {booking.answers.length > 0 && (
+        <dl className="mt-3 space-y-2">
+          {booking.answers.map((qa) => (
+            <div key={qa.question}>
+              <dt className="text-[11px] text-zinc-600">{qa.question}</dt>
+              <dd className="text-[13px] leading-relaxed text-zinc-300">
+                {qa.answer}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
 }
 
 function Section({
@@ -47,9 +115,12 @@ function Section({
 
 export function ScorecardPanel({
   call,
+  booking = null,
   onClose,
 }: {
   call: CallRecord | null;
+  /** The Calendly booking this call came from, when Calendly is connected. */
+  booking?: LinkedBooking | null;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -74,7 +145,12 @@ export function ScorecardPanel({
             className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
           />
           {/* Keyed on the call so the collapse below resets between calls. */}
-          <ScorecardBody key={call.id} call={call} onClose={onClose} />
+          <ScorecardBody
+            key={call.id}
+            call={call}
+            booking={booking}
+            onClose={onClose}
+          />
         </>
       )}
     </AnimatePresence>
@@ -83,9 +159,11 @@ export function ScorecardPanel({
 
 function ScorecardBody({
   call,
+  booking,
   onClose,
 }: {
   call: CallRecord;
+  booking: LinkedBooking | null;
   onClose: () => void;
 }) {
   const [showAllScores, setShowAllScores] = useState(false);
@@ -217,6 +295,11 @@ function ScorecardBody({
       </div>
 
       <div className="space-y-6 px-6 py-6">
+        {/* Everything below this comes out of the recording, so it only exists
+            once the call happened. This is what was knowable beforehand — and
+            for a no-show it is the only thing on the page. */}
+        {booking && <BeforeTheCall booking={booking} />}
+
         {overall == null ? (
           <p className="text-sm text-zinc-500">
             {call.outcome === "No show"

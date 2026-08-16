@@ -4,6 +4,13 @@ import { LEAD_FACTORS, LeadFactorKey, leadScore } from "./lead-quality";
 export interface CallRecord {
   id: string;
   name: string;
+  /**
+   * The prospect's address, lower-cased. Written by the workflow for joining
+   * this call to everything else known about the person — the Calendly booking
+   * that produced it, and the KPI dashboard's lead row. Empty on calls
+   * recorded before the column existed, which is why every join tolerates it.
+   */
+  prospect_email: string | null;
   closer: string | null;
   call_date: string | null;
   outcome: string | null;

@@ -130,10 +130,13 @@ person.** Fathom's webhook lists everyone on the calendar invite with their emai
 address and a flag saying whether they are internal; the workflow takes the first
 external one and lower-cases it, so it matches however the address was typed.
 
-On its own this column does nothing for the scorecard. It matters because the KPI
-dashboard uses email as the key for everything — which DM produced the lead, which
-ad produced the DM, which payments arrived. With the email on the call row, a
-score can be read against the ad that generated the call. Without it, the two
+On its own this column does nothing for the scorecard. It matters because it is
+the key everything else is matched on. The KPI dashboard uses email for which DM
+produced the lead, which ad produced the DM, and which payments arrived — so with
+the email on the call row, a score can be read against the ad that generated the
+call. This dashboard uses it too, whenever Calendly is connected: it is how a
+recording is tied back to the booking that produced it, which is what makes a
+real show rate possible (see [`calendly.md`](calendly.md)). Without it, the
 systems can only be matched on name and date, which holds until two prospects
 share a first name.
 

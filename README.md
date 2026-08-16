@@ -60,6 +60,8 @@ cp .env.example .env.local
 | --- | --- |
 | `NOTION_API_KEY` | The secret of an internal integration created at [notion.so/my-integrations](https://www.notion.so/my-integrations) |
 | `NOTION_DATABASE_ID` | The 32-character id in the database URL. Dashes optional |
+| `CALENDLY_API_KEY` | Optional. Adds the booking side of the funnel. See [Bookings](#bookings) |
+| `CALENDLY_EVENT_TYPES` | Optional but strongly advised when Calendly is connected. Which event types are sales calls |
 | `NEXT_PUBLIC_BRAND_NAME` | Optional. Shown in the footer. Defaults to "Sales Analytics" |
 | `DASHBOARD_PASSWORD` | Optional. See [Access control](#access-control) |
 | `DASHBOARD_USER` | Optional. Defaults to `admin` |
@@ -85,6 +87,30 @@ npm run dev
 ```
 
 Open http://localhost:3000.
+
+## Bookings
+
+Optional, and off until you set `CALENDLY_API_KEY`. Full setup in
+[`docs/calendly.md`](docs/calendly.md).
+
+Everything above is built on recordings, which means it can only describe calls
+that happened. A prospect who cancels the night before, or books and never turns
+up, produces no recording — so a show rate measured here divides recordings by
+recordings and reads higher than the real one by however many of those there
+were.
+
+Connecting Calendly supplies the denominator. It adds what was booked against
+what was held, cancellations with how much notice they gave, show rate against
+how far ahead the call was booked, the utm source on the booking link, and the
+prospect's booking-form answers on each call's scorecard.
+
+A booking with no recording is never called a no-show. It is counted in the open
+as unaccounted for, and the show rate is quoted as a range until it is resolved —
+because "nobody turned up" and "nobody recorded it" need opposite fixes.
+
+```bash
+npm run check:calendly
+```
 
 ## Access control
 

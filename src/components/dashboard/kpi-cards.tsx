@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
 import { CallRecord } from "@/lib/types";
+import { FunnelStats } from "@/lib/bookings";
 import {
   reportingCashOnCall,
   reportingCollected,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/money";
 import {
   CalendarCheck,
+  CalendarPlus,
   PhoneCall,
   PhoneIncoming,
   Target,
@@ -23,12 +25,22 @@ import {
 
 interface KPICardsProps {
   calls: CallRecord[];
+  /** Present only when Calendly is connected. Null falls back to recordings. */
+  funnel?: FunnelStats | null;
 }
 
-export function KPICards({ calls }: KPICardsProps) {
+export function KPICards({ calls, funnel = null }: KPICardsProps) {
   const total = calls.length;
   const showed = calls.filter((c) => c.outcome !== "No show");
-  const showRate = total > 0 ? Math.round((showed.length / total) * 100) : 0;
+  /**
+   * With no bookings to compare against, the only show rate available divides
+   * recordings by recordings — a prospect who cancelled or never appeared left
+   * nothing to count, so it reads high by however many of those there were.
+   * Connecting Calendly replaces it with the real one.
+   */
+  const recordedShowRate = total > 0 ? Math.round((showed.length / total) * 100) : 0;
+  const showRate =
+    funnel?.showRate != null ? Math.round(funnel.showRate) : recordedShowRate;
   const customers = calls.filter((c) => c.outcome === "Customer");
   const closeRate = showed.length > 0 ? Math.round((customers.length / showed.length) * 100) : 0;
   // Every total below is converted into the reporting currency first, so a
@@ -42,8 +54,23 @@ export function KPICards({ calls }: KPICardsProps) {
   const outstanding = customers.reduce((sum, c) => sum + reportingOutstanding(c), 0);
 
   const kpis = [
+    // Only meaningful with a calendar behind it. Without one there is no way
+    // to know what was booked, which is exactly the gap this card fills.
+    ...(funnel
+      ? [
+          {
+            label: "Booked",
+            value: funnel.booked,
+            format: "number" as const,
+            icon: CalendarPlus,
+            accent: false,
+          },
+        ]
+      : []),
     {
-      label: "Calls Kept",
+      // Named for what it counts. It has never been the number of calls that
+      // were kept — a booking nobody recorded never reached this dashboard.
+      label: "Recorded",
       value: total,
       format: "number" as const,
       icon: CalendarCheck,

@@ -5,7 +5,14 @@ import { motion } from "framer-motion";
 import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
 import { callsMissingFxRate } from "@/lib/money";
+import {
+  CalendlyState,
+  LinkedBooking,
+  bookingDate,
+  funnelStats,
+} from "@/lib/bookings";
 import { KPICards } from "./kpi-cards";
+import { FunnelPanel } from "./funnel-panel";
 import { OutcomeChart } from "./outcome-chart";
 import { RevenueChart } from "./revenue-chart";
 import { LeadSourceChart } from "./lead-source-chart";
@@ -47,10 +54,12 @@ function daysBefore(isoDate: string, days: number): string {
 export function Dashboard({
   calls,
   today,
+  calendly,
   demo = false,
 }: {
   calls: CallRecord[];
   today: string;
+  calendly: CalendlyState;
   demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
@@ -132,6 +141,41 @@ export function Dashboard({
   );
 
   const unrated = useMemo(() => callsMissingFxRate(scoped), [scoped]);
+
+  /**
+   * Bookings narrowed the same way the calls above them are, so the funnel and
+   * the KPI cards are always describing the same window and the same person.
+   *
+   * A booking belongs to the closer of the call it produced, and to its
+   * Calendly host when it produced none — which is the only way a no-show can
+   * be attributed to anyone at all.
+   */
+  const scopedBookings = useMemo<LinkedBooking[]>(() => {
+    if (!calendly.link) return [];
+    const days = RANGE_DAYS[dateRange];
+    const cutoff = days ? daysBefore(today, days) : null;
+    const closerOf = (booking: LinkedBooking) =>
+      (booking.call_id ? calls.find((c) => c.id === booking.call_id)?.closer : null) ??
+      booking.host ??
+      UNASSIGNED;
+
+    return calendly.link.bookings.filter((booking) => {
+      if (cutoff && bookingDate(booking) < cutoff) return false;
+      if (selectedCloser !== null && closerOf(booking) !== selectedCloser) return false;
+      return true;
+    });
+  }, [calendly.link, calls, dateRange, selectedCloser, today]);
+
+  // Outcome and source pills filter the recordings, not the calendar, so the
+  // funnel is left out when either is on rather than shown against a
+  // denominator that no longer matches what is being counted.
+  const funnel = useMemo(
+    () =>
+      calendly.link && selectedOutcomes.size === 0 && selectedSources.size === 0
+        ? funnelStats(scopedBookings, scoped)
+        : null,
+    [calendly.link, scopedBookings, scoped, selectedOutcomes, selectedSources]
+  );
 
   const toggleOutcome = (outcome: string) => {
     setSelectedOutcomes((prev) => {
@@ -272,6 +316,20 @@ export function Dashboard({
         </div>
       )}
 
+      {/* Calendly connected but unreadable. The page still works off the
+          recordings, so this says what is missing rather than blocking it. */}
+      {calendly.failure && (
+        <div className="border-b border-amber-500/20 bg-amber-500/[0.07] px-6 py-2 text-center text-[11px] text-amber-300">
+          {calendly.failure.kind === "unauthorized"
+            ? "Calendly rejected the API key, so bookings are not being read. Check CALENDLY_API_KEY."
+            : calendly.failure.kind === "forbidden"
+            ? "Calendly refused access to these bookings. The token needs to reach the calendars you want counted."
+            : "Calendly could not be reached, so bookings are not being read."}{" "}
+          Show rate below counts recordings only, which reads higher than the
+          real one.
+        </div>
+      )}
+
       {/* A deal in another currency with no FX Rate would be converted at 1:1
           and quietly misstate every total below, so it gets named instead. */}
       {unrated.length > 0 && (
@@ -285,7 +343,15 @@ export function Dashboard({
 
       {/* Content */}
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
-        <KPICards calls={scoped} />
+        <KPICards calls={scoped} funnel={funnel} />
+
+        {calendly.link && (
+          <FunnelPanel
+            bookings={scopedBookings}
+            calls={scoped}
+            windowStart={calendly.windowStart}
+          />
+        )}
 
         <CloserLeaderboard
           calls={filtered}
@@ -322,7 +388,11 @@ export function Dashboard({
         <CallTable calls={scoped} onSelect={setOpenCall} />
       </main>
 
-      <ScorecardPanel call={openCall} onClose={() => setOpenCall(null)} />
+      <ScorecardPanel
+        call={openCall}
+        booking={openCall ? calendly.link?.byCallId[openCall.id] ?? null : null}
+        onClose={() => setOpenCall(null)}
+      />
 
       {/* Footer */}
       <footer className="border-t border-white/[0.04] mt-8">
