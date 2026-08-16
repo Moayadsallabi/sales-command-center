@@ -1,0 +1,10 @@
+{
+  "label": "Example answer key — invented people, safe to commit",
+  "source": "Copy this file to fixtures/accuracy-truth.json and fill it in from a closer's own tracking sheet. The real one stays out of git because it holds prospect names.",
+  "calls": [
+    { "date": "2026-08-01", "name": "Alex Morgan", "showed": true, "recorded": true },
+    { "date": "2026-08-01", "name": "Dana Silva", "showed": false, "recorded": false },
+    { "date": "2026-08-02", "name": "Chris", "showed": true, "recorded": true },
+    { "date": "2026-08-03", "name": "Robin Tan", "showed": false, "recorded": false, "disqualified": true }
+  ]
+}

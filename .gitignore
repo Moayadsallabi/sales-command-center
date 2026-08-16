@@ -43,6 +43,10 @@ next-env.d.ts
 
 .vercel
 
+# accuracy answer keys — real prospect names, never shared. Only the example ships.
+fixtures/accuracy-truth*.json
+!fixtures/accuracy-truth.example.json
+
 # rubric — your own offer context and the skill built with it stay local
 rubric/offer-context.local.md
 rubric/skill.local.md

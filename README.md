@@ -112,6 +112,19 @@ because "nobody turned up" and "nobody recorded it" need opposite fixes.
 npm run check:calendly
 ```
 
+## Checking how right it is
+
+A closer's own tracking sheet is usually the most complete record of what
+happened on a set of calls. [`npm run check:accuracy`](docs/accuracy.md) grades
+the dashboard against one: how many calls it found, how many it committed to an
+answer on, and how many of those it got right — by name, so the wrong ones can
+be looked at.
+
+It exists so that a change to the matching produces a number rather than an
+opinion. It also flags calls the closer recorded that never reached the tracker
+at all, which are missing from every figure on the dashboard rather than just
+this one.
+
 ## Access control
 
 [`src/proxy.ts`](src/proxy.ts) can put HTTP basic auth in front of every route.
