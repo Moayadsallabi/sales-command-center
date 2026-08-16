@@ -34,7 +34,7 @@ async function loadCalls(): Promise<LoadResult> {
  */
 async function loadBookings(calls: CallRecord[]): Promise<CalendlyState> {
   if (!isCalendlyConfigured()) {
-    return { link: null, windowStart: null, failure: null };
+    return { link: null, windowStart: null, failure: null, pending: 0, total: 0 };
   }
 
   try {
@@ -43,11 +43,19 @@ async function loadBookings(calls: CallRecord[]): Promise<CalendlyState> {
       link: linkBookings(result.bookings, calls),
       windowStart: result.window_start,
       failure: null,
+      pending: result.pending,
+      total: result.total,
     };
   } catch (err) {
     if (err instanceof CalendlyError) {
       console.error(`Calendly read failed (${err.failure.kind}):`, err.message);
-      return { link: null, windowStart: null, failure: err.failure };
+      return {
+        link: null,
+        windowStart: null,
+        failure: err.failure,
+        pending: 0,
+        total: 0,
+      };
     }
     throw err;
   }
@@ -74,7 +82,13 @@ export default async function Home() {
       <Dashboard
         calls={calls}
         today={today}
-        calendly={{ link, windowStart: null, failure: null }}
+        calendly={{
+          link,
+          windowStart: null,
+          failure: null,
+          pending: 0,
+          total: link?.bookings.length ?? 0,
+        }}
         demo
       />
     );

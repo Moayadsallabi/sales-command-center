@@ -110,20 +110,43 @@ outstanding, and the range closes as recording coverage improves.
 | --- | --- | --- |
 | `CALENDLY_API_KEY` | — | The token. Unset disables all of the above |
 | `CALENDLY_EVENT_TYPES` | every type | Which event types count as sales calls |
-| `CALENDLY_LOOKBACK_DAYS` | 180 | How far back bookings are read |
-| `CALENDLY_CACHE_SECONDS` | 300 | How long a read is reused before asking Calendly again |
+| `CALENDLY_LOOKBACK_DAYS` | 90 | How far back bookings are read |
+| `CALENDLY_CACHE_SECONDS` | 300 | How long the event list is reused before asking Calendly again |
 | `DEMO_WITHOUT_CALENDLY` | unset | Demo mode only. `1` previews the dashboard as it looks before Calendly is connected |
 
-Each booking costs a second request to Calendly for its invitee, which is where
-the email, the utm tags and the form answers live. The cache is what keeps the
-dashboard's 60-second auto-refresh off Calendly's rate limit; lower it if you
-want bookings to appear faster, at the cost of more requests.
+## Why the funnel takes a minute after a restart
+
+Listing bookings is cheap. Reading each one's invitee — the email, the utm tag,
+the form answers, the no-show mark — is a separate request per booking, and
+Calendly answers 500 requests a minute per token. An account with 500 bookings
+in the window therefore needs about a minute of allowance to read in full.
+
+So the first load after a deploy or restart does not wait for it:
+
+- The page renders immediately off the recordings, as it did before Calendly.
+- The funnel says how far through the read it is.
+- The read continues in the background, and the page's own 60-second refresh
+  picks it up when it completes.
+- **Nothing partial is ever quoted as a rate.** A show rate off half the
+  calendar is not a rough number, it is the wrong one, so the panel shows
+  progress rather than figures until the set is complete.
+
+After that first fill, only new bookings cost anything. Calls that have already
+happened are held for 12 hours; anything still upcoming is re-read on the cache
+interval, because that is exactly what can still be moved or cancelled.
+
+This all lives in the running process, so a redeploy starts the cycle again.
 
 ## Limits
 
 - **The lookback window is not the date filter.** Set the dashboard to "All
   time" and it will show calls from before the bookings were read, with no
   bookings behind them. The panel names the window it covers.
+- **Calendly's own no-show marking is barely used in practice.** On a live
+  account of 500 bookings exactly one carried it. So a no-show is nearly always
+  identified by the recording — a call logged with the No show outcome — or it
+  lands in "not recorded". Marking no-shows in Calendly is the cheapest way to
+  close that gap if you want it closed.
 - **A member token sees one calendar.** The dashboard says which it got.
 - **Outcome and source filters hide the funnel.** Filtering calls to "Customer"
   and then showing a booked-versus-held rate would measure two different things,

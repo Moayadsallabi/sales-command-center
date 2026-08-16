@@ -42,16 +42,41 @@ if (!token) {
   );
 }
 
-async function call(path, params = {}) {
-  const url = new URL(path.startsWith("http") ? path : `${API}${path}`);
-  for (const [key, value] of Object.entries(params)) {
-    if (value != null) url.searchParams.set(key, value);
+async function call(path, params) {
+  let url = path.startsWith("http") ? path : `${API}${path}`;
+  if (params) {
+    const built = new URL(url);
+    for (const [key, value] of Object.entries(params)) {
+      if (value != null) built.searchParams.set(key, value);
+    }
+    url = built.toString();
   }
   const resp = await fetch(url, {
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
   });
   const body = await resp.json().catch(() => ({}));
   return { ok: resp.ok, status: resp.status, body };
+}
+
+/**
+ * Every page of a collection. Follows `pagination.next_page` verbatim — a page
+ * token is only valid against the exact query string it was issued for, so
+ * rebuilding the parameters and appending the token returns 400.
+ */
+async function collect(path, params) {
+  const out = [];
+  let next = null;
+  let failure = null;
+  do {
+    const r = next ? await call(next) : await call(path, { ...params, count: "100" });
+    if (!r.ok) {
+      failure = r;
+      break;
+    }
+    out.push(...(r.body.collection ?? []));
+    next = r.body.pagination?.next_page ?? null;
+  } while (next);
+  return { items: out, failure };
 }
 
 /* 1. Is the token valid, and how far does it reach? */
@@ -72,39 +97,36 @@ const userUri = user.uri;
 
 /* 2. Whose calendars can it see? */
 
-const lookback = Number(process.env.CALENDLY_LOOKBACK_DAYS) || 180;
+// Same default as src/lib/calendly.ts, so this reports what the app will read.
+const lookback = Number(process.env.CALENDLY_LOOKBACK_DAYS) || 90;
 const minStart = new Date(Date.now() - lookback * 864e5).toISOString();
 const maxStart = new Date(Date.now() + 365 * 864e5).toISOString();
 
 let scope = orgUri ? "organization" : "user";
 let scopeParams = scope === "organization" ? { organization: orgUri } : { user: userUri };
 
-let events = await call("/scheduled_events", {
-  ...scopeParams,
-  status: "active",
-  min_start_time: minStart,
-  max_start_time: maxStart,
-  count: "100",
-});
+const listEvents = (status) =>
+  collect("/scheduled_events", {
+    ...scopeParams,
+    status,
+    min_start_time: minStart,
+    max_start_time: maxStart,
+  });
 
-if (!events.ok && events.status === 403 && scope === "organization") {
+let events = await listEvents("active");
+
+if (events.failure?.status === 403 && scope === "organization") {
   console.log(
     "  Organisation-wide reads refused — this token is a member, not an admin. Falling back to this user's own calendar."
   );
   scope = "user";
   scopeParams = { user: userUri };
-  events = await call("/scheduled_events", {
-    ...scopeParams,
-    status: "active",
-    min_start_time: minStart,
-    max_start_time: maxStart,
-    count: "100",
-  });
+  events = await listEvents("active");
 }
 
-if (!events.ok) {
+if (events.failure) {
   fail(
-    `Could not list scheduled events (${events.status}): ${events.body.message ?? ""}`,
+    `Could not list scheduled events (${events.failure.status}): ${events.failure.body.message ?? ""}`,
     "An admin or owner token reads every closer's calendar; a member token reads only their own."
   );
 }
@@ -115,28 +137,21 @@ console.log(
     : "⚠ Reading one user's calendar only — other closers' bookings will be missing"
 );
 
-const canceled = await call("/scheduled_events", {
-  ...scopeParams,
-  status: "canceled",
-  min_start_time: minStart,
-  max_start_time: maxStart,
-  count: "100",
-});
+const canceled = await listEvents("canceled");
 
-const active = events.body.collection ?? [];
-const cancelled = canceled.ok ? canceled.body.collection ?? [] : [];
+const active = events.items;
+const cancelled = canceled.items;
 const all = active.concat(cancelled);
 
 console.log(
-  `✓ ${all.length} bookings in the last ${lookback} days (${active.length} live, ${cancelled.length} cancelled)` +
-    (events.body.pagination?.next_page_token ? " — first page only, there are more" : "")
+  `✓ ${all.length} bookings in the last ${lookback} days (${active.length} live, ${cancelled.length} cancelled)`
 );
 
 /* 3. Does the event-type filter match anything? */
 
-const types = await call("/event_types", { ...scopeParams, count: "100" });
+const types = await collect("/event_types", scopeParams);
 const typeNames = new Map();
-for (const type of types.ok ? types.body.collection ?? [] : []) {
+for (const type of types.items) {
   if (type.uri && type.name) typeNames.set(type.uri, type.name);
 }
 
@@ -192,9 +207,9 @@ let sampled = 0;
 for (const event of sample) {
   if (!event.uri) continue;
   const uuid = event.uri.split("/").filter(Boolean).pop();
-  const invitees = await call(`/scheduled_events/${uuid}/invitees`, { count: "100" });
-  if (!invitees.ok) continue;
-  for (const invitee of invitees.body.collection ?? []) {
+  const invitees = await collect(`/scheduled_events/${uuid}/invitees`, {});
+  if (invitees.failure) continue;
+  for (const invitee of invitees.items) {
     sampled++;
     if (invitee.email) withEmail++;
     if (invitee.tracking?.utm_source) withTracking++;

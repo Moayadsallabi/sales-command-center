@@ -62,6 +62,14 @@ export interface CalendlyState {
   windowStart: string | null;
   /** Set when Calendly is connected but the read failed. */
   failure: CalendlyFailure | null;
+  /**
+   * Bookings still being read from Calendly. Above zero nothing derived from
+   * the set is quoted as a rate — a funnel measured on half the bookings is
+   * not a small error, it is a different number.
+   */
+  pending: number;
+  /** Sales bookings in the window, read or not. */
+  total: number;
 }
 
 /* ------------------------------------------------------------------ dates */

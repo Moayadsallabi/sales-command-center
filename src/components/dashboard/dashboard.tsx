@@ -168,13 +168,25 @@ export function Dashboard({
 
   // Outcome and source pills filter the recordings, not the calendar, so the
   // funnel is left out when either is on rather than shown against a
-  // denominator that no longer matches what is being counted.
+  // denominator that no longer matches what is being counted. A read that is
+  // still coming in is left out for the same reason — a rate off half the
+  // bookings is not a rough number, it is the wrong one.
   const funnel = useMemo(
     () =>
-      calendly.link && selectedOutcomes.size === 0 && selectedSources.size === 0
+      calendly.link &&
+      calendly.pending === 0 &&
+      selectedOutcomes.size === 0 &&
+      selectedSources.size === 0
         ? funnelStats(scopedBookings, scoped)
         : null,
-    [calendly.link, scopedBookings, scoped, selectedOutcomes, selectedSources]
+    [
+      calendly.link,
+      calendly.pending,
+      scopedBookings,
+      scoped,
+      selectedOutcomes,
+      selectedSources,
+    ]
   );
 
   const toggleOutcome = (outcome: string) => {
@@ -350,6 +362,8 @@ export function Dashboard({
             bookings={scopedBookings}
             calls={scoped}
             windowStart={calendly.windowStart}
+            pending={calendly.pending}
+            total={calendly.total}
           />
         )}
 

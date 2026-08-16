@@ -25,11 +25,43 @@ export function FunnelPanel({
   bookings,
   calls,
   windowStart,
+  pending,
+  total,
 }: {
   bookings: LinkedBooking[];
   calls: CallRecord[];
   windowStart: string | null;
+  /** Bookings still being read from Calendly. */
+  pending: number;
+  /** Sales bookings in the window, read or not. */
+  total: number;
 }) {
+  // A funnel built on part of the calendar is not a rough funnel, it is a
+  // wrong one — every rate on it would move as the rest arrived. So nothing is
+  // shown until the read finishes, which the page's own refresh will pick up.
+  if (pending > 0) {
+    const read = Math.max(total - pending, 0);
+    return (
+      <Shell windowStart={windowStart}>
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
+          <p className="text-[13px] text-zinc-300">
+            Reading your calendar — {read.toLocaleString()} of{" "}
+            {total.toLocaleString()} bookings so far.
+          </p>
+          <p className="mt-1.5 max-w-[75ch] text-[11px] leading-relaxed text-zinc-600">
+            Each booking is a separate request to Calendly, and Calendly caps how
+            many it will answer a minute, so the first read after a restart takes
+            a couple of minutes. The page refreshes itself every sixty seconds
+            and the funnel appears when the set is complete. Until then the show
+            rate above counts recordings, as it did before Calendly was
+            connected — a rate off half the bookings would be worse than the old
+            one, not better.
+          </p>
+        </div>
+      </Shell>
+    );
+  }
+
   const stats = funnelStats(bookings, calls);
   const buckets = leadTimeBuckets(bookings);
   const sources = sourceStats(bookings);
