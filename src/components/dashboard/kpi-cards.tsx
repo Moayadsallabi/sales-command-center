@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
 import { CallRecord } from "@/lib/types";
-import { FunnelStats } from "@/lib/bookings";
+import { FunnelStats, MIN_COVERAGE_FOR_RATE } from "@/lib/bookings";
 import {
   reportingCashOnCall,
   reportingCollected,
@@ -39,6 +39,18 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
    * Connecting Calendly replaces it with the real one.
    */
   const recordedShowRate = total > 0 ? Math.round((showed.length / total) * 100) : 0;
+  /**
+   * With a calendar behind it but most of that calendar unaccounted for, there
+   * is no honest single figure to show. The rate among the handful of bookings
+   * we can trace is not the show rate — on thin coverage it sits near 100%,
+   * because the ones we can trace are precisely the ones that produced a
+   * recording. So the card goes blank and points at the panel, which carries
+   * the range and the reason.
+   */
+  const tooThin =
+    funnel != null &&
+    funnel.coverage != null &&
+    funnel.coverage < MIN_COVERAGE_FOR_RATE;
   const showRate =
     funnel?.showRate != null ? Math.round(funnel.showRate) : recordedShowRate;
   const customers = calls.filter((c) => c.outcome === "Customer");
@@ -82,6 +94,7 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
       format: "percent" as const,
       icon: PhoneIncoming,
       accent: false,
+      unavailable: tooThin ? "too much of the calendar unaccounted for" : null,
     },
     {
       label: "Calls Taken",
@@ -161,13 +174,24 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
               strokeWidth={1.5}
             />
           </div>
-          <AnimatedNumber
-            value={kpi.value}
-            format={kpi.format}
-            className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
-              kpi.accent ? "text-gold-400" : "text-zinc-100"
-            }`}
-          />
+          {"unavailable" in kpi && kpi.unavailable ? (
+            <>
+              <span className="font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums text-zinc-600">
+                —
+              </span>
+              <span className="mt-1 block text-[10px] leading-snug text-zinc-600">
+                {kpi.unavailable}
+              </span>
+            </>
+          ) : (
+            <AnimatedNumber
+              value={kpi.value}
+              format={kpi.format}
+              className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
+                kpi.accent ? "text-gold-400" : "text-zinc-100"
+              }`}
+            />
+          )}
         </motion.div>
       ))}
     </div>

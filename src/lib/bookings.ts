@@ -23,6 +23,18 @@ const MATCH_TOLERANCE_DAYS = 1;
 /** Below this many hours of notice, a cancellation is a same-day drop. */
 export const LATE_CANCEL_HOURS = 24;
 
+/**
+ * How much of the calendar has to be accounted for before a show rate is worth
+ * stating as a single number.
+ *
+ * Every booking with no recording and no cancellation widens the true rate's
+ * range by its own share. At 90% accounted for the range is ten points, which
+ * is arguable; at 12% it spans almost everything, and quoting the midpoint —
+ * or worse, the rate among only the accounted-for calls — would be inventing
+ * precision the data does not have.
+ */
+export const MIN_COVERAGE_FOR_RATE = 90;
+
 /** Bookings a lead-time bucket needs before its show rate is worth reading. */
 export const MIN_PER_LEAD_BUCKET = 5;
 
@@ -323,11 +335,22 @@ export interface FunnelStats {
   /** Kept against everything booked — what cancellations cost on top. */
   heldRate: number | null;
 
-  /** Cancellations that landed inside a day of the call. */
+  /** Cancellations that landed inside a day of the call, but before it. */
   lateCancels: number;
-  /** Cancellations the prospect made, as opposed to the host. */
+  /**
+   * Cancellations recorded *after* the call was due to start.
+   *
+   * Not a cancellation in any useful sense — nobody called anything off in
+   * advance. Teams commonly clear a no-show off the calendar by cancelling it
+   * afterwards, so counting these as cancellations both overstates the
+   * cancellations and hides the no-shows.
+   */
+  canceledAfterStart: number;
+  /** Cancellations the prospect made. */
   canceledByInvitee: number;
-  /** Median hours of notice on a cancellation. */
+  /** Cancellations made by the team's own side. */
+  canceledByHost: number;
+  /** Median hours of notice, over cancellations made before the call was due. */
   medianCancelNotice: number | null;
 
   /** Recorded calls with no booking behind them. */
@@ -375,6 +398,9 @@ export function funnelStats(
   const notice = canceledBookings
     .map((b) => b.cancel_notice_hours)
     .filter((h): h is number => h != null);
+  // Notice given before the call was due. The negative ones are a different
+  // event entirely and are reported on their own rather than averaged in.
+  const noticeBefore = notice.filter((h) => h >= 0);
 
   const bookedCallIds = new Set(
     bookings.map((b) => b.call_id).filter((id): id is string => id != null)
@@ -399,11 +425,14 @@ export function funnelStats(
     coverage: due === 0 ? null : (accounted / due) * 100,
     heldRate: booked === 0 ? null : (counts.kept / booked) * 100,
 
-    lateCancels: notice.filter((h) => h < LATE_CANCEL_HOURS).length,
+    lateCancels: noticeBefore.filter((h) => h < LATE_CANCEL_HOURS).length,
+    canceledAfterStart: notice.filter((h) => h < 0).length,
     canceledByInvitee: canceledBookings.filter(
       (b) => b.canceled_by_side === "invitee"
     ).length,
-    medianCancelNotice: median(notice),
+    canceledByHost: canceledBookings.filter((b) => b.canceled_by_side === "host")
+      .length,
+    medianCancelNotice: median(noticeBefore),
 
     callsWithoutBooking: calls.filter((c) => !bookedCallIds.has(c.id)).length,
     matchedByName: bookings.filter((b) => b.match_method === "name-and-date").length,

@@ -10,6 +10,7 @@ import {
   closerDisagreements,
   LATE_CANCEL_HOURS,
   MIN_PER_LEAD_BUCKET,
+  MIN_COVERAGE_FOR_RATE,
 } from "@/lib/bookings";
 import { CalendarX2, Contact, Link2Off } from "lucide-react";
 
@@ -67,6 +68,10 @@ export function FunnelPanel({
   const sources = sourceStats(bookings);
   const disagreements = closerDisagreements(bookings, calls);
 
+  // Too much of the calendar unaccounted for to state a show rate as a figure.
+  const thin =
+    stats.coverage != null && stats.coverage < MIN_COVERAGE_FOR_RATE;
+
   const tagged = sources.filter((s) => s.source !== "Untagged");
   const readyBuckets = buckets.filter((b) => b.ready);
   const spread =
@@ -116,12 +121,23 @@ export function FunnelPanel({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat
             label="Show rate"
-            value={stats.showRate == null ? "—" : `${Math.round(stats.showRate)}%`}
+            value={
+              // Only stated when most of the calendar is accounted for.
+              // Otherwise this is the rate among the few calls we happen to
+              // know about, which is not the show rate and reads far too high.
+              stats.showRate == null || !thin
+                ? stats.showRate == null
+                  ? "—"
+                  : `${Math.round(stats.showRate)}%`
+                : "—"
+            }
             sub={
-              stats.unrecorded > 0 && stats.showRateRange
-                ? `${Math.round(stats.showRateRange.low)}–${Math.round(
-                    stats.showRateRange.high
-                  )}% once the unrecorded are counted`
+              stats.showRateRange && stats.unrecorded > 0
+                ? `somewhere between ${Math.round(
+                    stats.showRateRange.low
+                  )}% and ${Math.round(stats.showRateRange.high)}% — ${
+                    stats.unrecorded
+                  } of ${stats.kept + stats.noShow + stats.unrecorded} unaccounted for`
                 : `${stats.kept} of ${stats.kept + stats.noShow} that were due`
             }
             accent
@@ -137,7 +153,7 @@ export function FunnelPanel({
             sub={
               stats.canceled === 0
                 ? "nothing cancelled in this window"
-                : `of ${stats.canceled} cancelled, inside ${LATE_CANCEL_HOURS}h`
+                : `of ${stats.canceled} cancelled, inside the last ${LATE_CANCEL_HOURS}h`
             }
           />
         </div>
@@ -156,11 +172,31 @@ export function FunnelPanel({
                   <span className="font-medium text-zinc-200">
                     {formatNotice(stats.medianCancelNotice)}
                   </span>{" "}
-                  of notice, and{" "}
-                  {stats.canceledByInvitee === stats.canceled
-                    ? "every one came from the prospect"
-                    : `${stats.canceledByInvitee} of them came from the prospect`}
-                  .{" "}
+                  of notice.{" "}
+                  {stats.canceledByHost > stats.canceledByInvitee ? (
+                    <>
+                      <span className="text-zinc-300">
+                        {stats.canceledByHost} of them were cancelled by your own
+                        side, not the prospect
+                      </span>
+                      , which is a different problem from prospects backing out
+                      and worth reading as one.{" "}
+                    </>
+                  ) : (
+                    <>{stats.canceledByInvitee} came from the prospect. </>
+                  )}
+                  {stats.canceledAfterStart > 0 && (
+                    <>
+                      <span className="text-zinc-300">
+                        {stats.canceledAfterStart} were cancelled after the call
+                        was already due to start
+                      </span>
+                      , so nothing was called off in advance — that is usually a
+                      no-show being cleared off the calendar afterwards, and it
+                      is counted here as a cancellation because Calendly has no
+                      other way to record it.{" "}
+                    </>
+                  )}
                 </>
               )}
               {stats.unrecorded > 0 && (
