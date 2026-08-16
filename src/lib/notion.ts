@@ -1,5 +1,13 @@
 import { CallRecord } from "./types";
 import { DIMENSIONS, DimensionKey } from "./dimensions";
+import {
+  LEAD_FACTORS,
+  LeadFactorKey,
+  NO_OBJECTION,
+  OBJECTIONS_COLUMN,
+  PRIMARY_OBJECTION_COLUMN,
+  LEAD_READ_COLUMN,
+} from "./lead-quality";
 
 /** Why a Notion read failed, in terms the setup screen can explain. */
 export type NotionFailure =
@@ -28,6 +36,7 @@ type NotionProperty = {
   number?: number | null;
   url?: string | null;
   checkbox?: boolean;
+  multi_select?: { name?: string }[] | null;
 };
 
 type NotionPage = {
@@ -77,6 +86,19 @@ function extractCheckbox(prop?: NotionProperty): boolean {
   return prop?.checkbox ?? false;
 }
 
+/**
+ * "None raised" is how the scorer says no objection came up, and it is stored
+ * so a Notion view can tell it apart from a call nobody has scored yet. The
+ * dashboard wants the empty list instead — counting "None raised" as an
+ * objection would put it top of every frequency chart.
+ */
+function extractObjections(prop?: NotionProperty): string[] {
+  if (!prop?.multi_select) return [];
+  return prop.multi_select
+    .map((o) => o.name ?? "")
+    .filter((name) => name !== "" && name !== NO_OBJECTION);
+}
+
 /** A Notion page id is a dashed UUID; the web URL wants it without dashes. */
 function pageUrl(id: string): string {
   return `https://www.notion.so/${id.replace(/-/g, "")}`;
@@ -96,6 +118,21 @@ function extractScores(
     scores[dimension.key] = extractNumber(props[dimension.column]);
   }
   return scores;
+}
+
+/**
+ * The lead-quality half. Reads the same way as the dimensions: a factor the
+ * call never produced evidence for is empty rather than zero, so it drops out
+ * of the total instead of dragging it down.
+ */
+function extractLead(
+  props: Record<string, NotionProperty | undefined>
+): Record<LeadFactorKey, number | null> {
+  const lead = {} as Record<LeadFactorKey, number | null>;
+  for (const factor of LEAD_FACTORS) {
+    lead[factor.key] = extractNumber(props[factor.column]);
+  }
+  return lead;
 }
 
 export async function queryAllCalls(): Promise<CallRecord[]> {
@@ -176,6 +213,10 @@ export async function queryAllCalls(): Promise<CallRecord[]> {
         recording_url: extractUrl(props["Recording URL"]),
         summary: extractRichText(props.Summary),
         scores: extractScores(props),
+        lead: extractLead(props),
+        lead_read: extractRichText(props[LEAD_READ_COLUMN]),
+        objections: extractObjections(props[OBJECTIONS_COLUMN]),
+        primary_objection: extractSelect(props[PRIMARY_OBJECTION_COLUMN]),
         flags: {
           value_leak: extractCheckbox(props["Value Leak"]),
           follow_up_trap: extractCheckbox(props["Follow-Up Trap"]),

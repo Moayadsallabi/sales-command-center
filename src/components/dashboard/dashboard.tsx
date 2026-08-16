@@ -14,6 +14,8 @@ import { CallTable } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
 import { WhatsCostingYou } from "./whats-costing-you";
 import { DimensionImpact } from "./dimension-impact";
+import { LeadImpact } from "./lead-impact";
+import { ObjectionPanel } from "./objection-panel";
 import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
 import { SalesCommandMark } from "@/components/brand/logo";
@@ -298,7 +300,14 @@ export function Dashboard({
           closer={selectedCloser}
         />
 
+        {/* The pair, in this order on purpose. The dimensions say how well the
+            calls were run; the leads say what they were run on. Reading the
+            first without the second is how a traffic problem gets coached. */}
         <DimensionImpact calls={scoped} />
+
+        <LeadImpact calls={scoped} />
+
+        <ObjectionPanel calls={scoped} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <OutcomeChart calls={scoped} />

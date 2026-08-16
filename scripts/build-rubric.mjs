@@ -10,6 +10,7 @@
 //         rubric/skill.md                    the Claude chat skill (SKILL.md) for manual reviews
 //         automation/sales-call-tracker.json the importable n8n workflow
 //         src/lib/dimensions.ts              the dimension list the dashboard renders
+//         src/lib/lead-quality.ts            the lead factors and objection types
 //
 // Never hand-edit the generated files — edit rubric/rubric.json (or the
 // workflow template) and re-run this script.
@@ -66,6 +67,9 @@ function buildSystemPrompt(r) {
     out.push("");
   });
 
+  out.push(...leadQualitySection(r, "key"));
+  out.push(...objectionsSection(r));
+
   out.push("## Bonus flags", "");
   for (const f of r.bonusFlags) {
     const opts =
@@ -99,6 +103,63 @@ function numberWord(n) {
     ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"][n] ??
     String(n)
   );
+}
+
+/* --------------------------------------------- shared prompt/skill sections */
+
+// The lead-quality rubric, rendered once and reused by the system prompt and
+// the chat skill so a manual review scores a lead exactly as the workflow does.
+// `label` picks what each factor is called in the output the reader must
+// produce: the prompt asks for JSON keys, the skill asks for readable names.
+function leadQualitySection(r, label) {
+  const lq = r.leadQuality;
+  const out = [
+    "",
+    `## Lead quality — ${numberWord(lq.factors.length)} factors, scored out of ${lq.max}`,
+    "",
+    lq.intro,
+    "",
+    `Each factor is scored from 1 to its own maximum, with a two-to-four sentence reason quoting the prospect. The factors carry different maximums because they do not matter equally: they sum to ${lq.max} when every one is scored.`,
+    "",
+  ];
+
+  for (const f of lq.factors) {
+    const belief = f.belief ? ` · maps to the ${f.belief} belief` : "";
+    out.push(
+      `### ${label === "key" ? f.key : f.name} — out of ${f.max}${belief}`,
+      "",
+      f.question,
+      "",
+      f.detail,
+      "",
+      "Scoring bands:"
+    );
+    for (const b of f.bands) out.push(`- ${b.range}: ${b.text}`);
+    out.push("");
+  }
+
+  out.push(
+    "Patterns worth naming when you see them:",
+    ...lq.patterns.map((p) => `- ${p}`),
+    ""
+  );
+
+  return out;
+}
+
+function objectionsSection(r) {
+  const o = r.objections;
+  const out = ["", "## Objections raised", "", o.intro, ""];
+  for (const t of o.types) {
+    const belief = t.belief ? ` (${t.belief})` : "";
+    out.push(`- **${t.name}**${belief} — ${t.detail}`);
+  }
+  out.push(
+    "",
+    "List every objection the prospect actually voiced. Then name the single one that decided the call — the one that, left unresolved, is why it did not close. When the call closed, or no objection was raised, the primary objection is null.",
+    ""
+  );
+  return out;
 }
 
 /* ------------------------------------------------------------------ schema */
@@ -135,6 +196,29 @@ function buildOutputSchema(r) {
     });
   }
 
+  // Each lead factor has its own maximum, so each gets its own enum. Nullable
+  // for the same reason the dimensions are: a factor the call never reached is
+  // recorded as no evidence, and the Lead Score is then averaged over the
+  // factors that do have one rather than over a set padded with guesses.
+  const leadFactors = {};
+  for (const f of r.leadQuality.factors) {
+    leadFactors[f.key] = obj({
+      score: {
+        anyOf: [
+          { type: "integer", enum: Array.from({ length: f.max }, (_, i) => i + 1) },
+          { type: "null" },
+        ],
+        description: `${f.question} Out of ${f.max}. Null when the call never produced evidence either way.`,
+      },
+      reasoning: {
+        type: "string",
+        description: `Two to four sentences justifying the ${f.name} score, quoting the prospect with its [mm:ss]. When score is null, say what never came up.`,
+      },
+    });
+  }
+
+  const objectionNames = r.objections.types.map((t) => t.name);
+
   const flags = {};
   for (const f of r.bonusFlags) {
     flags[f.key] =
@@ -167,6 +251,25 @@ function buildOutputSchema(r) {
     lead_source: { type: "string", enum: r.commercial.leadSources },
     summary: { type: "string" },
     scores: obj(scores),
+    lead_quality: obj(leadFactors),
+    objections: obj({
+      raised: {
+        type: "array",
+        items: { type: "string", enum: objectionNames },
+        description:
+          "Every objection the prospect voiced, whether or not it was resolved. Use the single entry None raised when none was.",
+      },
+      primary: {
+        anyOf: [{ type: "string", enum: objectionNames }, { type: "null" }],
+        description:
+          "The one objection that decided the call. Null when the call closed or no objection was raised.",
+      },
+      detail: {
+        type: "string",
+        description:
+          "One or two sentences per objection raised: the prospect's own words with its [mm:ss], and whether the caller resolved it. Empty string when none was raised.",
+      },
+    }),
     flags: obj(flags),
     narrative: obj(narrative),
   });
@@ -199,7 +302,42 @@ function buildMarkdown(r) {
     out.push("");
   });
 
-  out.push("## Bonus flags", "", "| Flag | Question |", "| --- | --- |");
+  const lq = r.leadQuality;
+  out.push(`## Lead quality`, "", lq.intro, "");
+  out.push(
+    `Scored out of ${lq.max}, separately from the caller. The maximums differ because the factors do not matter equally.`,
+    "",
+    "| Factor | Out of | Belief | What it asks |",
+    "| --- | --- | --- | --- |"
+  );
+  for (const f of lq.factors) {
+    out.push(`| ${f.name} | ${f.max} | ${f.belief ?? "—"} | ${f.question} |`);
+  }
+  out.push("", "| Lead Score | Reads as |", "| --- | --- |");
+  lq.bands.forEach((b, i) => {
+    const range =
+      i === 0 ? `${b.min}–${lq.max}` : `${b.min}–${lq.bands[i - 1].min - 1}`;
+    out.push(`| ${range} | ${b.label} |`);
+  });
+
+  out.push("", "### The factors in full", "");
+  lq.factors.forEach((f) => {
+    out.push(`#### ${f.name} — out of ${f.max}`, "", `**${f.question}**`, "", f.detail, "");
+    out.push("| Score | What it looks like |", "| --- | --- |");
+    for (const b of f.bands) out.push(`| ${b.range} | ${b.text} |`);
+    out.push("");
+  });
+
+  out.push("### Patterns", "");
+  for (const p of lq.patterns) out.push(`- ${p}`);
+
+  out.push("", "## Objections", "", r.objections.intro, "");
+  out.push("| Objection | Belief behind it | What counts |", "| --- | --- | --- |");
+  for (const t of r.objections.types) {
+    out.push(`| ${t.name} | ${t.belief ?? "—"} | ${t.detail} |`);
+  }
+
+  out.push("", "## Bonus flags", "", "| Flag | Question |", "| --- | --- |");
   for (const f of r.bonusFlags) out.push(`| ${f.column} | ${f.question} |`);
 
   out.push("", "## Written feedback", "", "Every review also produces:", "");
@@ -220,7 +358,7 @@ function buildSkill(r, offerContext) {
   out.push(
     "---",
     "name: sales-call-reviewer",
-    "description: Reviews sales call transcripts and produces a detailed 8-dimension scorecard with direct, transcript-specific feedback. Use this skill whenever the user shares a sales call, discovery call, or closing call transcript (or recording/notes) and wants it scored, reviewed, critiqued, analyzed, or graded — even if they don't say \"scorecard.\" Also trigger when the user asks \"how did this call go,\" \"where did I lose the deal,\" \"what should I do better next call,\" pastes call dialogue and asks for feedback, or mentions reviewing a closer's or sales rep's call. Built around the Perceptionism Lab methodology (frame, discovery depth, belief architecture, tension, objection sequencing). Do NOT use for writing scripts, hooks, captions, or content strategy — that's the perceptionism-engine skill.",
+    "description: Reviews sales call transcripts and produces a detailed scorecard — eight dimensions rating the rep, eight factors rating the lead they were handed, plus the objections raised — with direct, transcript-specific feedback. Use this skill whenever the user shares a sales call, discovery call, or closing call transcript (or recording/notes) and wants it scored, reviewed, critiqued, analyzed, or graded — even if they don't say \"scorecard.\" Also trigger when the user asks \"how did this call go,\" \"where did I lose the deal,\" \"was this a good lead,\" \"what should I do better next call,\" pastes call dialogue and asks for feedback, or mentions reviewing a closer's or sales rep's call. Built around the Perceptionism Lab methodology (frame, discovery depth, belief architecture, tension, objection sequencing). Do NOT use for writing scripts, hooks, captions, or content strategy — that's the perceptionism-engine skill.",
     "---",
     "",
     `<!-- ${GENERATED_BY} Rubric v${r.version}. -->`,
@@ -271,6 +409,9 @@ function buildSkill(r, offerContext) {
     out.push(`| ${range} | ${v.label} |`);
   });
 
+  out.push(...leadQualitySection(r, "name"));
+  out.push(...objectionsSection(r));
+
   out.push("", "## Bonus flags", "");
   for (const f of r.bonusFlags) {
     const opts = f.type === "enum" ? ` Answer with one of: ${f.options.join(", ")}.` : "";
@@ -284,7 +425,9 @@ function buildSkill(r, offerContext) {
     "",
     "## Output format",
     "",
-    "Present the review as a readable scorecard in this order: the eight scores with the overall and verdict, then a short breakdown per dimension, then the bonus flags, then the written-feedback sections. Quote the transcript throughout.",
+    "Present the review as a readable scorecard in this order: the eight dimension scores with the overall and verdict, then a short breakdown per dimension, then the lead-quality factors with the Lead Score and what it reads as, then the objections raised, then the bonus flags, then the written-feedback sections. Quote the transcript throughout, with a [mm:ss] after every quote.",
+    "",
+    "Keep the two halves apart when you write. The dimensions say how well the call was run; the lead-quality factors say what the caller was working with. Say plainly which of the two the result came down to — an average score on a strong lead and the same score on a poor one are different problems and want different fixes.",
     "",
     "## Logging the review",
     "",
@@ -353,6 +496,117 @@ export function verdictFor(overall: number): string {
 `;
 }
 
+function buildLeadQualityModule(r) {
+  const lq = r.leadQuality;
+
+  const factors = lq.factors
+    .map(
+      (f) =>
+        `  {\n    key: "${f.key}",\n    name: ${JSON.stringify(f.name)},\n` +
+        `    column: ${JSON.stringify(f.column)},\n` +
+        `    max: ${f.max},\n` +
+        `    belief: ${f.belief == null ? "null" : JSON.stringify(f.belief)},\n` +
+        `    question: ${JSON.stringify(f.question)},\n  },`
+    )
+    .join("\n");
+
+  const bands = lq.bands
+    .map((b) => `  { min: ${b.min}, label: ${JSON.stringify(b.label)} },`)
+    .join("\n");
+
+  const objections = r.objections.types
+    .map(
+      (t) =>
+        `  {\n    name: ${JSON.stringify(t.name)},\n` +
+        `    belief: ${t.belief == null ? "null" : JSON.stringify(t.belief)},\n` +
+        `    detail: ${JSON.stringify(t.detail)},\n  },`
+    )
+    .join("\n");
+
+  return `// ${GENERATED_BY}
+
+export type LeadFactorKey =
+${lq.factors.map((f) => `  | "${f.key}"`).join("\n")};
+
+export interface LeadFactor {
+  /** Field name in the scorer's output and on the CallRecord. */
+  key: LeadFactorKey;
+  /** Shown in the dashboard, and the Notion column name. */
+  name: string;
+  /** Notion column this factor is written to. */
+  column: string;
+  /** This factor's own ceiling. They differ, and they sum to LEAD_MAX. */
+  max: number;
+  /** The buying belief this factor measures, or null for fit. */
+  belief: string | null;
+  /** The scoring instruction given to the model. */
+  question: string;
+}
+
+export const LEAD_FACTORS: LeadFactor[] = [
+${factors}
+];
+
+/** What a lead scores when every factor is scored at its ceiling. */
+export const LEAD_MAX = ${lq.max};
+
+/**
+ * Below this many scored factors, a Lead Score is not worth showing. A call
+ * that ended in the first two minutes can produce two confident factors, and
+ * scaling those two up to a number out of ${lq.max} would read as a verdict on
+ * a lead nobody actually assessed.
+ */
+export const MIN_SCORED_FACTORS = 4;
+
+/** Lead quality bands, highest threshold first. */
+export const LEAD_BANDS: { min: number; label: string }[] = [
+${bands}
+];
+
+export function leadBandFor(score: number): string {
+  return LEAD_BANDS.find((b) => score >= b.min)?.label ?? LEAD_BANDS[LEAD_BANDS.length - 1].label;
+}
+
+/**
+ * A lead's score out of ${lq.max}, normalised over the factors that were
+ * actually scored. Scoring six of eight factors gives a score out of the six
+ * maximums scaled to ${lq.max}, so a call that never reached the money question
+ * is not punished for it — but with fewer than MIN_SCORED_FACTORS behind it,
+ * there is no score at all.
+ */
+export function leadScore(
+  scores: Record<LeadFactorKey, number | null>
+): number | null {
+  const scored = LEAD_FACTORS.filter((f) => scores[f.key] != null);
+  if (scored.length < MIN_SCORED_FACTORS) return null;
+  const got = scored.reduce((sum, f) => sum + (scores[f.key] as number), 0);
+  const possible = scored.reduce((sum, f) => sum + f.max, 0);
+  return Math.round((got / possible) * LEAD_MAX);
+}
+
+export interface ObjectionType {
+  name: string;
+  /** The buying belief the objection points at, or null. */
+  belief: string | null;
+  detail: string;
+}
+
+export const OBJECTION_TYPES: ObjectionType[] = [
+${objections}
+];
+
+/** The entry that means no objection was voiced, excluded from frequency counts. */
+export const NO_OBJECTION = ${JSON.stringify(
+    r.objections.types[r.objections.types.length - 1].name
+  )};
+
+export const OBJECTIONS_COLUMN = ${JSON.stringify(r.objections.column)};
+export const PRIMARY_OBJECTION_COLUMN = ${JSON.stringify(r.objections.primaryColumn)};
+export const LEAD_SCORE_COLUMN = ${JSON.stringify(lq.column)};
+export const LEAD_READ_COLUMN = ${JSON.stringify(lq.readColumn)};
+`;
+}
+
 /* ---------------------------------------------------------------- workflow */
 
 function buildWorkflow(r, systemPrompt, schema) {
@@ -378,7 +632,10 @@ function buildWorkflow(r, systemPrompt, schema) {
 
 /* -------------------------------------------------------------------- run */
 
-console.log(`Building rubric v${rubric.version} (${rubric.dimensions.length} dimensions)`);
+console.log(
+  `Building rubric v${rubric.version} (${rubric.dimensions.length} dimensions, ` +
+    `${rubric.leadQuality.factors.length} lead factors)`
+);
 
 const systemPrompt = buildSystemPrompt(rubric);
 const schema = buildOutputSchema(rubric);
@@ -398,6 +655,7 @@ try {
   console.log("  no rubric/offer-context.local.md — skipping skill.local.md");
 }
 write("src/lib/dimensions.ts", buildDimensionsModule(rubric));
+write("src/lib/lead-quality.ts", buildLeadQualityModule(rubric));
 write(
   "automation/sales-call-tracker.json",
   JSON.stringify(buildWorkflow(rubric, systemPrompt, schema), null, 2) + "\n"

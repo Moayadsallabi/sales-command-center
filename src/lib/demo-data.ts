@@ -1,5 +1,6 @@
 import { CallRecord } from "./types";
 import { DIMENSIONS, DimensionKey } from "./dimensions";
+import { LEAD_FACTORS, LeadFactorKey } from "./lead-quality";
 
 /**
  * Deterministic sample calls, used when DASHBOARD_DEMO_DATA=1. Lets you see
@@ -46,6 +47,55 @@ const WEAKNESS: Record<
 
 /** Everyone is weak here, which should read as a script problem, not a person. */
 const TEAM_WEAKNESS: DimensionKey = "belief_architecture";
+
+/**
+ * How good a lead each closer tends to be handed, as a shift on the 0–1 scale
+ * the factors are drawn from. Jordan's execution is flat and unremarkable, so
+ * a poor close rate on his calls has no explanation in the dimension scores at
+ * all — it only shows up once the leads are scored too. That pairing is the
+ * whole reason both halves exist, so the sample data has to contain a case of
+ * it or the panels demonstrate nothing.
+ */
+const LEAD_BIAS: Record<Closer, number> = {
+  "Sam Rep": 0.02,
+  "Jordan Ellis": -0.2,
+  "Priya Nair": 0.05,
+};
+
+/**
+ * The objection a weak lead factor tends to surface as. Real objections come
+ * from the transcript; this mapping exists so the demo's objection panel agrees
+ * with its own lead scores instead of contradicting them.
+ */
+const OBJECTION_FOR: Record<LeadFactorKey, string> = {
+  financial_capacity: "Price",
+  urgency: "Timing",
+  authority: "Partner",
+  solution_belief: "Doubts the method",
+  self_efficacy: "Doubts themselves",
+  pain_severity: "Think about it",
+  desire_clarity: "Think about it",
+  icp_fit: "Comparing options",
+};
+
+const LEAD_READ: Record<LeadFactorKey, string> = {
+  financial_capacity:
+    "Wants it and cannot obviously afford it. The temptation is a payment plan; the fix is confirming capacity before the number, not after.",
+  urgency:
+    "A real buyer on the wrong day. Nothing is forcing this, so it will defer politely. Give it a deadline or book the return properly.",
+  authority:
+    "There is someone else in this decision who has not been in the room. Get them named early or the close happens without them and unwinds afterwards.",
+  solution_belief:
+    "Not convinced the approach works. Proof before price — anything else is arguing with someone who has not agreed the premise.",
+  self_efficacy:
+    "Believes the method and doubts themselves. Coachable, but it needs an identity reframe before the number, not a discount after it.",
+  pain_severity:
+    "Mildly dissatisfied rather than hurting. Discovery has to find the cost of staying put or there is nothing for the price to land against.",
+  desire_clarity:
+    "Cannot say what they actually want, which means they will not recognise it being offered. Make them name the outcome first.",
+  icp_fit:
+    "Adjacent to the buyer this offer is built for. Worth asking whether the targeting is right before asking what the closer did wrong.",
+};
 
 /**
  * Written feedback per dimension, so the demo's moment and drill match the
@@ -141,7 +191,8 @@ export function demoCalls(today: string): CallRecord[] {
     // 0 for the oldest call, 1 for the newest. Drives the improving closer.
     const recency = 1 - daysAgo / (CALL_COUNT * DAYS_APART);
 
-    // A tenth of calls are no-shows, which never get scored.
+    // A tenth of calls are no-shows, which never get scored — and a prospect
+    // who never turned up cannot be assessed as a lead either.
     if (rand() < 0.1) {
       calls.push(
         buildCall({
@@ -149,6 +200,10 @@ export function demoCalls(today: string): CallRecord[] {
           outcome: "No show",
           scores: Object.fromEntries(DIMENSIONS.map((d) => [d.key, null])) as Record<
             DimensionKey,
+            number | null
+          >,
+          lead: Object.fromEntries(LEAD_FACTORS.map((f) => [f.key, null])) as Record<
+            LeadFactorKey,
             number | null
           >,
         })
@@ -175,9 +230,29 @@ export function demoCalls(today: string): CallRecord[] {
     const average =
       DIMENSIONS.reduce((sum, d) => sum + (scores[d.key] as number), 0) / DIMENSIONS.length;
 
-    // Outcome follows the score, which is the whole premise the dashboard is
-    // meant to demonstrate. Not perfectly — a good call still loses sometimes.
-    const chanceOfClosing = clamp((average - 4.2) / 5.5, 0.05, 0.85);
+    // How good this lead was, on 0–1, drawn independently of how the call was
+    // run. Independence is the point: if lead quality tracked the dimension
+    // scores, the dashboard could never separate the two and the panel that
+    // splits them would be showing an artefact of the generator.
+    const leadStrength = clamp(0.55 + (rand() - 0.5) * 0.62 + LEAD_BIAS[closer], 0.08, 0.97);
+
+    const lead = {} as Record<LeadFactorKey, number | null>;
+    for (const factor of LEAD_FACTORS) {
+      // A fifth of the time the subject never came up, which leaves the factor
+      // unscored — the case the normalised total has to survive.
+      if (rand() < 0.2) {
+        lead[factor.key] = null;
+        continue;
+      }
+      const spread = leadStrength + (rand() - 0.5) * 0.26;
+      lead[factor.key] = Math.round(clamp(factor.max * spread, 1, factor.max));
+    }
+
+    // Outcome follows both halves, roughly evenly. That is the premise the
+    // dashboard is meant to demonstrate: a good call on a bad lead and a bad
+    // call on a good lead both lose, and they are not the same problem.
+    const execution = clamp((average - 4.2) / 5.5, 0, 1);
+    const chanceOfClosing = clamp(execution * 0.55 + leadStrength * 0.45 - 0.1, 0.04, 0.86);
     const roll = rand();
     const outcome =
       roll < chanceOfClosing
@@ -186,7 +261,7 @@ export function demoCalls(today: string): CallRecord[] {
         ? "BAMFAM"
         : "No deal";
 
-    calls.push({ ...buildCall({ i, closer, daysAgo, today, rand, outcome, scores }) });
+    calls.push({ ...buildCall({ i, closer, daysAgo, today, rand, outcome, scores, lead }) });
   }
 
   return calls;
@@ -200,6 +275,7 @@ function buildCall({
   rand,
   outcome,
   scores,
+  lead,
 }: {
   i: number;
   closer: string;
@@ -208,6 +284,7 @@ function buildCall({
   rand: () => number;
   outcome: string;
   scores: Record<DimensionKey, number | null>;
+  lead: Record<LeadFactorKey, number | null>;
 }): CallRecord {
   const closed = outcome === "Customer";
   const noShow = outcome === "No show";
@@ -230,6 +307,33 @@ function buildCall({
       ? STRONG_CALL
       : FEEDBACK[weakest.key];
   const low = (key: DimensionKey) => (scores[key] ?? 10) < 7;
+
+  // The lead factors, weakest share of its own ceiling first, so the objections
+  // and the written read both follow from what was actually thin about the lead.
+  const leadRanked = LEAD_FACTORS.filter((f) => lead[f.key] != null).sort(
+    (a, b) => (lead[a.key] as number) / a.max - (lead[b.key] as number) / b.max
+  );
+  const weakestLead = leadRanked[0] ?? null;
+
+  // A closed call may still have raised something on the way; a lost one raised
+  // whatever its weakest factor points at, and sometimes the next one down too.
+  const objections: string[] = [];
+  if (!noShow && weakestLead) {
+    const weakShare = (lead[weakestLead.key] as number) / weakestLead.max;
+    if (!closed || rand() > 0.55) objections.push(OBJECTION_FOR[weakestLead.key]);
+    const second = leadRanked[1];
+    if (second && !closed && weakShare < 0.6 && rand() > 0.5) {
+      const next = OBJECTION_FOR[second.key];
+      if (!objections.includes(next)) objections.push(next);
+    }
+  }
+
+  // A stable minute-and-second mark per call, so the timestamp links in the
+  // written feedback have something to point at in demo mode.
+  const stampSeconds = 240 + (i * 137) % 1500;
+  const stamp = `${String(Math.floor(stampSeconds / 60)).padStart(2, "0")}:${String(
+    stampSeconds % 60
+  ).padStart(2, "0")}`;
 
   return {
     id: `demo-${String(i).padStart(4, "0")}-0000-4000-8000-00000000${String(i).padStart(4, "0")}`,
@@ -264,6 +368,12 @@ function buildCall({
     recording_url: "https://example.com/demo-recording",
     summary: `Sample call with ${NAMES[i % NAMES.length]}. This row is demo data, not a real call.`,
     scores,
+    lead,
+    lead_read: weakestLead ? LEAD_READ[weakestLead.key] : "",
+    objections,
+    // The one that decided it. A call that closed was not decided by an
+    // objection, so it has none even when one was raised along the way.
+    primary_objection: closed || objections.length === 0 ? null : objections[0],
     flags: {
       // Each flag only fires when the score it relates to actually dropped.
       value_leak: low("frame_ownership") && rand() > 0.4,
@@ -275,7 +385,7 @@ function buildCall({
         ? ["Money", "Trust", "Support", "Cost"][Math.floor(rand() * 4)]
         : "None",
     },
-    the_moment: feedback?.moment ?? "",
+    the_moment: feedback ? `${feedback.moment} [${stamp}]` : "",
     next_call_drill: feedback?.drill ?? "",
     notion_url: "https://www.notion.so/",
   };

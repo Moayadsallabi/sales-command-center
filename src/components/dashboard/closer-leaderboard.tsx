@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import { closerLeaderboard } from "@/lib/stats";
+import { LEAD_MAX } from "@/lib/lead-quality";
 import { formatReporting } from "@/lib/money";
 import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
 
@@ -82,26 +83,32 @@ export function CloserLeaderboard({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
+                {/* Alignment is declared per column rather than by index, so
+                    adding one does not silently shift another's alignment. */}
                 {[
-                  "Closer",
-                  "Calls",
-                  "Taken",
-                  "Closed",
-                  "Close rate",
-                  "On call",
-                  "Cash",
-                  "Avg score",
-                  "Trend",
-                  "Weakest part of their call",
-                ].map((heading, i) => (
-                    <th
-                      key={heading}
-                      className={`text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 px-5 py-3 whitespace-nowrap ${
-                        i === 0 || i === 8 ? "text-left" : "text-right"
-                      }`}
-                    >
-                      {heading}
-                    </th>
+                  { label: "Closer", align: "left" },
+                  { label: "Calls", align: "right" },
+                  { label: "Taken", align: "right" },
+                  { label: "Closed", align: "right" },
+                  { label: "Close rate", align: "right" },
+                  { label: "On call", align: "right" },
+                  { label: "Cash", align: "right" },
+                  { label: "Avg score", align: "right" },
+                  // Sits next to the close rate on purpose: a lower close rate
+                  // against lower-quality leads is a different finding from a
+                  // lower close rate against the same leads as everyone else.
+                  { label: "Lead quality", align: "right" },
+                  { label: "Trend", align: "right" },
+                  { label: "Weakest part of their call", align: "left" },
+                ].map(({ label, align }) => (
+                  <th
+                    key={label}
+                    className={`text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 px-5 py-3 whitespace-nowrap ${
+                      align === "left" ? "text-left" : "text-right"
+                    }`}
+                  >
+                    {label}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -143,6 +150,23 @@ export function CloserLeaderboard({
                       )}`}
                     >
                       {row.avgScore == null ? "—" : row.avgScore.toFixed(1)}
+                    </td>
+                    <td
+                      className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400"
+                      title={
+                        row.avgLeadScore == null
+                          ? "None of these calls has a lead assessment yet"
+                          : `Average across the ${row.leadScoredCalls} of their calls with a lead score`
+                      }
+                    >
+                      {row.avgLeadScore == null ? (
+                        "—"
+                      ) : (
+                        <>
+                          {Math.round(row.avgLeadScore)}
+                          <span className="text-zinc-600">/{LEAD_MAX}</span>
+                        </>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-right font-mono text-[12px] tabular-nums">
                       <Trend value={row.trend} />

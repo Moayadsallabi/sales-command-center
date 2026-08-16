@@ -74,11 +74,11 @@
           "value": "sales-tracker",
           "mode": "name"
         },
-        "text": "={{ '\ud83d\udc40 *__CLIENT_NAME__* \u2014 a Fathom recording was NOT tracked. Its title matched none of the sales-call phrases.\\n\\nTitle: ' + ($('Fathom Webhook').item.json.body.meeting_title ?? 'untitled') + '\\nRecorded by: ' + ($('Fathom Webhook').item.json.body.recorded_by?.name ?? 'unknown') + '\\nRecording: ' + ($('Fathom Webhook').item.json.body.share_url ?? $('Fathom Webhook').item.json.body.url ?? 'no link') + '\\n\\nIf that was a sales call, the invite was titled wrong \u2014 or it was impromptu and has no invite at all. Log it by hand, and remind the closer of the title rule.' }}",
+        "text": "={{ '👀 *__CLIENT_NAME__* — a Fathom recording was NOT tracked. Its title matched none of the sales-call phrases.\\n\\nTitle: ' + ($('Fathom Webhook').item.json.body.meeting_title ?? 'untitled') + '\\nRecorded by: ' + ($('Fathom Webhook').item.json.body.recorded_by?.name ?? 'unknown') + '\\nRecording: ' + ($('Fathom Webhook').item.json.body.share_url ?? $('Fathom Webhook').item.json.body.url ?? 'no link') + '\\n\\nIf that was a sales call, the invite was titled wrong — or it was impromptu and has no invite at all. Log it by hand, and remind the closer of the title rule.' }}",
         "otherOptions": {}
       },
       "id": "a1000000-0000-4000-8000-000000000004",
-      "name": "Untracked \u2014 Alert",
+      "name": "Untracked — Alert",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -170,7 +170,7 @@
         16,
         -208
       ],
-      "notes": "With several internal people on the invite, the closer is the one who actually spoke the most in the transcript \u2014 not whoever Fathom happens to list first."
+      "notes": "With several internal people on the invite, the closer is the one who actually spoke the most in the transcript — not whoever Fathom happens to list first."
     },
     {
       "parameters": {
@@ -284,7 +284,7 @@
         976,
         -208
       ],
-      "notes": "Generated from rubric/rubric.json. Do not edit the prompt here \u2014 edit the rubric and re-run `npm run build:rubric`."
+      "notes": "Generated from rubric/rubric.json. Do not edit the prompt here — edit the rubric and re-run `npm run build:rubric`."
     },
     {
       "parameters": {
@@ -343,7 +343,7 @@
         1360,
         -208
       ],
-      "notes": "Finds the text block by type rather than taking content[0] \u2014 with thinking enabled the first block is a thinking block."
+      "notes": "Finds the text block by type rather than taking content[0] — with thinking enabled the first block is a thinking block."
     },
     {
       "parameters": {
@@ -362,7 +362,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const ai = $json.ai; const d = $('Extract Direct Fields').item.json; const S = ai.scores; const DIMS = [['frame_ownership','Frame Ownership'],['discovery_depth','Discovery Depth'],['belief_architecture','Belief Architecture'],['pitch_precision','Pitch Precision'],['tension_management','Tension Management'],['objection_resolution','Objection Resolution'],['qualification','Qualification'],['strategic_awareness','Strategic Awareness']]; const vals = DIMS.map(k => S[k[0]].score).filter(v => v != null); const overall = vals.length ? Math.round((vals.reduce((t, v) => t + v, 0) / vals.length) * 10) / 10 : null; const verdict = overall == null ? null : overall >= 8.5 ? 'Elite execution' : overall >= 7 ? 'Strong call' : overall >= 5.5 ? 'Average' : 'Fundamentals need work'; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; const blk = (type, s) => ({ object: 'block', type: type, [type]: { rich_text: txt(s) } }); const num = (v) => ({ number: (v === null || v === undefined || v === '') ? null : Number(v) }); const sel = (v) => v ? { select: { name: String(v) } } : { select: null }; const rt = (v) => ({ rich_text: v ? txt(v) : [] }); const yn = (v) => v ? 'yes' : 'no'; const children = [blk('heading_2', overall == null ? 'Scorecard: not scored \u2014 no evidence in the transcript' : 'Scorecard: ' + overall + '/10 \u2014 ' + verdict)].concat(DIMS.flatMap(k => [blk('heading_3', k[1] + ' \u2014 ' + (S[k[0]].score == null ? 'no evidence' : S[k[0]].score + '/10')), blk('paragraph', S[k[0]].reasoning)])).concat([{ object: 'block', type: 'divider', divider: {} }, blk('heading_2', 'The moment'), blk('paragraph', ai.narrative.the_moment), blk('heading_2', 'Next call drill'), blk('paragraph', ai.narrative.next_call_drill), blk('heading_2', 'Flags'), blk('bulleted_list_item', 'Best moment: ' + ai.narrative.best_moment), blk('bulleted_list_item', 'Biggest miss: ' + ai.narrative.biggest_miss), blk('bulleted_list_item', 'Weakest belief: ' + ai.flags.weakest_belief), blk('bulleted_list_item', 'Value leak: ' + yn(ai.flags.value_leak)), blk('bulleted_list_item', 'Follow-up trap: ' + yn(ai.flags.follow_up_trap)), blk('bulleted_list_item', 'Early price drop: ' + yn(ai.flags.price_drop_too_early))]); const props = { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Prospect Email': { email: (d.prospect_email || null) }, 'Closer': sel(d.closer), 'Call Date': { date: { start: d.call_date } }, 'Outcome': sel(ai.outcome || 'No deal'), 'Tier': ai.tier ? { select: { name: 'Tier ' + ai.tier } } : { select: null }, 'Price Discussed': num(ai.price_discussed), 'Price Closed': num(ai.price_closed), 'Collected On Call': num(ai.collected_on_call), 'Payment Structure': sel(ai.payment_structure), 'Currency': sel(ai.currency), 'Prospect Revenue': rt(ai.prospect_revenue), 'Niche': rt(ai.niche), 'Location': rt(ai.location), 'Lead Source': sel(ai.lead_source), 'Quality Score': num(overall), 'Recording ID': num(d.recording_id), 'Rubric Version': rt($('Load Rubric').item.json.rubric_version), 'Value Leak': { checkbox: !!ai.flags.value_leak }, 'Follow-Up Trap': { checkbox: !!ai.flags.follow_up_trap }, 'Early Price Drop': { checkbox: !!ai.flags.price_drop_too_early }, 'Weakest Belief': sel(ai.flags.weakest_belief), 'The Moment': rt(ai.narrative.the_moment), 'Next Call Drill': rt(ai.narrative.next_call_drill), 'Duration (min)': num(d.duration_minutes), 'Recording URL': { url: d.share_url || null }, 'Summary': rt(ai.summary) }; DIMS.forEach(k => { props[k[1]] = num(S[k[0]].score); }); return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: props, children: children }); })() }}",
+        "jsonBody": "={{ (() => { const ai = $json.ai; const d = $('Extract Direct Fields').item.json; const S = ai.scores; const DIMS = [['frame_ownership','Frame Ownership'],['discovery_depth','Discovery Depth'],['belief_architecture','Belief Architecture'],['pitch_precision','Pitch Precision'],['tension_management','Tension Management'],['objection_resolution','Objection Resolution'],['qualification','Qualification'],['strategic_awareness','Strategic Awareness']]; const LQ = ai.lead_quality || {}; const FACTORS = [['pain_severity','Pain Severity',15],['urgency','Urgency',15],['desire_clarity','Desire Clarity',15],['solution_belief','Solution Belief',15],['self_efficacy','Self-Efficacy',10],['authority','Authority',10],['financial_capacity','Financial Capacity',10],['icp_fit','ICP Fit',10]]; const fScored = FACTORS.filter(f => LQ[f[0]] && LQ[f[0]].score != null); const leadScore = fScored.length >= 4 ? Math.round(fScored.reduce((t, f) => t + LQ[f[0]].score, 0) / fScored.reduce((t, f) => t + f[2], 0) * 100) : null; const leadBand = leadScore == null ? null : leadScore >= 75 ? 'Strong' : leadScore >= 55 ? 'Moderate' : leadScore >= 35 ? 'Weak' : 'Poor'; const obs = ai.objections || {}; const raised = (obs.raised || []).filter(o => o && o !== 'None raised'); const vals = DIMS.map(k => S[k[0]].score).filter(v => v != null); const overall = vals.length ? Math.round((vals.reduce((t, v) => t + v, 0) / vals.length) * 10) / 10 : null; const verdict = overall == null ? null : overall >= 8.5 ? 'Elite execution' : overall >= 7 ? 'Strong call' : overall >= 5.5 ? 'Average' : 'Fundamentals need work'; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; const blk = (type, s) => ({ object: 'block', type: type, [type]: { rich_text: txt(s) } }); const num = (v) => ({ number: (v === null || v === undefined || v === '') ? null : Number(v) }); const sel = (v) => v ? { select: { name: String(v) } } : { select: null }; const rt = (v) => ({ rich_text: v ? txt(v) : [] }); const msel = (arr) => ({ multi_select: (arr || []).map(n => ({ name: String(n) })) }); const yn = (v) => v ? 'yes' : 'no'; const children = [blk('heading_2', overall == null ? 'Scorecard: not scored — no evidence in the transcript' : 'Scorecard: ' + overall + '/10 — ' + verdict)].concat(DIMS.flatMap(k => [blk('heading_3', k[1] + ' — ' + (S[k[0]].score == null ? 'no evidence' : S[k[0]].score + '/10')), blk('paragraph', S[k[0]].reasoning)])).concat([{ object: 'block', type: 'divider', divider: {} }, blk('heading_2', 'The moment'), blk('paragraph', ai.narrative.the_moment), blk('heading_2', 'Next call drill'), blk('paragraph', ai.narrative.next_call_drill), blk('heading_2', leadScore == null ? 'Lead quality — not enough evidence to score' : 'Lead quality: ' + leadScore + '/100 — ' + leadBand)]) .concat(FACTORS.map(f => blk('bulleted_list_item', f[1] + ': ' + (LQ[f[0]] && LQ[f[0]].score != null ? LQ[f[0]].score + '/' + f[2] : 'no evidence') + (LQ[f[0]] && LQ[f[0]].reasoning ? ' — ' + LQ[f[0]].reasoning : '')))) .concat([blk('heading_2', 'Reading this lead'), blk('paragraph', ai.narrative.lead_read), blk('heading_2', 'Objections'), blk('paragraph', raised.length ? raised.join(', ') + (obs.primary ? ' — the one that decided it: ' + obs.primary : '') : 'None raised')]) .concat(obs.detail ? [blk('paragraph', obs.detail)] : []) .concat([blk('heading_2', 'Flags'), blk('bulleted_list_item', 'Best moment: ' + ai.narrative.best_moment), blk('bulleted_list_item', 'Biggest miss: ' + ai.narrative.biggest_miss), blk('bulleted_list_item', 'Weakest belief: ' + ai.flags.weakest_belief), blk('bulleted_list_item', 'Value leak: ' + yn(ai.flags.value_leak)), blk('bulleted_list_item', 'Follow-up trap: ' + yn(ai.flags.follow_up_trap)), blk('bulleted_list_item', 'Early price drop: ' + yn(ai.flags.price_drop_too_early))]); const props = { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Prospect Email': { email: (d.prospect_email || null) }, 'Closer': sel(d.closer), 'Call Date': { date: { start: d.call_date } }, 'Outcome': sel(ai.outcome || 'No deal'), 'Tier': ai.tier ? { select: { name: 'Tier ' + ai.tier } } : { select: null }, 'Price Discussed': num(ai.price_discussed), 'Price Closed': num(ai.price_closed), 'Collected On Call': num(ai.collected_on_call), 'Payment Structure': sel(ai.payment_structure), 'Currency': sel(ai.currency), 'Prospect Revenue': rt(ai.prospect_revenue), 'Niche': rt(ai.niche), 'Location': rt(ai.location), 'Lead Source': sel(ai.lead_source), 'Quality Score': num(overall), 'Recording ID': num(d.recording_id), 'Rubric Version': rt($('Load Rubric').item.json.rubric_version), 'Value Leak': { checkbox: !!ai.flags.value_leak }, 'Follow-Up Trap': { checkbox: !!ai.flags.follow_up_trap }, 'Early Price Drop': { checkbox: !!ai.flags.price_drop_too_early }, 'Weakest Belief': sel(ai.flags.weakest_belief), 'Lead Score': num(leadScore), 'Lead Read': rt(ai.narrative.lead_read), 'Objections': msel(raised.length ? raised : ['None raised']), 'Primary Objection': sel(obs.primary), 'The Moment': rt(ai.narrative.the_moment), 'Next Call Drill': rt(ai.narrative.next_call_drill), 'Duration (min)': num(d.duration_minutes), 'Recording URL': { url: d.share_url || null }, 'Summary': rt(ai.summary) }; DIMS.forEach(k => { props[k[1]] = num(S[k[0]].score); }); FACTORS.forEach(f => { props[f[1]] = num(LQ[f[0]] ? LQ[f[0]].score : null); }); return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: props, children: children }); })() }}",
         "options": {
           "timeout": 30000
         }
@@ -375,7 +375,7 @@
         1552,
         -208
       ],
-      "notes": "Writes the eight dimension scores as columns and the full written breakdown as the page body. 'Quality Score' averages only the dimensions that had evidence \u2014 a null score is left out, not counted as zero. Retries 3 times so a transient Notion error does not lose the call.",
+      "notes": "Writes the eight dimension scores as columns and the full written breakdown as the page body. 'Quality Score' averages only the dimensions that had evidence — a null score is left out, not counted as zero. Retries 3 times so a transient Notion error does not lose the call.",
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000
@@ -452,7 +452,7 @@
     {
       "parameters": {},
       "id": "a1000000-0000-4000-8000-000000000013",
-      "name": "Duplicate \u2014 Already Logged",
+      "name": "Duplicate — Already Logged",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
@@ -493,7 +493,7 @@
         784,
         -208
       ],
-      "notes": "Under 50 words of transcript there is no call to score \u2014 a no-show or a recording failure. Scoring it anyway would fill the tracker with meaningless neutral numbers that drag every average."
+      "notes": "Under 50 words of transcript there is no call to score — a no-show or a recording failure. Scoring it anyway would fill the tracker with meaningless neutral numbers that drag every average."
     },
     {
       "parameters": {
@@ -512,7 +512,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': d.closer ? { select: { name: String(d.closer) } } : { select: null }, 'Call Date': { date: { start: d.call_date } }, 'Duration (min)': { number: d.duration_minutes ?? null }, 'Recording URL': { url: d.share_url || null }, 'Recording ID': { number: d.recording_id ?? null }, 'Outcome': { select: { name: 'No show' } }, 'Summary': { rich_text: txt('No usable transcript came through (under 50 words), so this call was not scored. Logged as a no-show \u2014 check the recording and correct the outcome if that is wrong.') } } }); })() }}",
+        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; const txt = (s) => [{ text: { content: String(s ?? '').slice(0, 1900) } }]; return JSON.stringify({ parent: { database_id: 'YOUR_NOTION_DATABASE_ID' }, properties: { 'Name': { title: txt(d.prospect_name || 'Unknown') }, 'Closer': d.closer ? { select: { name: String(d.closer) } } : { select: null }, 'Call Date': { date: { start: d.call_date } }, 'Duration (min)': { number: d.duration_minutes ?? null }, 'Recording URL': { url: d.share_url || null }, 'Recording ID': { number: d.recording_id ?? null }, 'Outcome': { select: { name: 'No show' } }, 'Summary': { rich_text: txt('No usable transcript came through (under 50 words), so this call was not scored. Logged as a no-show — check the recording and correct the outcome if that is wrong.') } } }); })() }}",
         "options": {
           "timeout": 30000
         }
@@ -528,7 +528,7 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000,
-      "notes": "The call still gets a row \u2014 outcome, closer, date, recording link \u2014 just no scorecard."
+      "notes": "The call still gets a row — outcome, closer, date, recording link — just no scorecard."
     }
   ],
   "connections": {
@@ -565,7 +565,7 @@
         ],
         [
           {
-            "node": "Untracked \u2014 Alert",
+            "node": "Untracked — Alert",
             "type": "main",
             "index": 0
           }
@@ -649,7 +649,7 @@
         ],
         [
           {
-            "node": "Duplicate \u2014 Already Logged",
+            "node": "Duplicate — Already Logged",
             "type": "main",
             "index": 0
           }

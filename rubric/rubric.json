@@ -1,11 +1,13 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "title": "Sales Call Scorecard",
-  "subtitle": "Eight dimensions, scored 1-10, applied to every recorded sales call.",
+  "subtitle": "Eight dimensions for the caller, eight factors for the lead, applied to every recorded sales call.",
   "offerContextPlaceholder": "[OFFER CONTEXT — replace this paragraph during setup. Describe what the business sells, to whom, at what price points, and what language the pitch should use. The scorer uses this to judge whether a pitch was on-message. See the setup manual.]",
   "scoringPrinciples": [
     "No weighting. Every dimension counts equally, because a weakness in any single one can kill the deal.",
-    "Every judgement must be anchored to a specific moment in the transcript. Quote the caller's exact words so they can find the moment.",
+    "Every judgement must be anchored to a specific moment in the transcript. Quote the exact words so they can find the moment.",
+    "Every quote carries the time it happened, written as [mm:ss] immediately after the closing quotation mark — \"I have nothing to show for it\" [03:50]. Take the time from the transcript's own timestamps; never estimate one. If a line in the transcript carries no timestamp, quote it without one rather than inventing a number.",
+    "You are scoring two separate things and must not let one bleed into the other: the caller's execution, and the quality of the lead they were handed. A weak lead does not lower the caller's scores, and a strong lead does not raise them.",
     "Be direct. If the call was bad, say so. If a dimension scored a 3, explain exactly why without softening it.",
     "Do not over-praise. A 7 is a good score. An 8 is strong. A 9 means near-flawless execution on that dimension. A 10 is reserved for exceptional, textbook-worthy moments.",
     "If the transcript gives no evidence for a dimension — it never came up, or the call ended before it could — return null for that score and say in the reasoning what was missing. Never fill the gap with a middle score; a guessed number poisons every average built on it."
@@ -282,6 +284,280 @@
       ]
     }
   ],
+  "leadQuality": {
+    "column": "Lead Score",
+    "readColumn": "Lead Read",
+    "max": 100,
+    "intro": "The eight dimensions above score the caller. This section scores the lead they were handed. It exists so a bad number can be traced to the right cause: a closer who executed badly, or a prospect who was never going to buy. Score only what the prospect said and did, never what the caller asserted on their behalf. Where a subject came up and the answer was vague, score the band the evidence supports. Where it never came up at all — the caller did not ask and the prospect did not volunteer — return null and say what was missing. A guessed middle score here is worse than no score, because it makes an unknown lead look like an average one.",
+    "factors": [
+      {
+        "key": "pain_severity",
+        "name": "Pain Severity",
+        "column": "Pain Severity",
+        "belief": "Pain",
+        "max": 15,
+        "question": "How badly is the prospect's current situation actually hurting them?",
+        "detail": "Score the pain the prospect described, not the pain the caller asserted on their behalf. Three things raise it: how long it has gone on, whether it is quantified in real numbers, and whether it reaches past the business into their life, health, relationships or self-image. A prospect who is mildly dissatisfied buys nothing regardless of who is on the call.",
+        "bands": [
+          {
+            "range": "1-5",
+            "text": "Mild dissatisfaction, or pain the caller described for them. No duration, no numbers, no personal cost."
+          },
+          {
+            "range": "6-10",
+            "text": "Real and sustained problem, stated in their own words, but contained to the business and not quantified."
+          },
+          {
+            "range": "11-15",
+            "text": "Quantified, long-running and personal. They named what it costs them and it reached beyond work."
+          }
+        ]
+      },
+      {
+        "key": "urgency",
+        "name": "Urgency",
+        "column": "Urgency",
+        "belief": "Cost",
+        "max": 15,
+        "question": "Is there a reason this has to be solved now rather than in six months?",
+        "detail": "Separate internal urgency — frustration, a self-imposed deadline, being fed up — from an external forcing function, such as a contract ending, a funded account expiring, a season closing, or money running out on a date they named. External beats internal every time. General frustration with no deadline is the most common false positive in this whole rubric: it feels urgent on the call and defers the moment the call ends.",
+        "bands": [
+          {
+            "range": "1-5",
+            "text": "No urgency. Exploring, curious, or 'sometime this year'. Nothing changes if they do nothing."
+          },
+          {
+            "range": "6-10",
+            "text": "Internal urgency only — real frustration and a wish to move faster, but no date and nothing forcing it."
+          },
+          {
+            "range": "11-15",
+            "text": "An external forcing function with a date attached, or a cost of waiting the prospect themselves quantified."
+          }
+        ]
+      },
+      {
+        "key": "desire_clarity",
+        "name": "Desire Clarity",
+        "column": "Desire Clarity",
+        "belief": "Desire",
+        "max": 15,
+        "question": "Can the prospect describe the specific outcome they want?",
+        "detail": "\"I want to be profitable\" is vague. \"Five thousand a month by March so I can hand in my notice\" is clear. Score the specificity of the destination — a number, a date, a named change in their life — and whether an emotional anchor is attached to it. A prospect who cannot name the outcome cannot recognise it when it is sold to them.",
+        "bands": [
+          {
+            "range": "1-5",
+            "text": "No stated outcome, or a direction so general it could belong to anyone."
+          },
+          {
+            "range": "6-10",
+            "text": "Clear direction and a real motivation, but no number, no date, or no concrete picture of the destination."
+          },
+          {
+            "range": "11-15",
+            "text": "A specific outcome with a figure or a deadline, tied to something that matters to them personally."
+          }
+        ]
+      },
+      {
+        "key": "solution_belief",
+        "name": "Solution Belief",
+        "column": "Solution Belief",
+        "belief": "Trust",
+        "max": 15,
+        "question": "Does the prospect believe this kind of solution works?",
+        "detail": "Belief in the category and the method — mentorship, coaching, the approach being sold — not yet belief in this particular provider. A prospect who arrived already sold on the concept and is only choosing between providers scores high. Active scepticism about the whole category, or a belief that everyone selling it is a scammer, scores low.",
+        "bands": [
+          {
+            "range": "1-5",
+            "text": "Sceptical of the category. Treats the approach, or the people selling it, as unproven or dishonest."
+          },
+          {
+            "range": "6-10",
+            "text": "Open to it without conviction. Willing to hear the case but has not decided the approach is the answer."
+          },
+          {
+            "range": "11-15",
+            "text": "Pre-sold on the method. Sought it out, named it themselves, or referenced others it worked for."
+          }
+        ]
+      },
+      {
+        "key": "self_efficacy",
+        "name": "Self-Efficacy",
+        "column": "Self-Efficacy",
+        "belief": "Doubt",
+        "max": 10,
+        "question": "Does the prospect believe they can execute it, while accepting they need help to do so?",
+        "detail": "This factor is not monotonic, and scoring it as 'more is better' gets it backwards. Some doubt is required to buy: a prospect certain they can fix it alone has no reason to pay anyone. But a prospect who does not believe they could succeed even with help will not commit either — they defer, because committing risks proving something about themselves. The buyable zone is the middle: they accept they need outside help and still believe they can do the work. Score how favourable the position is for a close, not how much confidence is present.",
+        "bands": [
+          {
+            "range": "1-3",
+            "text": "Either extreme. Certain they can do it alone and just gathering information, or visibly doubting they can succeed at all."
+          },
+          {
+            "range": "4-6",
+            "text": "Leaning to one end. Mostly self-reliant, or carrying self-doubt that is likely to surface as hesitation at the close."
+          },
+          {
+            "range": "7-10",
+            "text": "The buyable zone. Openly needs help, still believes they can execute once they have it."
+          }
+        ]
+      },
+      {
+        "key": "authority",
+        "name": "Authority",
+        "column": "Authority",
+        "belief": "Support",
+        "max": 10,
+        "question": "Can this person decide alone, and do the people around them back it?",
+        "detail": "Two parts, both required. Can they say yes today without anyone else's approval, and will the people close to them — partner, spouse, business partner — support the decision rather than talk them out of it afterwards. Speaking in the first person throughout with no mention of anyone else is a strong signal; so is explicitly saying a partner is on board.",
+        "bands": [
+          {
+            "range": "1-3",
+            "text": "Someone else decides, or a partner was named as an obstacle rather than a supporter."
+          },
+          {
+            "range": "4-6",
+            "text": "Probably able to decide but a second party exists and was never resolved either way."
+          },
+          {
+            "range": "7-10",
+            "text": "Sole decision-maker, or the people around them were named and confirmed as supportive."
+          }
+        ]
+      },
+      {
+        "key": "financial_capacity",
+        "name": "Financial Capacity",
+        "column": "Financial Capacity",
+        "belief": "Money",
+        "max": 10,
+        "question": "Can the prospect actually pay what this offer costs?",
+        "detail": "Capacity, not willingness — willingness belongs to the beliefs above. Look for what they said about income, savings, existing spend on similar things, or what they have already invested in trying to solve this. Having previously paid for a comparable programme is the strongest single signal. Treat \"I'd have to find it\" as low. If money never came up on the call at all, return null rather than a middle score.",
+        "bands": [
+          {
+            "range": "1-3",
+            "text": "Stated or clearly implied inability to pay at this level, or the price would be a genuine hardship."
+          },
+          {
+            "range": "4-6",
+            "text": "Mixed or indirect signals. They implied they could find it, or spend on something adjacent, without confirming capacity at this level."
+          },
+          {
+            "range": "7-10",
+            "text": "Demonstrated capacity — current income, prior spend on something comparable, or funds explicitly available."
+          }
+        ]
+      },
+      {
+        "key": "icp_fit",
+        "name": "ICP Fit",
+        "column": "ICP Fit",
+        "belief": null,
+        "max": 10,
+        "question": "Is this the kind of buyer the offer is actually built for?",
+        "detail": "Judge against the offer context at the top of this prompt: the situation, stage, niche and starting point the offer is designed for. This is the one factor that is about fit rather than state of mind, and it is the one marketing controls most directly. A perfect-fit prospect with no urgency is a nurture problem; a poor-fit prospect with high urgency is a targeting problem.",
+        "bands": [
+          {
+            "range": "1-3",
+            "text": "Wrong buyer. Outside the niche, at the wrong stage, or wanting something the offer does not do."
+          },
+          {
+            "range": "4-6",
+            "text": "Adjacent. Recognisably in the market but off the described profile in stage, niche or starting point."
+          },
+          {
+            "range": "7-10",
+            "text": "Squarely the intended buyer, matching the offer context on situation, stage and goal."
+          }
+        ]
+      }
+    ],
+    "bands": [
+      {
+        "min": 75,
+        "label": "Strong"
+      },
+      {
+        "min": 55,
+        "label": "Moderate"
+      },
+      {
+        "min": 35,
+        "label": "Weak"
+      },
+      {
+        "min": 0,
+        "label": "Poor"
+      }
+    ],
+    "patterns": [
+      "High Solution Belief with mid Self-Efficacy is the most closeable pattern there is: they believe the method works and know they cannot do it alone. Lead with proof and structure — people like them who got the result.",
+      "High Solution Belief with low Self-Efficacy is coachable but fragile. They will buy the idea and stall on themselves. It needs an identity reframe before the price, not a payment plan after it.",
+      "Low Solution Belief with high Self-Efficacy is the hardest pattern. They think they can do it alone and doubt the method. Nothing closes until doubt is built first.",
+      "High everything with low Urgency is a real buyer on the wrong day. The mistake is discounting; the fix is a forcing function or a scheduled return.",
+      "High Pain with low Financial Capacity is the most expensive lead to chase. It feels closeable on the call and does not pay."
+    ]
+  },
+  "objections": {
+    "column": "Objections",
+    "primaryColumn": "Primary Objection",
+    "intro": "Record which objections were actually voiced, so the pattern across calls is visible. An objection counts when the prospect raised it, whether or not the caller resolved it. If the call ended before any objection surfaced, answer with None raised and leave the primary objection null.",
+    "types": [
+      {
+        "name": "Price",
+        "belief": "Money",
+        "detail": "The number itself is the problem — too expensive, cannot afford it, needs it cheaper."
+      },
+      {
+        "name": "Timing",
+        "belief": "Cost",
+        "detail": "Wants to start later. A better month, after something else finishes, not right now."
+      },
+      {
+        "name": "Partner",
+        "belief": "Support",
+        "detail": "Needs to speak to a spouse, business partner, or anyone else before deciding."
+      },
+      {
+        "name": "Think about it",
+        "belief": "Doubt",
+        "detail": "Wants to defer with no reason given. The classic stand-in for an objection they did not name."
+      },
+      {
+        "name": "Doubts the method",
+        "belief": "Trust",
+        "detail": "Not convinced this approach works, or not convinced it works when this provider delivers it."
+      },
+      {
+        "name": "Doubts themselves",
+        "belief": "Doubt",
+        "detail": "Believes the offer works but not that they personally will follow through on it."
+      },
+      {
+        "name": "Tried before",
+        "belief": "Trust",
+        "detail": "A previous course, coach or programme failed them and this looks like the same thing."
+      },
+      {
+        "name": "Comparing options",
+        "belief": "Trust",
+        "detail": "Weighing a named alternative, or shopping the category before committing."
+      },
+      {
+        "name": "No time",
+        "belief": "Cost",
+        "detail": "Believes it works and cannot see where the hours to do it would come from."
+      },
+      {
+        "name": "None raised",
+        "belief": null,
+        "detail": "No objection was voiced — including calls that ended before the offer was made."
+      }
+    ]
+  },
   "bonusFlags": [
     {
       "key": "value_leak",
@@ -332,12 +608,20 @@
     {
       "key": "the_moment",
       "heading": "The moment",
-      "instruction": "Identify the single highest-leverage point on the call where a different move would have changed the outcome. Quote the transcript, explain what happened, what should have happened, and why it matters. Two to four sentences."
+      "column": "The Moment",
+      "instruction": "Identify the single highest-leverage point on the call where a different move would have changed the outcome. Quote the transcript with its [mm:ss], explain what happened, what should have happened, and why it matters. Two to four sentences."
     },
     {
       "key": "next_call_drill",
       "heading": "Next call drill",
+      "column": "Next Call Drill",
       "instruction": "One specific, concrete behaviour the caller can apply on their very next call. Not \"work on your discovery\" but \"when the prospect gives a surface-level answer, say 'tell me more about that' and then wait.\" One or two sentences."
+    },
+    {
+      "key": "lead_read",
+      "heading": "Reading this lead",
+      "column": "Lead Read",
+      "instruction": "What the lead-quality factors mean for how this prospect should be handled — written about the prospect, not the caller. Name the pattern the factors form, say what it implies for the next conversation with them, and give the one move that fits it. Two to four sentences. Where one of the listed patterns applies, use it; where none does, describe what you actually see."
     }
   ],
   "verdicts": [

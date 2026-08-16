@@ -65,6 +65,36 @@ A dimension the call never gave evidence for is left empty rather than scored, a
 records which version of the rubric produced the scores, so when the rubric changes
 you can tell a v1.2 six from a v1.1 six instead of mixing them in one trend line.
 
+## Lead quality
+
+Eight factors scoring the **prospect**, not the closer. `Lead Score` holds their
+total out of 100. The maximums differ per factor because the factors do not matter
+equally, and each one maps to one of the seven buying beliefs — so a lead that
+arrived weak on Money can be read against how the closer handled the Money belief.
+
+| Column | Type | Out of | Belief |
+| --- | --- | --- | --- |
+| `Lead Score` | Number | 100 | — |
+| `Pain Severity` | Number | 15 | Pain |
+| `Urgency` | Number | 15 | Cost |
+| `Desire Clarity` | Number | 15 | Desire |
+| `Solution Belief` | Number | 15 | Trust |
+| `Self-Efficacy` | Number | 10 | Doubt |
+| `Authority` | Number | 10 | Support |
+| `Financial Capacity` | Number | 10 | Money |
+| `ICP Fit` | Number | 10 | — |
+| `Lead Read` | Text | | What the factors add up to, and the move that fits |
+
+## Objections
+
+| Column | Type | Options |
+| --- | --- | --- |
+| `Objections` | Multi-select | Price, Timing, Partner, Think about it, Doubts the method, Doubts themselves, Tried before, Comparing options, No time, None raised |
+| `Primary Objection` | Select | Same options |
+
+`Objections` holds every objection the prospect voiced; `Primary Objection` holds the
+one that decided the call, and is empty when the call closed or nothing was raised.
+
 ## Flags and coaching
 
 | Column | Type | Options |
@@ -162,3 +192,22 @@ charted.
 **Old rows stay readable.** Calls recorded before the scorecard existed have no
 dimension scores. The dashboard leaves them out of score averages rather than counting
 them as zero, so your averages do not get dragged down by history.
+
+**`Lead Score` answers the question the closer scores cannot.** The eight dimensions
+say how well the call was run. The eight lead factors say what the closer was handed.
+Without both, a 5/10 call is unattributable — it could be a closer who fumbled a good
+prospect or a closer who did fine with someone who was never going to buy, and those
+want opposite fixes. Two closers can only be compared fairly once you can see whether
+they were fed the same quality of lead.
+
+**A factor the call never touched is left empty, not scored.** If money never came up,
+`Financial Capacity` stays blank. `Lead Score` is then the total of the factors that
+were scored, scaled to 100 — so a call that ended before the money question is not
+punished for it. Below four scored factors there is no `Lead Score` at all, because a
+lead assessed on three answers is not a lead anyone has assessed.
+
+**Quotes carry the time they happened at.** Every quote in the written breakdown ends
+with a `[mm:ss]` taken from the transcript, and the dashboard turns those into links
+straight into the recording at that moment. This is what makes a score arguable: a
+closer who disputes a 4 on Tension can click the timestamp and hear it. Rows scored
+before this existed simply have no timestamps and still render fine.

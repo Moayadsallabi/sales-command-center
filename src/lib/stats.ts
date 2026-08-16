@@ -1,5 +1,11 @@
-import { CallRecord, overallScore } from "./types";
+import {
+  CallRecord,
+  overallScore,
+  leadQualityScore,
+  hasLeadAssessment,
+} from "./types";
 import { DIMENSIONS, Dimension, DimensionKey, GOOD_SCORE } from "./dimensions";
+import { OBJECTION_TYPES, LEAD_MAX } from "./lead-quality";
 import {
   reportingCashOnCall,
   reportingCollected,
@@ -55,6 +61,15 @@ export interface CloserStats {
   trend: number | null;
   dimensionAverages: Record<DimensionKey, number | null>;
   weakest: { dimension: Dimension; score: number } | null;
+  /**
+   * The average quality of the leads this closer was handed. Two closers can
+   * only be compared on close rate once this is on the same row — a lower close
+   * rate against a lower lead score is not the same finding as a lower close
+   * rate against the same one.
+   */
+  avgLeadScore: number | null;
+  /** How many of their calls had a lead assessment behind that average. */
+  leadScoredCalls: number;
 }
 
 export function dimensionAverages(
@@ -98,6 +113,10 @@ function statsFor(
     previous.map(overallScore).filter((v): v is number => v != null)
   );
 
+  const leadScores = calls
+    .map(leadQualityScore)
+    .filter((v): v is number => v != null);
+
   return {
     closer,
     calls: calls.length,
@@ -112,6 +131,8 @@ function statsFor(
     trend: now != null && before != null ? now - before : null,
     dimensionAverages: averages,
     weakest: weakestOf(averages),
+    avgLeadScore: mean(leadScores),
+    leadScoredCalls: leadScores.length,
   };
 }
 
@@ -221,6 +242,170 @@ export function dimensionImpact(calls: CallRecord[]): ImpactResult {
     impacts: impacts.sort(
       (a, b) => Number(b.conclusive) - Number(a.conclusive) || b.gap - a.gap
     ),
+  };
+}
+
+/* ------------------------------------------------------------ lead quality */
+
+/** Calls whose lead was assessed and turned up. No-shows have no lead score. */
+function leadAssessed(calls: CallRecord[]): CallRecord[] {
+  return calls.filter(
+    (c) => c.outcome !== "No show" && hasLeadAssessment(c) && leadQualityScore(c) != null
+  );
+}
+
+export interface LeadBucket {
+  calls: number;
+  closes: number;
+  closeRate: number;
+  /** Mean lead score in this half, so the split is readable as a number. */
+  avgScore: number;
+}
+
+export interface LeadImpactResult {
+  ready: boolean;
+  /** Calls with a lead score behind them. */
+  assessed: number;
+  callsShort: number;
+  /** The lead score the two halves are split at — this account's own median. */
+  splitAt: number;
+  better: LeadBucket;
+  worse: LeadBucket;
+  gap: number;
+  swing: number;
+  conclusive: boolean;
+}
+
+/**
+ * Close rate on the better half of this account's leads against the worse half.
+ *
+ * The split is the account's own median rather than a fixed threshold, so both
+ * halves are always populated and the comparison holds whether the leads are
+ * uniformly good or uniformly poor. A fixed cut at, say, 55 would put every
+ * call on one side for an account whose traffic is consistent, and then report
+ * a comparison it never actually made.
+ */
+export function leadImpact(calls: CallRecord[]): LeadImpactResult {
+  const assessed = leadAssessed(calls);
+  const scores = assessed
+    .map((c) => leadQualityScore(c) as number)
+    .sort((a, b) => a - b);
+
+  const empty: LeadBucket = { calls: 0, closes: 0, closeRate: 0, avgScore: 0 };
+  const short = Math.max(0, MIN_SCORED_FOR_IMPACT - assessed.length);
+
+  if (scores.length === 0) {
+    return {
+      ready: false, assessed: 0, callsShort: MIN_SCORED_FOR_IMPACT, splitAt: 0,
+      better: empty, worse: empty, gap: 0, swing: 0, conclusive: false,
+    };
+  }
+
+  const splitAt = scores[Math.floor(scores.length / 2)];
+  // Ties go to the worse half, so an account where most leads share a score
+  // reports a small better-half rather than splitting identical calls at random.
+  const better = assessed.filter((c) => (leadQualityScore(c) as number) > splitAt);
+  const worse = assessed.filter((c) => (leadQualityScore(c) as number) <= splitAt);
+
+  const bucket = (list: CallRecord[]): LeadBucket => ({
+    calls: list.length,
+    closes: list.filter((c) => c.outcome === "Customer").length,
+    closeRate: closeRate(list) ?? 0,
+    avgScore: mean(list.map((c) => leadQualityScore(c) as number)) ?? 0,
+  });
+
+  const b = bucket(better);
+  const w = bucket(worse);
+  const gap = b.closeRate - w.closeRate;
+  const swing =
+    Math.min(b.calls, w.calls) === 0 ? 100 : 100 / Math.min(b.calls, w.calls);
+
+  return {
+    ready:
+      assessed.length >= MIN_SCORED_FOR_IMPACT &&
+      b.calls >= MIN_PER_BUCKET &&
+      w.calls >= MIN_PER_BUCKET,
+    assessed: assessed.length,
+    callsShort: short,
+    splitAt,
+    better: b,
+    worse: w,
+    gap,
+    swing,
+    conclusive: Math.abs(gap) >= swing,
+  };
+}
+
+/** Average lead quality across the window, out of LEAD_MAX. */
+export function averageLeadScore(calls: CallRecord[]): number | null {
+  return mean(leadAssessed(calls).map((c) => leadQualityScore(c) as number));
+}
+
+export { LEAD_MAX };
+
+/* ------------------------------------------------------------- objections */
+
+export interface ObjectionStat {
+  name: string;
+  /** The buying belief it points at, for reading it against the scorecard. */
+  belief: string | null;
+  /** Calls where the prospect voiced it. */
+  calls: number;
+  /** Share of assessed calls where it came up. */
+  frequency: number;
+  closes: number;
+  /** Close rate on the calls where it was raised. */
+  closeRate: number;
+  /** Calls where it was the objection that decided the outcome. */
+  decided: number;
+}
+
+export interface ObjectionResult {
+  ready: boolean;
+  /** Calls with objection data behind them. */
+  assessed: number;
+  callsShort: number;
+  /** Close rate across all assessed calls, as the line to compare against. */
+  baseCloseRate: number;
+  stats: ObjectionStat[];
+}
+
+/**
+ * How often each objection comes up and what it costs when it does.
+ *
+ * This is the panel that reads as an offer problem rather than a closer
+ * problem: an objection that appears on half the calls and drops the close rate
+ * whenever it does is being created upstream — by the price, the targeting or
+ * the pitch — and no amount of objection-handling drill fixes it at the call.
+ */
+export function objectionStats(calls: CallRecord[]): ObjectionResult {
+  // Only calls a v1.5+ review looked at. Older rows have an empty objection
+  // list because nothing asked, not because nothing was raised.
+  const assessed = calls.filter((c) => c.outcome !== "No show" && hasLeadAssessment(c));
+  const base = closeRate(assessed) ?? 0;
+
+  const stats: ObjectionStat[] = OBJECTION_TYPES.filter((t) => t.belief !== null)
+    .map((type) => {
+      const raised = assessed.filter((c) => c.objections.includes(type.name));
+      return {
+        name: type.name,
+        belief: type.belief,
+        calls: raised.length,
+        frequency: assessed.length === 0 ? 0 : (raised.length / assessed.length) * 100,
+        closes: raised.filter((c) => c.outcome === "Customer").length,
+        closeRate: closeRate(raised) ?? 0,
+        decided: assessed.filter((c) => c.primary_objection === type.name).length,
+      };
+    })
+    .filter((s) => s.calls > 0)
+    .sort((a, b) => b.calls - a.calls);
+
+  return {
+    ready: assessed.length >= MIN_SCORED_FOR_IMPACT && stats.length > 0,
+    assessed: assessed.length,
+    callsShort: Math.max(0, MIN_SCORED_FOR_IMPACT - assessed.length),
+    baseCloseRate: base,
+    stats,
   };
 }
 

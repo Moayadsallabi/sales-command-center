@@ -2,14 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CallRecord, OUTCOME_COLORS, overallScore } from "@/lib/types";
+import {
+  CallRecord,
+  OUTCOME_COLORS,
+  overallScore,
+  leadQualityScore,
+  hasLeadAssessment,
+} from "@/lib/types";
 import { DIMENSIONS, GOOD_SCORE, verdictFor } from "@/lib/dimensions";
+import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
 import { POOR_SCORE } from "@/lib/stats";
-import { X, ExternalLink, Video, ChevronDown, Target, Zap } from "lucide-react";
+import { withTimestamps } from "@/lib/timestamps";
+import { X, ExternalLink, Video, ChevronDown, Target, Zap, UserSearch } from "lucide-react";
 
 function scoreHex(score: number): string {
   if (score >= 7.5) return "#d4af37";
   if (score >= 6) return "#f59e0b";
+  return "#ef4444";
+}
+
+/** Same three bands as the call score, on the lead's 0–100 scale. */
+function leadHex(score: number): string {
+  if (score >= 75) return "#d4af37";
+  if (score >= 55) return "#f59e0b";
   return "#ef4444";
 }
 
@@ -74,8 +89,22 @@ function ScorecardBody({
   onClose: () => void;
 }) {
   const [showAllScores, setShowAllScores] = useState(false);
+  const [showAllFactors, setShowAllFactors] = useState(false);
 
   const overall = overallScore(call);
+  const lead = leadQualityScore(call);
+  const leadAssessed = hasLeadAssessment(call);
+
+  // The lead factors furthest below their own ceilings. Each has a different
+  // maximum, so they only rank against each other as a share of it.
+  const thinnest = LEAD_FACTORS.filter((f) => call.lead[f.key] != null)
+    .map((factor) => ({
+      factor,
+      score: call.lead[factor.key] as number,
+      share: (call.lead[factor.key] as number) / factor.max,
+    }))
+    .sort((a, b) => a.share - b.share)
+    .slice(0, 3);
 
   // The parts of this call that actually went wrong. A wall of 7s is not the
   // story; the two or three below the line are.
@@ -151,7 +180,7 @@ function ScorecardBody({
             {call.outcome ?? "Unknown"}
           </span>
           {overall != null && (
-            <span className="font-mono text-sm tabular-nums">
+            <span className="font-mono text-sm tabular-nums" title="How the call was run">
               <span
                 className="text-lg font-bold"
                 style={{ color: scoreHex(overall) }}
@@ -160,6 +189,20 @@ function ScorecardBody({
               </span>
               <span className="text-zinc-600">/10</span>{" "}
               <span className="text-zinc-500">{verdictFor(overall)}</span>
+            </span>
+          )}
+          {/* Sat next to the call score deliberately. The pair is the finding:
+              the same 5/10 means opposite things at 82 and at 31. */}
+          {lead != null && (
+            <span
+              className="font-mono text-sm tabular-nums"
+              title="How good the lead was, scored separately from the call"
+            >
+              <span className="text-lg font-bold" style={{ color: leadHex(lead) }}>
+                {lead}
+              </span>
+              <span className="text-zinc-600">/{LEAD_MAX}</span>{" "}
+              <span className="text-zinc-500">{leadBandFor(lead)} lead</span>
             </span>
           )}
           {flags.map((f) => (
@@ -192,7 +235,7 @@ function ScorecardBody({
                   </h4>
                 </div>
                 <p className="text-[14px] leading-relaxed text-zinc-100">
-                  {call.next_call_drill}
+                  {withTimestamps(call.next_call_drill, call.recording_url)}
                 </p>
               </div>
             )}
@@ -200,7 +243,7 @@ function ScorecardBody({
             {call.the_moment && (
               <Section title="Where it turned">
                 <p className="text-[13px] leading-relaxed text-zinc-300">
-                  {call.the_moment}
+                  {withTimestamps(call.the_moment, call.recording_url)}
                 </p>
               </Section>
             )}
@@ -266,6 +309,158 @@ function ScorecardBody({
                   </p>
                 </Section>
               )}
+
+            {leadAssessed && (
+              <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <UserSearch className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
+                  <h4 className="text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-500">
+                    The lead they were handed
+                  </h4>
+                </div>
+
+                {lead == null ? (
+                  <p className="text-[12px] text-zinc-500">
+                    The call ended before enough of the prospect was established to
+                    score them. That is a fact about the call, not about the lead.
+                  </p>
+                ) : (
+                  <>
+                    {call.lead_read && (
+                      <p className="mb-3 text-[13px] leading-relaxed text-zinc-300">
+                        {withTimestamps(call.lead_read, call.recording_url)}
+                      </p>
+                    )}
+
+                    <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-zinc-600">
+                      Thinnest on
+                    </p>
+                    <div className="space-y-1.5">
+                      {thinnest.map(({ factor, score }) => (
+                        <div key={factor.key} className="flex items-center gap-3">
+                          <span
+                            className="w-[132px] shrink-0 truncate text-[12px] text-zinc-400"
+                            title={factor.question}
+                          >
+                            {factor.name}
+                          </span>
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.04]">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(score / factor.max) * 100}%`,
+                                background: leadHex((score / factor.max) * 100),
+                              }}
+                            />
+                          </div>
+                          <span className="w-10 shrink-0 text-right font-mono text-[12px] tabular-nums text-zinc-400">
+                            {score}
+                            <span className="text-zinc-600">/{factor.max}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {call.objections.length > 0 && (
+                      <div className="mt-4">
+                        <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-zinc-600">
+                          Objections raised
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {call.objections.map((objection) => {
+                            const decided = objection === call.primary_objection;
+                            return (
+                              <span
+                                key={objection}
+                                title={
+                                  decided
+                                    ? "The one that decided the call"
+                                    : "Raised, but not what decided it"
+                                }
+                                className={
+                                  decided
+                                    ? "rounded-full border border-red-500/30 bg-red-500/[0.1] px-2.5 py-1 text-[11px] text-red-300"
+                                    : "rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[11px] text-zinc-400"
+                                }
+                              >
+                                {objection}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4">
+                      <button
+                        onClick={() => setShowAllFactors((v) => !v)}
+                        aria-expanded={showAllFactors}
+                        className="flex w-full items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 transition-colors hover:text-zinc-400"
+                      >
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform ${
+                            showAllFactors ? "rotate-180" : ""
+                          }`}
+                        />
+                        All {LEAD_FACTORS.length} lead factors
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {showAllFactors && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-2 pt-3">
+                              {LEAD_FACTORS.map((factor) => {
+                                const score = call.lead[factor.key];
+                                return (
+                                  <div key={factor.key} className="flex items-center gap-3">
+                                    <span
+                                      className="w-[132px] shrink-0 truncate text-[12px] text-zinc-400"
+                                      title={factor.question}
+                                    >
+                                      {factor.name}
+                                      {factor.belief && (
+                                        <span className="text-zinc-600">
+                                          {" "}
+                                          · {factor.belief}
+                                        </span>
+                                      )}
+                                    </span>
+                                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.04]">
+                                      {score != null && (
+                                        <div
+                                          className="h-full rounded-full"
+                                          style={{
+                                            width: `${(score / factor.max) * 100}%`,
+                                            background: leadHex((score / factor.max) * 100),
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                    <span className="w-10 shrink-0 text-right font-mono text-[12px] tabular-nums text-zinc-400">
+                                      {score ?? "—"}
+                                      <span className="text-zinc-600">/{factor.max}</span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <p className="pt-2 text-[11px] text-zinc-600">
+                              A factor showing — never came up on the call, so it is
+                              left out of the {LEAD_MAX} rather than counted as zero.
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             <div>
               <button
@@ -337,7 +532,7 @@ function ScorecardBody({
         {call.summary && (
           <Section title="What happened">
             <p className="text-[13px] leading-relaxed text-zinc-400">
-              {call.summary}
+              {withTimestamps(call.summary, call.recording_url)}
             </p>
           </Section>
         )}

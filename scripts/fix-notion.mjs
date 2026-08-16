@@ -75,11 +75,24 @@ const SPEC = {
   ...Object.fromEntries(
     rubric.bonusFlags.map((f) => [
       f.column,
+      // `options`, not `values` — the key this read until 2026-08-16, which
+      // silently created the select with no options at all. Notion rejects a
+      // write naming an option that does not exist, so every scored call failed
+      // on Weakest Belief until the column was fixed by hand.
       f.type === "enum"
-        ? { select: { options: (f.values ?? []).map((name) => ({ name })) } }
+        ? { select: { options: (f.options ?? []).map((name) => ({ name })) } }
         : { checkbox: {} },
     ])
   ),
+  ...Object.fromEntries(rubric.leadQuality.factors.map((f) => [f.column, { number: {} }])),
+  [rubric.leadQuality.column]: { number: {} },
+  [rubric.leadQuality.readColumn]: { rich_text: {} },
+  [rubric.objections.column]: {
+    multi_select: { options: rubric.objections.types.map((t) => ({ name: t.name })) },
+  },
+  [rubric.objections.primaryColumn]: {
+    select: { options: rubric.objections.types.map((t) => ({ name: t.name })) },
+  },
 };
 
 const typeOf = (definition) => Object.keys(definition)[0];
@@ -167,7 +180,11 @@ if (!missing.length) {
 console.log(`\n${missing.length} column${missing.length === 1 ? "" : "s"} to add:`);
 for (const name of missing) {
   const def = SPEC[name];
-  const options = def.select?.options?.map((o) => o.name).join(", ");
+  // Multi-select carries its options in its own key, so listing only `select`
+  // would print the objection column as if it were being created bare.
+  const options = (def.select ?? def.multi_select)?.options
+    ?.map((o) => o.name)
+    .join(", ");
   console.log(`  + ${name} (${typeOf(def)})${options ? ` — options: ${options}` : ""}`);
 }
 

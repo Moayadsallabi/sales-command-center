@@ -56,6 +56,14 @@ const REQUIRED_PROPS = {
   ...Object.fromEntries(
     rubric.bonusFlags.map((f) => [f.column, f.type === "enum" ? "select" : "checkbox"])
   ),
+  // The lead-quality half: one column per factor, plus the normalised total and
+  // the written read of what the factors add up to.
+  ...Object.fromEntries(rubric.leadQuality.factors.map((f) => [f.column, "number"])),
+  [rubric.leadQuality.column]: "number",
+  [rubric.leadQuality.readColumn]: "rich_text",
+  // Every objection voiced, and the one that decided the call.
+  [rubric.objections.column]: "multi_select",
+  [rubric.objections.primaryColumn]: "select",
 };
 
 function loadEnv() {

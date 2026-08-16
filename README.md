@@ -5,13 +5,41 @@ say, and why the calls went that way.
 
 - **Commercial** — close rate, cash collected, revenue, show rate, and breakdowns by
   outcome, offer tier and lead source.
-- **Per closer** — a leaderboard of every closer's calls, close rate, cash and average
-  call score, plus the dimension each one is weakest on.
+- **Per closer** — a leaderboard of every closer's calls, close rate, cash, average
+  call score and average lead quality, plus the dimension each one is weakest on.
 - **Per call** — an eight-dimension scorecard with the pivotal moment of the call and
   one drill to run on the next one.
+- **Per lead** — eight factors scoring the prospect rather than the closer, so a
+  middling call can be traced to the right cause.
 
 Every call is scored automatically by the n8n workflow in [`automation/`](automation/),
 against the rubric in [`rubric/`](rubric/).
+
+## Two scores, not one
+
+The eight dimensions say how well the call was run. The eight lead factors say what
+the closer was handed — pain, urgency, desire, belief in the method, self-belief,
+authority, money and fit, out of 100.
+
+Without both, a 5/10 is unattributable. It could be a closer who fumbled a good
+prospect, or a closer who did fine with someone who was never going to buy, and those
+want opposite fixes. Two closers can only be compared once you can see whether they
+were fed the same quality of lead — which is why lead quality sits next to close rate
+on the leaderboard rather than on a page of its own.
+
+Each factor maps to one of the seven buying beliefs the closer is scored against, so
+the two halves are read in the same language: a lead that arrived weak on Money, and
+a closer who never built the Money belief, are the same sentence from both ends.
+
+**What people push back on** counts every objection voiced across the window and what
+the close rate does when each one appears. An objection on most calls is being made
+upstream — by the price, the pitch or the targeting — and drilling closers on handling
+it treats the symptom.
+
+**Quotes carry their timestamp.** Every quote in the written feedback ends with a
+`[mm:ss]`, rendered as a link straight into the recording at that moment. It is what
+makes a score arguable instead of asserted: a closer who disputes a 4 on Tension can
+click and hear the nine seconds in question.
 
 Nothing is stored here. Every number is read from Notion at request time, so
 editing a row in Notion and refreshing the page updates the dashboard.

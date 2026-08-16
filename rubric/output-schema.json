@@ -435,6 +435,395 @@
       ],
       "additionalProperties": false
     },
+    "lead_quality": {
+      "type": "object",
+      "properties": {
+        "pain_severity": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How badly is the prospect's current situation actually hurting them? Out of 15. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Pain Severity score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "urgency": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Is there a reason this has to be solved now rather than in six months? Out of 15. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Urgency score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "desire_clarity": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Can the prospect describe the specific outcome they want? Out of 15. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Desire Clarity score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "solution_belief": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10,
+                    11,
+                    12,
+                    13,
+                    14,
+                    15
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Does the prospect believe this kind of solution works? Out of 15. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Solution Belief score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "self_efficacy": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Does the prospect believe they can execute it, while accepting they need help to do so? Out of 10. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Self-Efficacy score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "authority": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Can this person decide alone, and do the people around them back it? Out of 10. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Authority score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "financial_capacity": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Can the prospect actually pay what this offer costs? Out of 10. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the Financial Capacity score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        },
+        "icp_fit": {
+          "type": "object",
+          "properties": {
+            "score": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8,
+                    9,
+                    10
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Is this the kind of buyer the offer is actually built for? Out of 10. Null when the call never produced evidence either way."
+            },
+            "reasoning": {
+              "type": "string",
+              "description": "Two to four sentences justifying the ICP Fit score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+            }
+          },
+          "required": [
+            "score",
+            "reasoning"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "pain_severity",
+        "urgency",
+        "desire_clarity",
+        "solution_belief",
+        "self_efficacy",
+        "authority",
+        "financial_capacity",
+        "icp_fit"
+      ],
+      "additionalProperties": false
+    },
+    "objections": {
+      "type": "object",
+      "properties": {
+        "raised": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "Price",
+              "Timing",
+              "Partner",
+              "Think about it",
+              "Doubts the method",
+              "Doubts themselves",
+              "Tried before",
+              "Comparing options",
+              "No time",
+              "None raised"
+            ]
+          },
+          "description": "Every objection the prospect voiced, whether or not it was resolved. Use the single entry None raised when none was."
+        },
+        "primary": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "Price",
+                "Timing",
+                "Partner",
+                "Think about it",
+                "Doubts the method",
+                "Doubts themselves",
+                "Tried before",
+                "Comparing options",
+                "No time",
+                "None raised"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The one objection that decided the call. Null when the call closed or no objection was raised."
+        },
+        "detail": {
+          "type": "string",
+          "description": "One or two sentences per objection raised: the prospect's own words with its [mm:ss], and whether the caller resolved it. Empty string when none was raised."
+        }
+      },
+      "required": [
+        "raised",
+        "primary",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
     "flags": {
       "type": "object",
       "properties": {
@@ -486,18 +875,23 @@
         },
         "the_moment": {
           "type": "string",
-          "description": "Identify the single highest-leverage point on the call where a different move would have changed the outcome. Quote the transcript, explain what happened, what should have happened, and why it matters. Two to four sentences."
+          "description": "Identify the single highest-leverage point on the call where a different move would have changed the outcome. Quote the transcript with its [mm:ss], explain what happened, what should have happened, and why it matters. Two to four sentences."
         },
         "next_call_drill": {
           "type": "string",
           "description": "One specific, concrete behaviour the caller can apply on their very next call. Not \"work on your discovery\" but \"when the prospect gives a surface-level answer, say 'tell me more about that' and then wait.\" One or two sentences."
+        },
+        "lead_read": {
+          "type": "string",
+          "description": "What the lead-quality factors mean for how this prospect should be handled — written about the prospect, not the caller. Name the pattern the factors form, say what it implies for the next conversation with them, and give the one move that fits it. Two to four sentences. Where one of the listed patterns applies, use it; where none does, describe what you actually see."
         }
       },
       "required": [
         "best_moment",
         "biggest_miss",
         "the_moment",
-        "next_call_drill"
+        "next_call_drill",
+        "lead_read"
       ],
       "additionalProperties": false
     }
@@ -516,6 +910,8 @@
     "lead_source",
     "summary",
     "scores",
+    "lead_quality",
+    "objections",
     "flags",
     "narrative"
   ],

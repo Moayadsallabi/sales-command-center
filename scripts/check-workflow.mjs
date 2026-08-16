@@ -74,6 +74,21 @@ const mockAi = {
         : { score: 7, reasoning: `Reasoning for ${d.name}.` },
     ])
   ),
+  // Every factor at half its ceiling except the last, which is null — so the
+  // Lead Score must come out of the seven that scored, not all eight.
+  lead_quality: Object.fromEntries(
+    rubric.leadQuality.factors.map((f, i) => [
+      f.key,
+      i === rubric.leadQuality.factors.length - 1
+        ? { score: null, reasoning: `${f.name} never came up.` }
+        : { score: Math.round(f.max / 2), reasoning: `Reasoning for ${f.name}.` },
+    ])
+  ),
+  objections: {
+    raised: ["Price", "Partner"],
+    primary: "Price",
+    detail: "Price landed hard at [21:04] and was never isolated from the partner question.",
+  },
   flags: {
     value_leak: false,
     follow_up_trap: false,
@@ -85,6 +100,7 @@ const mockAi = {
     biggest_miss: "Never asked about the business partner.",
     the_moment: "At the price drop, the caller filled the silence.",
     next_call_drill: "After the price, count to five before speaking.",
+    lead_read: "Believes the method, doubts himself. Needs proof before price.",
   },
 };
 
@@ -328,9 +344,57 @@ if (notionBody) {
     fail(`Rubric Version should be ${rubric.version}, got ${versionText}`);
   else pass(`Rubric Version ${rubric.version} is written`);
 
+  const factors = rubric.leadQuality.factors;
+
+  const wrongFactors = factors.filter((f, i) => {
+    const expected = i === factors.length - 1 ? null : Math.round(f.max / 2);
+    return props[f.column]?.number !== expected;
+  });
+  if (wrongFactors.length)
+    fail(`lead factor columns missing or wrong: ${wrongFactors.map((f) => f.column).join(", ")}`);
+  else pass(`all ${factors.length} lead factor columns written (null carried as null)`);
+
+  // The denominator must be the ceilings of the factors that scored, not of all
+  // of them. Counting the unscored factor's ceiling too would drag this down by
+  // several points on every call that ended early.
+  const scoredFactors = factors.slice(0, -1);
+  const expectedLead = Math.round(
+    (scoredFactors.reduce((t, f) => t + Math.round(f.max / 2), 0) /
+      scoredFactors.reduce((t, f) => t + f.max, 0)) *
+      rubric.leadQuality.max
+  );
+  const naiveLead = Math.round(
+    (scoredFactors.reduce((t, f) => t + Math.round(f.max / 2), 0) / rubric.leadQuality.max) *
+      rubric.leadQuality.max
+  );
+  if (props["Lead Score"]?.number === naiveLead)
+    fail(
+      `Lead Score counted the unscored factor's ceiling in the denominator ` +
+        `(got ${naiveLead}, should be ${expectedLead})`
+    );
+  else if (props["Lead Score"]?.number !== expectedLead)
+    fail(
+      `Lead Score should normalise over the scored factors (expected ${expectedLead}, got ${props["Lead Score"]?.number})`
+    );
+  else pass(`Lead Score normalises over the factors that were scored (${expectedLead}/100)`);
+
+  const objs = props.Objections?.multi_select?.map((o) => o.name) ?? [];
+  if (objs.join() !== "Price,Partner")
+    fail(`Objections should be a multi-select of what was raised, got ${JSON.stringify(objs)}`);
+  else if (props["Primary Objection"]?.select?.name !== "Price")
+    fail("Primary Objection is not being written");
+  else pass("objections written as a multi-select, with the deciding one named");
+
+  const leadRead = props["Lead Read"]?.rich_text?.[0]?.text?.content;
+  if (!leadRead) fail("Lead Read is not being written");
+  else pass("Lead Read is written");
+
   // 1 scorecard heading + a heading and a paragraph per dimension + 1 divider
-  // + 3 section headings + 2 narrative paragraphs + 6 flag bullets.
-  const expectedBlocks = 1 + rubric.dimensions.length * 2 + 1 + 3 + 2 + 6;
+  // + 3 section headings + 2 narrative paragraphs + 1 lead-quality heading
+  // + a bullet per lead factor + 2 lead-read blocks + 2 objection blocks
+  // + 1 objection detail paragraph + 6 flag bullets.
+  const expectedBlocks =
+    1 + rubric.dimensions.length * 2 + 1 + 3 + 2 + 1 + factors.length + 2 + 2 + 1 + 6;
   if (notionBody.children.length !== expectedBlocks)
     fail(`expected ${expectedBlocks} page blocks, got ${notionBody.children.length}`);
   else pass(`${notionBody.children.length} page blocks built`);
