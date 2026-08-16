@@ -319,15 +319,26 @@ export function FunnelPanel({
                 rates above.
               </Note>
             )}
-            {stats.matchedByName > 0 && (
+            {stats.matchedByName + stats.matchedByFirstNameOnly > 0 && (
               <Note icon={<Contact className="h-3 w-3" />}>
-                {stats.matchedByName} of these{" "}
-                {stats.matchedByName === 1 ? "was tied" : "were tied"}{" "}
-                to a call by name and date rather than by email, because the call had
-                no email on it. Both name parts had to agree, on the same day, with no other
-                candidate on either side — but it is an inference, not an identifier.
-                Filling in the prospect&apos;s email on those calls turns it into a
-                certainty.
+                {stats.matchedByName + stats.matchedByFirstNameOnly} of these were
+                tied to a call by name and date rather than by email, because those
+                calls carry no email —{" "}
+                <span className="text-zinc-400">
+                  {stats.matchedByName} on a full name
+                </span>
+                {stats.matchedByFirstNameOnly > 0 && (
+                  <>
+                    ,{" "}
+                    <span className="text-zinc-400">
+                      {stats.matchedByFirstNameOnly} on a first name alone
+                    </span>
+                  </>
+                )}
+                . Each had to be the only candidate on the day, on both sides. The
+                first-name ties are the weakest thing on this page: right far more
+                often than not, but an inference. Putting the prospect&apos;s email
+                on the call record replaces all of it with a certainty.
               </Note>
             )}
             {disagreements.length > 0 && (

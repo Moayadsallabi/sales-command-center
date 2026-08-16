@@ -50,8 +50,11 @@ export type BookingState =
   /** Due, not cancelled, and no recording found. Genuinely unknown. */
   | "unrecorded";
 
-/** How a booking was tied to a recording, so a weaker tie can be seen as one. */
-export type MatchMethod = "email" | "name-and-date";
+/**
+ * How a booking was tied to a recording, strongest first, so a weaker tie can
+ * always be seen for what it is rather than blending into the rest.
+ */
+export type MatchMethod = "email" | "name-and-date" | "one-name-and-date";
 
 export interface LinkedBooking extends BookingRecord {
   state: BookingState;
@@ -172,10 +175,15 @@ function matchBookingsToCalls(
 
   pairs.push(...nameAndDatePairs(bookings, calls));
 
-  // Email first whatever the dates say, then the closest name match. An
-  // address is an identifier; a name on a day is an inference, and one should
-  // never displace the other.
-  const rank = (p: Pair) => (p.method === "email" ? 0 : 1);
+  // Strongest tie first, always. An address is an identifier, a full name on a
+  // day is a strong inference, a first name on a day is a weak one — and a
+  // weaker tie must never take a booking that a stronger one wanted.
+  const ORDER: Record<MatchMethod, number> = {
+    email: 0,
+    "name-and-date": 1,
+    "one-name-and-date": 2,
+  };
+  const rank = (p: Pair) => ORDER[p.method];
   pairs.sort(
     (a, b) =>
       rank(a) - rank(b) ||
@@ -204,18 +212,26 @@ function matchBookingsToCalls(
  * calendar as producing no calls at all.
  *
  * So a call with no email may be tied to a booking on the strength of the name
- * and the day, under conditions strict enough that the tie is worth making:
+ * and the day. Two strengths of tie, kept apart because they do not deserve the
+ * same confidence:
  *
- * - **Two name parts must agree**, not one. First names collide constantly;
- *   first and last on the same day do not.
- * - **The same calendar day**, not the day either side that the email path
- *   allows, because the name is doing work the address would otherwise do.
- * - **Exactly one candidate on each side.** Two bookings that fit the same
- *   call, or two calls that fit the same booking, are left unmatched rather
- *   than resolved by guessing which.
- * - **Only when the call has no email at all.** A call that has one and did not
- *   match is telling us something — that the address is wrong, or the prospect
- *   came another way — and papering over it with a name would bury the signal.
+ * - **Both name parts agree** on the same day. First and last name together is
+ *   about as good as an address.
+ * - **One name part agrees** on the same day, and it is the only booking that
+ *   day matching any part of that name. Weaker, and used because on a real
+ *   tracker most call titles are a bare first name — the meeting title is
+ *   whatever the closer typed. Discarding those threw away a third of the
+ *   calendar's overlap with the tracker.
+ *
+ * Both require **exactly one candidate on each side**. Two bookings that fit
+ * one call, or two calls that fit one booking, are left unmatched rather than
+ * resolved by guessing — on twenty bookings a day, a repeated first name is the
+ * likely case, not the rare one.
+ *
+ * Both apply **only when the call has no email at all**. A call that has one
+ * and did not match is telling us something — the wrong address was captured,
+ * or the prospect came another way — and papering over it with a name would
+ * bury the signal.
  */
 function nameAndDatePairs(bookings: BookingRecord[], calls: CallRecord[]): Pair[] {
   const emaillessCalls = calls.filter(
@@ -228,14 +244,29 @@ function nameAndDatePairs(bookings: BookingRecord[], calls: CallRecord[]): Pair[
     const callDay = dayIndex(call.call_date as string);
     if (callDay == null) continue;
 
-    for (const booking of bookings) {
-      const bookingDay = dayIndex(booking.scheduled_at);
-      if (bookingDay == null || bookingDay !== callDay) continue;
-      if (sharedNameParts(call.name, booking.name) < 2) continue;
-      const list = candidates.get(call.id) ?? [];
-      list.push({ booking, call, distance: 0, method: "name-and-date" });
-      candidates.set(call.id, list);
-    }
+    const sameDay = bookings.filter((b) => dayIndex(b.scheduled_at) === callDay);
+    const shared = sameDay.map((booking) => ({
+      booking,
+      parts: sharedNameParts(call.name, booking.name),
+    }));
+
+    const both = shared.filter((s) => s.parts >= 2);
+    const any = shared.filter((s) => s.parts >= 1);
+
+    // The strong tie wins outright. The weak one is only reached when there is
+    // no strong candidate at all, and only when it stands alone on the day.
+    const chosen =
+      both.length > 0
+        ? both.map((s) => ({ booking: s.booking, method: "name-and-date" as const }))
+        : any.map((s) => ({
+            booking: s.booking,
+            method: "one-name-and-date" as const,
+          }));
+
+    candidates.set(
+      call.id,
+      chosen.map(({ booking, method }) => ({ booking, call, distance: 0, method }))
+    );
   }
 
   // Drop anything ambiguous from either direction before returning.
@@ -356,10 +387,12 @@ export interface FunnelStats {
   /** Recorded calls with no booking behind them. */
   callsWithoutBooking: number;
   /**
-   * Bookings tied to a call by name and date rather than by email. A weaker
-   * tie, so it is counted and shown rather than blended into the rest.
+   * Bookings tied to a call by name and date rather than by email. Weaker ties,
+   * so they are counted and shown rather than blended into the rest — and the
+   * first-name-only ones are counted apart from the full-name ones again.
    */
   matchedByName: number;
+  matchedByFirstNameOnly: number;
 }
 
 function median(values: number[]): number | null {
@@ -436,6 +469,9 @@ export function funnelStats(
 
     callsWithoutBooking: calls.filter((c) => !bookedCallIds.has(c.id)).length,
     matchedByName: bookings.filter((b) => b.match_method === "name-and-date").length,
+    matchedByFirstNameOnly: bookings.filter(
+      (b) => b.match_method === "one-name-and-date"
+    ).length,
   };
 }
 
