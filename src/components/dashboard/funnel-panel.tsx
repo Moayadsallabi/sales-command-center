@@ -11,7 +11,7 @@ import {
   LATE_CANCEL_HOURS,
   MIN_PER_LEAD_BUCKET,
 } from "@/lib/bookings";
-import { CalendarX2, Link2Off } from "lucide-react";
+import { CalendarX2, Contact, Link2Off } from "lucide-react";
 
 /**
  * What was booked, against what was recorded.
@@ -281,6 +281,17 @@ export function FunnelPanel({
                 counting, or missing the prospect email the two are matched on.
                 Those calls count everywhere else on this page, but not in the
                 rates above.
+              </Note>
+            )}
+            {stats.matchedByName > 0 && (
+              <Note icon={<Contact className="h-3 w-3" />}>
+                {stats.matchedByName} of these{" "}
+                {stats.matchedByName === 1 ? "was tied" : "were tied"}{" "}
+                to a call by name and date rather than by email, because the call had
+                no email on it. Both name parts had to agree, on the same day, with no other
+                candidate on either side — but it is an inference, not an identifier.
+                Filling in the prospect&apos;s email on those calls turns it into a
+                certainty.
               </Note>
             )}
             {disagreements.length > 0 && (

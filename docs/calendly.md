@@ -81,9 +81,26 @@ On the prospect's email, then on how close the two sit in time — a booking and
 recording within a day of each other, nearest pair first.
 
 The email comes from Notion's `Prospect Email` column, which the workflow fills
-from the calendar invite. **Calls recorded before that column existed have no
-email, so they cannot be matched** and show up as recorded calls with no booking
-behind them. That is stated on the panel rather than hidden.
+from the calendar invite. **In practice a lot of calls arrive without one** —
+the invite does not always carry the invitee as an addressable attendee, and
+calls recorded before the column existed have none at all.
+
+So there is a fallback. A call with **no** email may be tied to a booking on the
+name and the day instead, under conditions strict enough to be worth trusting:
+
+- two name parts must agree, not one — first names collide, first-and-last on
+  the same day does not
+- the same calendar day, tighter than the day-either-side the email path allows
+- exactly one candidate on each side; anything ambiguous is left unmatched
+
+Those matches are counted separately and named on the panel, because a name on a
+day is an inference and an address is an identifier. **A call that has an email
+and still doesn't match is never name-matched** — that combination is telling
+you something (wrong address captured, or the prospect booked another way) and
+papering over it with a name would bury the signal.
+
+Filling in `Prospect Email` on a call upgrades it from the inference to the
+certainty.
 
 Matching nearest-first is what makes a repeat prospect come out right: someone
 who books, no-shows, rebooks and then buys has two bookings and one recording,

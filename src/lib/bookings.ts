@@ -38,10 +38,15 @@ export type BookingState =
   /** Due, not cancelled, and no recording found. Genuinely unknown. */
   | "unrecorded";
 
+/** How a booking was tied to a recording, so a weaker tie can be seen as one. */
+export type MatchMethod = "email" | "name-and-date";
+
 export interface LinkedBooking extends BookingRecord {
   state: BookingState;
   /** The Notion call this booking produced, when one was found. */
   call_id: string | null;
+  /** Null when this booking produced no recording. */
+  match_method: MatchMethod | null;
 }
 
 export interface BookingLink {
@@ -88,7 +93,30 @@ export function bookingDate(booking: BookingRecord): string {
 
 /* ---------------------------------------------------------------- matching */
 
-type Pair = { booking: BookingRecord; call: CallRecord; distance: number };
+type Pair = {
+  booking: BookingRecord;
+  call: CallRecord;
+  distance: number;
+  method: MatchMethod;
+};
+
+/**
+ * The parts of a person's name worth comparing. Two-letter fragments and
+ * punctuation are dropped, so "Saul m Hernandez" compares on saul/hernandez.
+ */
+function nameTokens(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length >= 3);
+}
+
+/** How many name parts two names share. */
+function sharedNameParts(a: string, b: string): number {
+  const left = new Set(nameTokens(a));
+  return nameTokens(b).filter((t) => left.has(t)).length;
+}
 
 /**
  * Ties each booking to at most one recording, and each recording to at most
@@ -104,7 +132,7 @@ type Pair = { booking: BookingRecord; call: CallRecord; distance: number };
 function matchBookingsToCalls(
   bookings: BookingRecord[],
   calls: CallRecord[]
-): Map<string, string> {
+): Map<string, { callId: string; method: MatchMethod }> {
   const callsByEmail = new Map<string, CallRecord[]>();
   for (const call of calls) {
     const email = callEmail(call);
@@ -116,34 +144,95 @@ function matchBookingsToCalls(
 
   const pairs: Pair[] = [];
   for (const booking of bookings) {
-    const candidates = callsByEmail.get(booking.email) ?? [];
     const bookingDay = dayIndex(booking.scheduled_at);
     if (bookingDay == null) continue;
 
-    for (const call of candidates) {
+    for (const call of callsByEmail.get(booking.email) ?? []) {
       if (!call.call_date) continue;
       const callDay = dayIndex(call.call_date);
       if (callDay == null) continue;
       const distance = Math.abs(callDay - bookingDay);
-      if (distance <= MATCH_TOLERANCE_DAYS) pairs.push({ booking, call, distance });
+      if (distance <= MATCH_TOLERANCE_DAYS) {
+        pairs.push({ booking, call, distance, method: "email" });
+      }
     }
   }
 
+  pairs.push(...nameAndDatePairs(bookings, calls));
+
+  // Email first whatever the dates say, then the closest name match. An
+  // address is an identifier; a name on a day is an inference, and one should
+  // never displace the other.
+  const rank = (p: Pair) => (p.method === "email" ? 0 : 1);
   pairs.sort(
     (a, b) =>
+      rank(a) - rank(b) ||
       a.distance - b.distance ||
       a.booking.scheduled_at.localeCompare(b.booking.scheduled_at)
   );
 
-  const bookingToCall = new Map<string, string>();
+  const bookingToCall = new Map<string, { callId: string; method: MatchMethod }>();
   const takenCalls = new Set<string>();
   for (const pair of pairs) {
     if (bookingToCall.has(pair.booking.id) || takenCalls.has(pair.call.id)) continue;
-    bookingToCall.set(pair.booking.id, pair.call.id);
+    bookingToCall.set(pair.booking.id, { callId: pair.call.id, method: pair.method });
     takenCalls.add(pair.call.id);
   }
 
   return bookingToCall;
+}
+
+/**
+ * The fallback for calls whose email never made it onto the row.
+ *
+ * The workflow fills `Prospect Email` from the calendar invite, and on a live
+ * account most Calendly-booked calls arrive without one — the invite does not
+ * always carry the invitee as an addressable attendee. Those rows would
+ * otherwise be unmatchable, and the funnel would report a real, working
+ * calendar as producing no calls at all.
+ *
+ * So a call with no email may be tied to a booking on the strength of the name
+ * and the day, under conditions strict enough that the tie is worth making:
+ *
+ * - **Two name parts must agree**, not one. First names collide constantly;
+ *   first and last on the same day do not.
+ * - **The same calendar day**, not the day either side that the email path
+ *   allows, because the name is doing work the address would otherwise do.
+ * - **Exactly one candidate on each side.** Two bookings that fit the same
+ *   call, or two calls that fit the same booking, are left unmatched rather
+ *   than resolved by guessing which.
+ * - **Only when the call has no email at all.** A call that has one and did not
+ *   match is telling us something — that the address is wrong, or the prospect
+ *   came another way — and papering over it with a name would bury the signal.
+ */
+function nameAndDatePairs(bookings: BookingRecord[], calls: CallRecord[]): Pair[] {
+  const emaillessCalls = calls.filter(
+    (c) => !callEmail(c) && c.call_date && c.name.trim() !== ""
+  );
+  if (emaillessCalls.length === 0) return [];
+
+  const candidates = new Map<string, Pair[]>();
+  for (const call of emaillessCalls) {
+    const callDay = dayIndex(call.call_date as string);
+    if (callDay == null) continue;
+
+    for (const booking of bookings) {
+      const bookingDay = dayIndex(booking.scheduled_at);
+      if (bookingDay == null || bookingDay !== callDay) continue;
+      if (sharedNameParts(call.name, booking.name) < 2) continue;
+      const list = candidates.get(call.id) ?? [];
+      list.push({ booking, call, distance: 0, method: "name-and-date" });
+      candidates.set(call.id, list);
+    }
+  }
+
+  // Drop anything ambiguous from either direction before returning.
+  const unique = [...candidates.values()].filter((list) => list.length === 1).flat();
+  const bookingCounts = new Map<string, number>();
+  for (const pair of unique) {
+    bookingCounts.set(pair.booking.id, (bookingCounts.get(pair.booking.id) ?? 0) + 1);
+  }
+  return unique.filter((pair) => bookingCounts.get(pair.booking.id) === 1);
 }
 
 /**
@@ -165,13 +254,14 @@ function classify(
   call: CallRecord | undefined,
   now: Date
 ): BookingState {
-  if (booking.status === "canceled") return "canceled";
-  if (Date.parse(booking.scheduled_at) > now.getTime()) return "upcoming";
-
-  // A recording outranks Calendly's own marking. If there is a conversation on
-  // file, somebody turned up, whatever a checkbox in Calendly says.
+  // A recording outranks anything the calendar says about itself. If there is a
+  // conversation on file then somebody turned up, whatever a checkbox in
+  // Calendly says — including the cancelled flag, which people set after the
+  // fact often enough to matter.
   if (call) return call.outcome === "No show" ? "no_show" : "kept";
 
+  if (booking.status === "canceled") return "canceled";
+  if (Date.parse(booking.scheduled_at) > now.getTime()) return "upcoming";
   if (booking.marked_no_show) return "no_show";
   return "unrecorded";
 }
@@ -185,9 +275,14 @@ export function linkBookings(
   const callsById = new Map(calls.map((c) => [c.id, c]));
 
   const linked: LinkedBooking[] = bookings.map((booking) => {
-    const callId = bookingToCall.get(booking.id) ?? null;
-    const call = callId ? callsById.get(callId) : undefined;
-    return { ...booking, state: classify(booking, call, now), call_id: callId };
+    const match = bookingToCall.get(booking.id) ?? null;
+    const call = match ? callsById.get(match.callId) : undefined;
+    return {
+      ...booking,
+      state: classify(booking, call, now),
+      call_id: match?.callId ?? null,
+      match_method: match?.method ?? null,
+    };
   });
 
   // A plain object rather than a Map, because this crosses from the server
@@ -237,6 +332,11 @@ export interface FunnelStats {
 
   /** Recorded calls with no booking behind them. */
   callsWithoutBooking: number;
+  /**
+   * Bookings tied to a call by name and date rather than by email. A weaker
+   * tie, so it is counted and shown rather than blended into the rest.
+   */
+  matchedByName: number;
 }
 
 function median(values: number[]): number | null {
@@ -306,6 +406,7 @@ export function funnelStats(
     medianCancelNotice: median(notice),
 
     callsWithoutBooking: calls.filter((c) => !bookedCallIds.has(c.id)).length,
+    matchedByName: bookings.filter((b) => b.match_method === "name-and-date").length,
   };
 }
 
@@ -413,21 +514,48 @@ export function sourceStats(bookings: LinkedBooking[]): SourceStat[] {
  *
  * Fathom credit goes to whichever internal person spoke most, which is a good
  * guess and occasionally the wrong one — a manager sitting in on a call can
- * take it. Calendly says who the booking was actually assigned to, so the two
+ * take it. Calendly says who the booking was assigned to, so the two
  * disagreeing is worth naming rather than silently preferring one.
+ *
+ * The catch is that a Calendly host is often not a person. Teams run bookings
+ * through shared accounts — "Advisor Coach", "Enrollment Team" — and comparing
+ * one of those to a closer's name reports a disagreement on every single call,
+ * which is worse than reporting none. So a host only counts as a person here
+ * if their name matches somebody who actually closes on this tracker; anything
+ * else is treated as an account, not a mismatch.
  */
 export function closerDisagreements(
   bookings: LinkedBooking[],
   calls: CallRecord[]
 ): { call: CallRecord; assigned: string; credited: string }[] {
   const callsById = new Map(calls.map((c) => [c.id, c]));
-  const out: { call: CallRecord; assigned: string; credited: string }[] = [];
 
+  // Every closer on file, by name part, so "Tpan A" and "Tpan" are one person.
+  const closerTokens = new Map<string, string>();
+  for (const call of calls) {
+    if (!call.closer) continue;
+    for (const token of nameTokens(call.closer)) closerTokens.set(token, call.closer);
+  }
+
+  const asCloser = (host: string): string | null => {
+    for (const token of nameTokens(host)) {
+      const known = closerTokens.get(token);
+      if (known) return known;
+    }
+    return null;
+  };
+
+  const out: { call: CallRecord; assigned: string; credited: string }[] = [];
   for (const booking of bookings) {
     if (!booking.call_id || !booking.host) continue;
     const call = callsById.get(booking.call_id);
     if (!call?.closer) continue;
-    if (call.closer.trim().toLowerCase() !== booking.host.trim().toLowerCase()) {
+
+    const assigned = asCloser(booking.host);
+    // Not a name we recognise as a closer — a shared booking account. Nothing
+    // to disagree with.
+    if (!assigned) continue;
+    if (assigned !== call.closer) {
       out.push({ call, assigned: booking.host, credited: call.closer });
     }
   }
