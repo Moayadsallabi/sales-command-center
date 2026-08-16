@@ -228,14 +228,18 @@ export function FunnelPanel({
                 <div className="text-[11px] text-zinc-500">{bucket.label}</div>
                 <div
                   className={`mt-0.5 font-mono text-[15px] tabular-nums ${
-                    bucket.ready ? "text-zinc-200" : "text-zinc-600"
+                    bucket.ready && !thin ? "text-zinc-200" : "text-zinc-600"
                   }`}
                 >
-                  {bucket.accounted === 0 ? "—" : `${Math.round(bucket.showRate)}%`}
+                  {bucket.accounted === 0 || thin
+                    ? "—"
+                    : `${Math.round(bucket.showRate)}%`}
                 </div>
                 <div className="text-[10px] text-zinc-600">
                   {bucket.accounted === 0
                     ? "no bookings"
+                    : thin
+                    ? `${bucket.kept} of ${bucket.accounted} traced`
                     : bucket.ready
                     ? `${bucket.kept} of ${bucket.accounted}`
                     : `${bucket.accounted} booking${
@@ -246,7 +250,16 @@ export function FunnelPanel({
             ))}
           </div>
           <p className="mt-2 max-w-[75ch] text-[12px] leading-relaxed text-zinc-500">
-            {spread != null && spread >= 15 ? (
+            {thin ? (
+              <>
+                These rates sit near 100% for the same reason the show rate above
+                is blank: the only bookings that can be placed in a bucket are the
+                ones that produced a recording, and those are the ones that
+                happened. Until most of the calendar is accounted for, this
+                compares booking lead times among calls already known to have gone
+                ahead, which is not a comparison at all.
+              </>
+            ) : spread != null && spread >= 15 ? (
               <>
                 There is a{" "}
                 <span className="font-medium text-gold-300">
