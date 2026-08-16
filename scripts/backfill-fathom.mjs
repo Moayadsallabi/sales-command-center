@@ -267,7 +267,7 @@ for (const m of sales) {
     });
     if (res.ok) {
       sent += 1;
-      console.log(`  ✓ ${label}`);
+      console.log(`  → ${label}`);
     } else {
       failed += 1;
       console.log(`  ✗ ${label} — n8n returned ${res.status}`);
@@ -279,6 +279,11 @@ for (const m of sales) {
   await sleep(delayMs);
 }
 
-console.log(`\n${sent} accepted, ${failed} failed.`);
-console.log("Scoring runs after the webhook replies, so rows appear in Notion over a few minutes.");
-console.log("Anything that fails to score surfaces in the error-alert Slack channel.\n");
+console.log(`\n${sent} accepted by n8n, ${failed} rejected at the door.`);
+console.log(
+  "Accepted is not scored. The workflow replies before it does any work, so these\n" +
+    "counts say nothing about what reaches Notion — scoring can still fail afterwards,\n" +
+    "most often on an empty Anthropic credit balance, which surfaces as a generic 400.",
+);
+console.log("Check n8n's execution list for the real outcome, and the error-alert channel for failures.");
+console.log("Re-running is safe: anything already on the tracker is skipped before it costs anything.\n");
