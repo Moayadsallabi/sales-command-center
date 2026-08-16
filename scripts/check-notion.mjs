@@ -43,6 +43,9 @@ const REQUIRED_PROPS = {
   "Quality Score": "number",
   "Duration (min)": "number",
   "Recording URL": "url",
+  // The join back to the KPI dashboard: a call is tied to a lead by the
+  // prospect's email, the same key payments and DMs are tied by.
+  "Prospect Email": "email",
   Summary: "rich_text",
   "The Moment": "rich_text",
   "Next Call Drill": "rich_text",

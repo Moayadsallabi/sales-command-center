@@ -30,6 +30,7 @@ const SPEC = {
   Name: { title: {} },
   Closer: { select: {} },
   "Call Date": { date: {} },
+  "Prospect Email": { email: {} },
   Outcome: {
     select: {
       options: ["Customer", "BAMFAM", "No offer made", "No deal", "No show", "REFUND"].map(

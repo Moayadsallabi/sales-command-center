@@ -11,6 +11,7 @@ missing or the wrong type before you ever run a real call through the workflow.
 | Column | Type | Set by |
 | --- | --- | --- |
 | `Name` | Title | The prospect's name, taken from the meeting title |
+| `Prospect Email` | Email | The external person on the calendar invite — see below |
 | `Closer` | Select | Who took the call — see the note on how it is picked |
 | `Call Date` | Date | The recording date |
 | `Duration (min)` | Number | Recording length |
@@ -93,6 +94,22 @@ internal people are on one invite, the workflow credits whichever of them actual
 spoke the most in the transcript — a manager silently shadowing does not steal the
 call. Cleanest is still one internal invitee: the closer. If a name comes through
 wrong, fix the calendar invite rather than the Notion row.
+
+**`Prospect Email` is what ties a call to everything else you know about that
+person.** Fathom's webhook lists everyone on the calendar invite with their email
+address and a flag saying whether they are internal; the workflow takes the first
+external one and lower-cases it, so it matches however the address was typed.
+
+On its own this column does nothing for the scorecard. It matters because the KPI
+dashboard uses email as the key for everything — which DM produced the lead, which
+ad produced the DM, which payments arrived. With the email on the call row, a
+score can be read against the ad that generated the call. Without it, the two
+systems can only be matched on name and date, which holds until two prospects
+share a first name.
+
+An invite with no external attendee — a call started ad hoc, or a rescheduled
+link where the guest never accepted — leaves this empty. That is honest: the row
+still scores, it simply cannot be tied to a lead automatically.
 
 **A no-show still gets a row.** When fewer than 50 words of transcript come through,
 the workflow logs the call — name, closer, date, recording link — with the outcome

@@ -40,6 +40,7 @@ const longTranscript = Array.from(
 const mockDirect = {
   call_date: "2026-08-11",
   prospect_name: "Alex Morgan",
+  prospect_email: "alex@prospect.com",
   duration_minutes: 47,
   share_url: "https://fathom.video/share/example",
   transcript: longTranscript,
@@ -307,6 +308,16 @@ if (notionBody) {
   if (props["Quality Score"]?.number !== 7)
     fail(`Quality Score should skip null scores (expected 7, got ${props["Quality Score"]?.number})`);
   else pass("Quality Score averages only the scored dimensions");
+
+  // The join to the KPI dashboard. Without it a call can only be tied to a
+  // lead by name and date, which stops working the day two prospects share a
+  // first name — and it fails silently, by tying the score to the wrong person.
+  if (props["Prospect Email"]?.email !== mockDirect.prospect_email)
+    fail(
+      `Prospect Email is not written (got ${JSON.stringify(props["Prospect Email"])}) — ` +
+        "call scores could not be matched to leads by email"
+    );
+  else pass("Prospect Email is written");
 
   if (props["Recording ID"]?.number !== mockDirect.recording_id)
     fail("Recording ID is not written — dedupe has nothing to match against");
