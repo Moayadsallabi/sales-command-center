@@ -1,5 +1,6 @@
 import { queryAllCalls, NotionError, NotionFailure } from "@/lib/notion";
 import { queryBookings, isCalendlyConfigured, CalendlyError } from "@/lib/calendly";
+import { queryPayments, isWhopConfigured, PaymentDay } from "@/lib/whop";
 import { linkBookings, CalendlyState } from "@/lib/bookings";
 import { CallRecord } from "@/lib/types";
 import { Dashboard } from "@/components/dashboard/dashboard";
@@ -61,6 +62,21 @@ async function loadBookings(calls: CallRecord[]): Promise<CalendlyState> {
   }
 }
 
+/**
+ * Payments never block the page either, and for the same reason as bookings:
+ * a refused Whop route downgrades the Cash Collected tile to the tracker's
+ * own figure, it does not take the dashboard down.
+ */
+async function loadPayments(): Promise<PaymentDay[] | null> {
+  if (!isWhopConfigured()) return null;
+  try {
+    return await queryPayments();
+  } catch (err) {
+    console.error("Whop read failed:", err);
+    return null;
+  }
+}
+
 export default async function Home() {
   // Resolved once per request so the date filter agrees between the server
   // render and hydration — reading the clock in the client component instead
@@ -98,7 +114,17 @@ export default async function Home() {
 
   if (!result.ok) return <SetupNotice failure={result.failure} />;
 
-  const calendly = await loadBookings(result.calls);
+  const [calendly, payments] = await Promise.all([
+    loadBookings(result.calls),
+    loadPayments(),
+  ]);
 
-  return <Dashboard calls={result.calls} today={today} calendly={calendly} />;
+  return (
+    <Dashboard
+      calls={result.calls}
+      today={today}
+      calendly={calendly}
+      payments={payments}
+    />
+  );
 }

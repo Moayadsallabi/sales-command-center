@@ -7,6 +7,7 @@ import { FunnelStats, MIN_COVERAGE_FOR_RATE } from "@/lib/bookings";
 import {
   carriesCash,
   carriesRevenue,
+  formatReporting,
   reportingCollected,
   reportingRevenue,
 } from "@/lib/money";
@@ -25,9 +26,16 @@ interface KPICardsProps {
   calls: CallRecord[];
   /** Present only when Calendly is connected. Null falls back to recordings. */
   funnel?: FunnelStats | null;
+  /**
+   * Present only when Whop is connected and no filter narrows the view.
+   * `collected` is what the processor banked in the window; `trackerLogged`
+   * is what the closers wrote down for the same window. Null keeps the tile
+   * on the tracker figure.
+   */
+  bank?: { collected: number; trackerLogged: number } | null;
 }
 
-export function KPICards({ calls, funnel = null }: KPICardsProps) {
+export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
   const total = calls.length;
   const showed = calls.filter((c) => c.outcome !== "No show");
   /**
@@ -67,6 +75,22 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
     (sum, c) => sum + reportingCollected(c),
     0
   );
+
+  /**
+   * With Whop connected the tile shows the money that actually moved, and the
+   * note names the gap to what the closers logged — worded for whichever way
+   * it runs, because off-platform payments can put the tracker AHEAD of the
+   * processor. Inside the tolerance the note stays quiet: fees and rounding
+   * are not a discrepancy anyone should be sent to chase.
+   */
+  const cashNote = (() => {
+    if (bank === null) return null;
+    const gap = bank.collected - bank.trackerLogged;
+    if (Math.abs(gap) < 50) return "from Whop — matches what closers logged";
+    return gap > 0
+      ? `from Whop — closers logged ${formatReporting(bank.trackerLogged)}, so ${formatReporting(gap)} has no call behind it`
+      : `from Whop — closers logged ${formatReporting(bank.trackerLogged)}, ${formatReporting(-gap)} of that isn't in Whop`;
+  })();
 
   const kpis = [
     // Only meaningful with a calendar behind it. Without one there is no way
@@ -122,10 +146,11 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
     },
     {
       label: "Cash Collected",
-      value: totalCashCollected,
+      value: bank?.collected ?? totalCashCollected,
       format: "currency" as const,
       icon: Banknote,
       accent: true,
+      note: cashNote,
     },
     {
       label: "Revenue",
@@ -173,13 +198,20 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
               </span>
             </>
           ) : (
-            <AnimatedNumber
-              value={kpi.value}
-              format={kpi.format}
-              className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
-                kpi.accent ? "text-gold-400" : "text-zinc-100"
-              }`}
-            />
+            <>
+              <AnimatedNumber
+                value={kpi.value}
+                format={kpi.format}
+                className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
+                  kpi.accent ? "text-gold-400" : "text-zinc-100"
+                }`}
+              />
+              {"note" in kpi && kpi.note ? (
+                <span className="mt-1 block text-[10px] leading-snug text-zinc-500">
+                  {kpi.note}
+                </span>
+              ) : null}
+            </>
           )}
         </motion.div>
       ))}

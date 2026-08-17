@@ -266,7 +266,7 @@ Scoring bands:
 
 Can the prospect actually pay what this offer costs?
 
-Capacity, not willingness — willingness belongs to the beliefs above. Look for what they said about income, savings, existing spend on similar things, or what they have already invested in trying to solve this. Having previously paid for a comparable programme is the strongest single signal. Treat "I'd have to find it" as low. If money never came up on the call at all, return null rather than a middle score.
+Capacity, not willingness — willingness belongs to the beliefs above. Look for what they said about income, savings, existing spend on similar things, or what they have already invested in trying to solve this. Having previously paid for a comparable programme is the strongest single signal. Treat "I'd have to find it" as low. If money never came up on the call at all, return 0 rather than a middle score.
 
 Scoring bands:
 - 1-3: Stated or clearly implied inability to pay at this level, or the price would be a genuine hardship.

@@ -293,7 +293,7 @@ Two parts, both required. Can they say yes today without anyone else's approval,
 
 **Can the prospect actually pay what this offer costs?**
 
-Capacity, not willingness — willingness belongs to the beliefs above. Look for what they said about income, savings, existing spend on similar things, or what they have already invested in trying to solve this. Having previously paid for a comparable programme is the strongest single signal. Treat "I'd have to find it" as low. If money never came up on the call at all, return null rather than a middle score.
+Capacity, not willingness — willingness belongs to the beliefs above. Look for what they said about income, savings, existing spend on similar things, or what they have already invested in trying to solve this. Having previously paid for a comparable programme is the strongest single signal. Treat "I'd have to find it" as low. If money never came up on the call at all, return 0 rather than a middle score.
 
 | Score | What it looks like |
 | --- | --- |

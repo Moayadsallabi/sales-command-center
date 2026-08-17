@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
-import { callsMissingFxRate } from "@/lib/money";
+import { callsMissingFxRate, carriesCash, reportingCollected } from "@/lib/money";
+import { PaymentDay } from "@/lib/whop";
 import {
   CalendlyState,
   LinkedBooking,
@@ -55,11 +56,14 @@ export function Dashboard({
   calls,
   today,
   calendly,
+  payments = null,
   demo = false,
 }: {
   calls: CallRecord[];
   today: string;
   calendly: CalendlyState;
+  /** Present only when Whop is connected. Null keeps the tracker's figure. */
+  payments?: PaymentDay[] | null;
   demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
@@ -141,6 +145,29 @@ export function Dashboard({
   );
 
   const unrated = useMemo(() => callsMissingFxRate(scoped), [scoped]);
+
+  /**
+   * What the processor banked in the visible window, next to what the tracker
+   * logged for the same window. The processor's number is the whole business —
+   * it cannot follow an outcome pill or a single closer — so the moment any
+   * of those filters narrows the view, the tile falls back to the tracker
+   * figure, which can.
+   */
+  const bank = useMemo(() => {
+    if (payments === null) return null;
+    if (selectedOutcomes.size > 0 || selectedSources.size > 0 || selectedCloser !== null)
+      return null;
+    const days = RANGE_DAYS[dateRange];
+    const cutoff = days ? daysBefore(today, days) : null;
+    const collected = payments
+      .filter((p) => !cutoff || p.day >= cutoff)
+      .reduce((sum, p) => sum + p.amount, 0);
+    const trackerLogged = calls
+      .filter((c) => !cutoff || (c.call_date && c.call_date >= cutoff))
+      .filter(carriesCash)
+      .reduce((sum, c) => sum + reportingCollected(c), 0);
+    return { collected, trackerLogged };
+  }, [payments, calls, dateRange, selectedOutcomes, selectedSources, selectedCloser, today]);
 
   /**
    * Bookings narrowed the same way the calls above them are, so the funnel and
@@ -355,7 +382,7 @@ export function Dashboard({
 
       {/* Content */}
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
-        <KPICards calls={scoped} funnel={funnel} />
+        <KPICards calls={scoped} funnel={funnel} bank={bank} />
 
         {calendly.link && (
           <FunnelPanel

@@ -107,6 +107,7 @@ async function readTracker() {
     for (const row of page.results ?? []) {
       const p = row.properties;
       rows.push({
+        id: row.id,
         name: (p.Name?.title ?? []).map((t) => t.plain_text ?? "").join(""),
         email: (p["Prospect Email"]?.email ?? "").trim().toLowerCase() || null,
         date: p["Call Date"]?.date?.start ?? null,
@@ -378,11 +379,86 @@ if (untracked.length) {
   console.log();
 }
 
+/* -------------------------------------------------------------------- apply */
+
+// `--apply` writes the corrections above straight into Notion instead of
+// leaving them as homework: a matched row gets the processor's cash figure,
+// the buyer's email if the row has none, and — where money arrived on a row
+// not marked Customer — the Customer outcome. Ruled by Moayad 2026-08-18:
+// when the system already knows the answer, typing it by hand is busywork.
+// Name-matched writes are still guesses; every write is printed with its row
+// link, and Notion's page history is the undo.
+const applying = process.argv.includes("--apply");
+
+async function patchRow(row, properties, described) {
+  const res = await fetch(`https://api.notion.com/v1/pages/${row.id}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${notionKey}`,
+      "Notion-Version": "2022-06-28",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ properties }),
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    console.error(`  ✗ ${row.name}: Notion refused the edit (${res.status}) ${detail.slice(0, 120)}`);
+    return false;
+  }
+  console.log(`  ✓ ${row.name.padEnd(22)} ${described}${row.email ? "" : "  [was matched on name]"}`);
+  return true;
+}
+
+const emailOnly = [...matches.entries()].filter(
+  ([row]) =>
+    !row.email &&
+    !missedCloses.some((x) => x.row === row) &&
+    !cashOff.some((x) => x.row === row)
+);
+
+if (applying && (missedCloses.length || cashOff.length || emailOnly.length)) {
+  console.log("\nApplying the corrections to Notion:\n");
+  let written = 0;
+
+  for (const m of missedCloses) {
+    const properties = {
+      Outcome: { select: { name: "Customer" } },
+      "Cash Collected": { number: m.buyer.paid },
+    };
+    if (!m.row.email) properties["Prospect Email"] = { email: m.buyer.email };
+    if (await patchRow(m.row, properties, `→ Customer, cash ${money(m.buyer.paid)}`)) written++;
+    // Notion allows ~3 writes a second; pausing beats being throttled mid-run.
+    await new Promise((r) => setTimeout(r, 350));
+  }
+
+  for (const m of cashOff) {
+    const properties = { "Cash Collected": { number: m.buyer.paid } };
+    if (!m.row.email) properties["Prospect Email"] = { email: m.buyer.email };
+    if (await patchRow(m.row, properties, `cash ${money(m.row.cash)} → ${money(m.buyer.paid)}`)) written++;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+
+  // Matched rows that needed no money correction still get their email filled
+  // in, because email is the join that makes every future run certain instead
+  // of a name-guess.
+  for (const [row, m] of emailOnly) {
+    if (await patchRow(row, { "Prospect Email": { email: m.buyer.email } }, `email ${m.buyer.email}`)) written++;
+    await new Promise((r) => setTimeout(r, 350));
+  }
+
+  console.log(`\n${written} row${written === 1 ? "" : "s"} corrected. Rerun without --apply to verify.`);
+  process.exit(0);
+}
+
 // Only the first two are things a person can fix by editing a row. The other
 // two are context, and failing on them would make this un-runnable rather than
 // useful.
 if (missedCloses.length || cashOff.length) {
-  console.log("Fix the rows above in Notion, then rerun this.");
+  console.log(
+    applying
+      ? "Fix the rows above in Notion, then rerun this."
+      : "Rerun with `npm run check:payments -- --apply` to write these corrections into Notion."
+  );
   process.exit(1);
 }
 console.log("Tracker and payments agree on every row that can be matched.");
