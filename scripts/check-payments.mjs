@@ -521,10 +521,10 @@ if (applying && (missedCloses.length || cashOff.length || emailOnly.length)) {
   process.exit(0);
 }
 
-// Only the first two are things a person can fix by editing a row. The other
-// two are context, and failing on them would make this un-runnable rather than
-// useful.
-if (missedCloses.length || cashOff.length) {
+// These three are things a person can fix by editing a row. The rest — the
+// deposits, the unmatched customers, the untracked buyers — are context, and
+// failing on them would make this un-runnable rather than useful.
+if (missedCloses.length || cashOff.length || belowBar.length) {
   console.log(
     applying
       ? "Fix the rows above in Notion, then rerun this."
