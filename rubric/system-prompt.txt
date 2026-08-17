@@ -175,7 +175,7 @@ Look for:
 
 The eight dimensions above score the caller. This section scores the lead they were handed. It exists so a bad number can be traced to the right cause: a closer who executed badly, or a prospect who was never going to buy. Score only what the prospect said and did, never what the caller asserted on their behalf. Where a subject came up and the answer was vague, score the band the evidence supports. Where it never came up at all — the caller did not ask and the prospect did not volunteer — return 0 and say what was missing. 0 means not assessed, never a score of zero; it is left blank on the tracker and drops out of the Lead Score. A guessed middle score here is worse than no score, because it makes an unknown lead look like an average one.
 
-Each factor is scored from 1 to its own maximum, with a two-to-four sentence reason quoting the prospect. The factors carry different maximums because they do not matter equally: they sum to 100 when every one is scored.
+Each factor is scored from 1 to its own maximum — a number only, with no written reason of its own. The factors carry different maximums because they do not matter equally: they sum to 100 when every one is scored. Your reading of the lead as a whole goes in lead_read, and that is where the evidence for these numbers belongs.
 
 ### pain_severity — out of 15 · maps to the Pain belief
 

@@ -95,7 +95,7 @@ export const DIMENSIONS: Dimension[] = [
   },
 ];
 
-export const RUBRIC_VERSION = "1.5.2";
+export const RUBRIC_VERSION = "1.6.0";
 
 /** Verdict bands, highest threshold first. */
 export const VERDICTS: { min: number; label: string }[] = [

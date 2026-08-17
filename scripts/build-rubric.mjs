@@ -120,7 +120,7 @@ function leadQualitySection(r, label) {
     "",
     lq.intro,
     "",
-    `Each factor is scored from 1 to its own maximum, with a two-to-four sentence reason quoting the prospect. The factors carry different maximums because they do not matter equally: they sum to ${lq.max} when every one is scored.`,
+    `Each factor is scored from 1 to its own maximum — a number only, with no written reason of its own. The factors carry different maximums because they do not matter equally: they sum to ${lq.max} when every one is scored. Your reading of the lead as a whole goes in lead_read, and that is where the evidence for these numbers belongs.`,
     "",
   ];
 
@@ -241,19 +241,19 @@ function buildOutputSchema(r) {
   // the same meaning it does on the dimensions: a factor the call never reached
   // is recorded as no evidence, and the Lead Score is then averaged over the
   // factors that do have one rather than over a set padded with guesses.
+  // Each factor is a bare number, not an object with its own written reason.
+  // The API refuses a schema whose compiled grammar is too large, and that is
+  // driven by the count of fields and nested sections rather than by enums:
+  // eight factor objects with a reason each were 24 fields and 9 sections of a
+  // schema that would not compile at 77 and 22. The per-factor reasons were
+  // rendered only as bullets on the Notion page and read by nothing else —
+  // `lead_read` already carries the reading of the lead as a whole.
   const leadFactors = {};
   for (const f of r.leadQuality.factors) {
-    leadFactors[f.key] = obj({
-      score: {
-        // Plain integer for the same reason as the dimensions above.
-        type: "integer",
-        description: `${f.question} A whole number from 1 to ${f.max}, or ${NO_EVIDENCE} when the call never produced evidence either way.`,
-      },
-      reasoning: {
-        type: "string",
-        description: `Two to four sentences justifying the ${f.name} score, quoting the prospect with its [mm:ss]. When the score is ${NO_EVIDENCE}, say what never came up.`,
-      },
-    });
+    leadFactors[f.key] = {
+      type: "integer",
+      description: `${f.question} A whole number from 1 to ${f.max}, or ${NO_EVIDENCE} when the call never produced evidence either way.`,
+    };
   }
 
   const objectionNames = r.objections.types.map((t) => t.name);

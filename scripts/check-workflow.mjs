@@ -81,9 +81,7 @@ const mockAi = {
   lead_quality: Object.fromEntries(
     rubric.leadQuality.factors.map((f, i) => [
       f.key,
-      i === rubric.leadQuality.factors.length - 1
-        ? { score: 0, reasoning: `${f.name} never came up.` }
-        : { score: Math.round(f.max / 2), reasoning: `Reasoning for ${f.name}.` },
+      i === rubric.leadQuality.factors.length - 1 ? 0 : Math.round(f.max / 2),
     ])
   ),
   objections: {

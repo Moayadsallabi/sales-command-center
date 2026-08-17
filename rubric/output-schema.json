@@ -287,148 +287,36 @@
       "type": "object",
       "properties": {
         "pain_severity": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "How badly is the prospect's current situation actually hurting them? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Pain Severity score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "How badly is the prospect's current situation actually hurting them? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
         },
         "urgency": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Is there a reason this has to be solved now rather than in six months? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Urgency score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Is there a reason this has to be solved now rather than in six months? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
         },
         "desire_clarity": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Can the prospect describe the specific outcome they want? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Desire Clarity score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Can the prospect describe the specific outcome they want? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
         },
         "solution_belief": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Does the prospect believe this kind of solution works? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Solution Belief score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Does the prospect believe this kind of solution works? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
         },
         "self_efficacy": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Does the prospect believe they can execute it, while accepting they need help to do so? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Self-Efficacy score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Does the prospect believe they can execute it, while accepting they need help to do so? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
         },
         "authority": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Can this person decide alone, and do the people around them back it? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Authority score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Can this person decide alone, and do the people around them back it? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
         },
         "financial_capacity": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Can the prospect actually pay what this offer costs? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the Financial Capacity score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Can the prospect actually pay what this offer costs? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
         },
         "icp_fit": {
-          "type": "object",
-          "properties": {
-            "score": {
-              "type": "integer",
-              "description": "Is this the kind of buyer the offer is actually built for? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
-            },
-            "reasoning": {
-              "type": "string",
-              "description": "Two to four sentences justifying the ICP Fit score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
-            }
-          },
-          "required": [
-            "score",
-            "reasoning"
-          ],
-          "additionalProperties": false
+          "type": "integer",
+          "description": "Is this the kind of buyer the offer is actually built for? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
         }
       },
       "required": [
