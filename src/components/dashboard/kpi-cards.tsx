@@ -7,9 +7,7 @@ import { FunnelStats, MIN_COVERAGE_FOR_RATE } from "@/lib/bookings";
 import {
   carriesCash,
   carriesRevenue,
-  reportingCashOnCall,
   reportingCollected,
-  reportingOutstanding,
   reportingRevenue,
 } from "@/lib/money";
 import {
@@ -20,8 +18,6 @@ import {
   Target,
   DollarSign,
   Banknote,
-  HandCoins,
-  Hourglass,
   UserPlus,
 } from "lucide-react";
 
@@ -71,8 +67,6 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
     (sum, c) => sum + reportingCollected(c),
     0
   );
-  const cashOnCall = paying.reduce((sum, c) => sum + reportingCashOnCall(c), 0);
-  const outstanding = paying.reduce((sum, c) => sum + reportingOutstanding(c), 0);
 
   const kpis = [
     // Only meaningful with a calendar behind it. Without one there is no way
@@ -127,25 +121,11 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
       accent: false,
     },
     {
-      label: "On the Call",
-      value: cashOnCall,
-      format: "currency" as const,
-      icon: HandCoins,
-      accent: false,
-    },
-    {
       label: "Cash Collected",
       value: totalCashCollected,
       format: "currency" as const,
       icon: Banknote,
       accent: true,
-    },
-    {
-      label: "Outstanding",
-      value: outstanding,
-      format: "currency" as const,
-      icon: Hourglass,
-      accent: false,
     },
     {
       label: "Revenue",
@@ -157,9 +137,9 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
   ];
 
   return (
-    // Five across, two rows. Nine in one row leaves each card too narrow for a
-    // six-figure total, which clips the number the card exists to show.
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
+    // Four across, two rows. Eight in one row leaves each card too narrow for
+    // a six-figure total, which clips the number the card exists to show.
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
       {kpis.map((kpi, i) => (
         <motion.div
           key={kpi.label}
