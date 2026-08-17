@@ -177,8 +177,16 @@ function objectionsSection(r) {
 // It is translated back to an empty cell at the Notion write, which is the only
 // place that has to know: everything downstream still reads a blank score as
 // "not assessed" exactly as before.
+// Two separate limits bite here, and the second only becomes visible once the
+// first is satisfied. Beyond the 16-union cap, the API also refuses a schema
+// whose compiled grammar is "too large" — and sixteen score fields expressed as
+// enums of their allowed values were 80% of that grammar (196 of 244
+// alternatives). So a score is a plain integer: the range is stated in each
+// description and clamped again when the row is written, rather than enforced
+// by the schema. `minimum`/`maximum` are not an option — structured outputs
+// reject them.
 const NO_EVIDENCE = 0;
-const SCORE_VALUES = [NO_EVIDENCE, ...Array.from({ length: 10 }, (_, i) => i + 1)];
+const SCORE_MAX = 10;
 
 /** How many union-typed parameters the API will accept in one schema. */
 const UNION_LIMIT = 16;
@@ -215,9 +223,12 @@ function buildOutputSchema(r) {
       // recorded as unjudged instead of a guessed middle score that pollutes
       // averages. See NO_EVIDENCE for why this is not `null`.
       score: {
+        // A bare integer, not an enum of the allowed values. Sixteen score
+        // enums were 80% of the compiled grammar and the API refused it as
+        // "too large" — see SCORE_MAX. The range lives in the description and
+        // is clamped again at the Notion write.
         type: "integer",
-        enum: SCORE_VALUES,
-        description: `${d.question} Answer ${NO_EVIDENCE} when the transcript gives no evidence to judge this.`,
+        description: `${d.question} A whole number from 1 to ${SCORE_MAX}, or ${NO_EVIDENCE} when the transcript gives no evidence to judge this.`,
       },
       reasoning: {
         type: "string",
@@ -234,9 +245,9 @@ function buildOutputSchema(r) {
   for (const f of r.leadQuality.factors) {
     leadFactors[f.key] = obj({
       score: {
+        // Plain integer for the same reason as the dimensions above.
         type: "integer",
-        enum: [NO_EVIDENCE, ...Array.from({ length: f.max }, (_, i) => i + 1)],
-        description: `${f.question} Out of ${f.max}. Answer ${NO_EVIDENCE} when the call never produced evidence either way.`,
+        description: `${f.question} A whole number from 1 to ${f.max}, or ${NO_EVIDENCE} when the call never produced evidence either way.`,
       },
       reasoning: {
         type: "string",

@@ -131,20 +131,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Did the caller control the conversation's direction, pacing, and agenda throughout? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Did the caller control the conversation's direction, pacing, and agenda throughout? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -162,20 +149,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "How many layers deep did the caller go? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "How many layers deep did the caller go? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -193,20 +167,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Were the seven buying beliefs built during the call? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Were the seven buying beliefs built during the call? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -224,20 +185,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -255,20 +203,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Could the caller hold tension without becoming needy? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Could the caller hold tension without becoming needy? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -286,20 +221,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Were objections handled in the correct sequence? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Were objections handled in the correct sequence? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -317,20 +239,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Did the caller establish early whether this is a real prospect, and act on what they found? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Did the caller establish early whether this is a real prospect, and act on what they found? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -348,20 +257,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Did the caller read the room and adapt in real time? Answer 0 when the transcript gives no evidence to judge this."
+              "description": "Did the caller read the room and adapt in real time? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -395,25 +291,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-                12,
-                13,
-                14,
-                15
-              ],
-              "description": "How badly is the prospect's current situation actually hurting them? Out of 15. Answer 0 when the call never produced evidence either way."
+              "description": "How badly is the prospect's current situation actually hurting them? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -431,25 +309,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-                12,
-                13,
-                14,
-                15
-              ],
-              "description": "Is there a reason this has to be solved now rather than in six months? Out of 15. Answer 0 when the call never produced evidence either way."
+              "description": "Is there a reason this has to be solved now rather than in six months? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -467,25 +327,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-                12,
-                13,
-                14,
-                15
-              ],
-              "description": "Can the prospect describe the specific outcome they want? Out of 15. Answer 0 when the call never produced evidence either way."
+              "description": "Can the prospect describe the specific outcome they want? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -503,25 +345,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10,
-                11,
-                12,
-                13,
-                14,
-                15
-              ],
-              "description": "Does the prospect believe this kind of solution works? Out of 15. Answer 0 when the call never produced evidence either way."
+              "description": "Does the prospect believe this kind of solution works? A whole number from 1 to 15, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -539,20 +363,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Does the prospect believe they can execute it, while accepting they need help to do so? Out of 10. Answer 0 when the call never produced evidence either way."
+              "description": "Does the prospect believe they can execute it, while accepting they need help to do so? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -570,20 +381,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Can this person decide alone, and do the people around them back it? Out of 10. Answer 0 when the call never produced evidence either way."
+              "description": "Can this person decide alone, and do the people around them back it? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -601,20 +399,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Can the prospect actually pay what this offer costs? Out of 10. Answer 0 when the call never produced evidence either way."
+              "description": "Can the prospect actually pay what this offer costs? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
@@ -632,20 +417,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "enum": [
-                0,
-                1,
-                2,
-                3,
-                4,
-                5,
-                6,
-                7,
-                8,
-                9,
-                10
-              ],
-              "description": "Is this the kind of buyer the offer is actually built for? Out of 10. Answer 0 when the call never produced evidence either way."
+              "description": "Is this the kind of buyer the offer is actually built for? A whole number from 1 to 10, or 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
