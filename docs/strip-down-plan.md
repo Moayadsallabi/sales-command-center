@@ -1,8 +1,45 @@
-# Strip-down plan — proposal, not yet agreed
+# Strip-down plan — RULED ON, mostly REJECTED. Do not execute as written.
 
-Written 2026-08-17, after measuring the dashboard against a real fortnight of
-Brey's calls. Moayad to rule on the open questions at the bottom before any of
-this is built.
+Written 2026-08-17 after measuring the dashboard against a real fortnight of
+Brey's calls. **Moayad ruled the same day and the central proposal did not
+survive: the money view stays.** Kept on file for the measurements, which stand,
+and because the reasoning is worth re-reading before anyone proposes this again.
+
+## What was ruled
+
+| Question | Ruling |
+| --- | --- |
+| Cut the money view? | **No.** Revenue, cash, outstanding and the deal forecast all stay |
+| Keep the deal forecast on the call? | **Yes** |
+| Are Brey's tiers price bands or separate products? | **Price bands** — but since money stays, tiers stayed too and became per-client configurable instead. Brey now has three |
+| Is the Enrollment Call a sales call? | **Yes** — settled by evidence, see below. The plan assumed it probably was not |
+
+So the deletions listed below did **not** happen. What happened instead, on
+2026-08-17, was that the individual defects got fixed while everything stayed:
+per-client currency and tiers, deposits counted on non-customer calls, the
+dollar sign taken off the revenue chart, the tier pie made to total 100, the
+four collected-and-never-shown fields surfaced in the scorecard drawer, the
+empty-dropdown pre-flight, and the dashboard closed by default. See commit
+`e5e1e4e`.
+
+## The Enrollment Call, settled
+
+Not a guess in the end. `The Funded Blueprint Enrollment Call` runs **45–60
+minutes**, the same as the Game Plan sales calls, hosted by a different pod
+(Junior Ankomah, Sebastian) with **zero invitee overlap** with the Game Plan
+funnel across 40 sampled — a second sales team, not a later step. The genuinely
+post-sale one is `Funded Blueprint Onboarding Call`: **30 minutes**, hosted by
+Brey and his delivery people, and 19 of 19 of its invitees who also appear in
+the funnel had their Game Plan call first.
+
+A third uncounted sales funnel turned up while checking: **`TFB 2.0 Strategy
+Call`, 37 bookings, 60 minutes.** Both should be added to
+`CALENDLY_EVENT_TYPES`.
+
+---
+
+*Everything below is the original proposal, superseded. The measurements and the
+principle are still worth reading; the deletion lists are not to be acted on.*
 
 ## Why
 
