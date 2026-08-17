@@ -155,10 +155,24 @@ for (const type of types.items) {
   if (type.uri && type.name) typeNames.set(type.uri, type.name);
 }
 
-const wanted = (process.env.CALENDLY_EVENT_TYPES ?? "")
+// Same semantics as src/lib/calendly.ts — the check must judge with the same
+// rules the dashboard applies, or it reports a config as broken that works.
+// "!name" excludes (exclusions win); a list of only exclusions means
+// "everything except these".
+const entries = (process.env.CALENDLY_EVENT_TYPES ?? "")
   .split(",")
   .map((n) => n.trim().toLowerCase())
   .filter((n) => n !== "");
+const wanted = entries;
+const excludes = entries.filter((e) => e.startsWith("!")).map((e) => e.slice(1).trim()).filter((e) => e !== "");
+const includes = entries.filter((e) => !e.startsWith("!"));
+
+const countsAsSales = (name) => {
+  const n = name.toLowerCase();
+  if (excludes.some((w) => n === w || n.includes(w))) return false;
+  if (includes.length === 0) return true;
+  return includes.some((w) => n === w || n.includes(w));
+};
 
 const nameOf = (event) =>
   (event.event_type ? typeNames.get(event.event_type) : null) ?? event.name ?? "";
@@ -171,22 +185,18 @@ for (const event of all) {
 
 console.log("\n  Event types booked in this window:");
 for (const [name, count] of [...seen.entries()].sort((a, b) => b[1] - a[1])) {
-  const counted =
-    wanted.length === 0 ||
-    wanted.some((w) => name.toLowerCase() === w || name.toLowerCase().includes(w));
+  const counted = wanted.length === 0 || countsAsSales(name);
   console.log(`    ${counted ? "counted " : "ignored "} ${String(count).padStart(4)}  ${name}`);
 }
 
 if (wanted.length === 0) {
   console.log(
     "\n⚠ CALENDLY_EVENT_TYPES is not set, so every booking above counts as a sales call —" +
-      "\n  including one-to-ones and personal meetings. Set it to the event types you sell on."
+      "\n  including one-to-ones and personal meetings. Set it to the event types you sell on" +
+      "\n  — or to exclusions like \"!onboarding\" to count everything except those."
   );
 } else {
-  const kept = all.filter((event) => {
-    const name = nameOf(event).toLowerCase();
-    return wanted.some((w) => name === w || name.includes(w));
-  });
+  const kept = all.filter((event) => countsAsSales(nameOf(event)));
   if (kept.length === 0) {
     fail(
       `CALENDLY_EVENT_TYPES matches none of the bookings above.`,

@@ -469,6 +469,15 @@ function lookbackDays(): number {
  * Which event types count as sales calls, lower-cased. Unset means every type
  * counts, which will sweep in one-to-ones and personal meetings — so the
  * setup docs push hard on naming them.
+ *
+ * An entry starting with "!" EXCLUDES instead, and exclusions always win; a
+ * list of only exclusions means "everything except these". Brey runs
+ * "!onboarding" — Moayad's ruling 2026-08-17 is that every call type on the
+ * account is a sales call except onboarding, and the exclude form keeps that
+ * true when the team invents its next event type, where an include-list
+ * silently dropped the Enrollment Call's 42 bookings. Same semantics as the
+ * KPI dashboard's calendly_event_types — the two must never disagree about
+ * what counts as a sales call.
  */
 function salesEventTypes(): string[] | null {
   const raw = process.env.CALENDLY_EVENT_TYPES;
@@ -544,6 +553,12 @@ async function refreshEventList(token: string, now: Date, key: string): Promise<
     // event's own name stands in, and the filter matches on that instead.
   }
 
+  const excludes = (wanted ?? [])
+    .filter((w) => w.startsWith("!"))
+    .map((w) => w.slice(1).trim())
+    .filter((w) => w !== "");
+  const includes = (wanted ?? []).filter((w) => !w.startsWith("!"));
+
   const matchesType = (event: ScheduledEvent): boolean => {
     if (!wanted) return true;
     const name = (
@@ -551,7 +566,9 @@ async function refreshEventList(token: string, now: Date, key: string): Promise<
       event.name ??
       ""
     ).toLowerCase();
-    return wanted.some((w) => name === w || name.includes(w));
+    if (excludes.some((w) => name === w || name.includes(w))) return false;
+    if (includes.length === 0) return true;
+    return includes.some((w) => name === w || name.includes(w));
   };
 
   const kept = events.filter((e) => e.uri && matchesType(e));
