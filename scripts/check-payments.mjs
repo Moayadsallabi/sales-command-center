@@ -21,6 +21,13 @@ import { readFileSync } from "node:fs";
 
 /** Below this, a difference is fees or rounding rather than a mistake. */
 const CASH_TOLERANCE = 50;
+/**
+ * The share of the deal that must have landed before a call counts as a sale.
+ * [STATED — Moayad, 2026-08-18] All money comes through Whop, and a deposit is
+ * not a sale: "$50 against a $2,000 programme isn't considered a sale until at
+ * least 25% of the payment lands." Set to 0 to switch this check off.
+ */
+const SALE_THRESHOLD = 0.25;
 /** Short names collide. A fallback match needs a token at least this long. */
 const MIN_NAME_TOKEN = 3;
 /** Below this a token only counts as a whole word, never buried in another. */
@@ -290,6 +297,9 @@ const claimed = new Set([...matches.values()].map((m) => m.buyer.email));
 const missedCloses = [];
 const cashOff = [];
 const noPayment = [];
+const belowBar = [];
+/** Money banked against a call that is correctly still open. Not a problem. */
+const deposits = [];
 
 for (const row of tracker) {
   const match = matches.get(row);
@@ -300,15 +310,37 @@ for (const row of tracker) {
   }
 
   if (row.outcome !== "Customer" && row.outcome !== "REFUND") {
-    missedCloses.push({ row, ...match });
-  } else if (row.outcome === "Customer" && Math.abs(row.cash - match.buyer.paid) >= CASH_TOLERANCE) {
-    cashOff.push({ row, ...match });
+    // Money on a non-customer row is only a missed close if it has reached the
+    // bar. Below it, a deposit against an open follow-up is the correct state,
+    // not a mistake — flagging those would tell someone to file a $25 deposit
+    // as a $2,000 sale, which is exactly what this threshold exists to stop.
+    // With no deal value on the row there is no percentage to take, so the bar
+    // cannot be applied either way. That is the normal state for an open call —
+    // the scorer only records a closed price when the call closed — so it
+    // belongs with the deposits, not asserted as a missed sale.
+    if (SALE_THRESHOLD > 0 && row.priceClosed > 0) {
+      if (match.buyer.paid >= row.priceClosed * SALE_THRESHOLD) missedCloses.push({ row, ...match });
+      else deposits.push({ row, ...match });
+    } else if (SALE_THRESHOLD > 0) {
+      deposits.push({ row, ...match });
+    } else {
+      missedCloses.push({ row, ...match });
+    }
+  } else if (row.outcome === "Customer") {
+    // A customer whose deal value is recorded but whose payments have not
+    // reached the bar is a deposit filed as a sale.
+    if (SALE_THRESHOLD > 0 && row.priceClosed > 0 && match.buyer.paid < row.priceClosed * SALE_THRESHOLD) {
+      belowBar.push({ row, ...match });
+    }
+    if (Math.abs(row.cash - match.buyer.paid) >= CASH_TOLERANCE) cashOff.push({ row, ...match });
   }
 }
 
 const byDate = (a, b) => String(a.row?.date ?? a.date).localeCompare(String(b.row?.date ?? b.date));
 missedCloses.sort(byDate);
 cashOff.sort(byDate);
+belowBar.sort(byDate);
+deposits.sort(byDate);
 noPayment.sort(byDate);
 
 const untracked = [...buyers.values()]
@@ -338,6 +370,23 @@ if (missedCloses.length) {
   console.log("✓ Every prospect who paid is marked Customer\n");
 }
 
+if (belowBar.length) {
+  const pct = Math.round(SALE_THRESHOLD * 100);
+  console.log(
+    `✗ ${belowBar.length} row${belowBar.length === 1 ? "" : "s"} marked Customer on less than ` +
+      `${pct}% of the deal — a deposit filed as a sale:\n`
+  );
+  for (const m of belowBar) {
+    const share = Math.round((m.buyer.paid / m.row.priceClosed) * 100);
+    console.log(
+      `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} deal ${money(m.row.priceClosed)}, ` +
+        `banked ${money(m.buyer.paid)} (${share}%)${guess(m)}`
+    );
+    console.log(`      ${m.row.url}`);
+  }
+  console.log();
+}
+
 if (cashOff.length) {
   console.log(`⚠ ${cashOff.length} customer row${cashOff.length === 1 ? "" : "s"} disagree with Whop on cash:\n`);
   for (const m of cashOff) {
@@ -351,16 +400,38 @@ if (cashOff.length) {
 }
 
 if (noPayment.length) {
+  // This list is the weakest thing in this report and must stay labelled as
+  // such. "No payment found" is not "did not pay": a row with no prospect email
+  // falls back to matching on name, and that fallback is deliberately strict —
+  // it misses real buyers whose Whop display name looks nothing like the name on
+  // the row. Two known cases matched by eye and not by this code. Treat a row
+  // here as unverified, never as unpaid.
+  const unmatchable = noPayment.filter((r) => !r.email).length;
   console.log(
-    `⚠ ${noPayment.length} row${noPayment.length === 1 ? "" : "s"} marked Customer with no ` +
-      `payment found. Some will be paid off-platform; a row with no prospect email cannot be ` +
-      `matched at all, so this list is not evidence on its own:\n`
+    `⚠ ${noPayment.length} row${noPayment.length === 1 ? "" : "s"} marked Customer that could ` +
+      `not be matched to a payment. ${unmatchable} of them carry no prospect email, so nothing ` +
+      `could have matched them. THIS IS NOT EVIDENCE THEY DID NOT PAY — it is the list to go\n` +
+      `  and check by hand, and the reason to get emails onto the calendar invites:\n`
   );
   for (const row of noPayment) {
     console.log(
       `  ${row.date ?? "no date"}  ${row.name.padEnd(22)} closed ${money(row.priceClosed ?? 0)}` +
         `${row.email ? "" : "  [no prospect email on the row]"}`
     );
+  }
+  console.log();
+}
+
+if (deposits.length) {
+  const held = deposits.reduce((sum, m) => sum + m.buyer.paid, 0);
+  console.log(
+    `· ${deposits.length} open call${deposits.length === 1 ? " has" : "s have"} taken a deposit ` +
+      `below the ${Math.round(SALE_THRESHOLD * 100)}% bar — ${money(held)} banked, correctly not ` +
+      `counted as sales:\n`
+  );
+  for (const m of deposits) {
+    const of = m.row.priceClosed > 0 ? ` of ${money(m.row.priceClosed)}` : "";
+    console.log(`  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} ${money(m.buyer.paid)}${of}  ${m.row.outcome}`);
   }
   console.log();
 }

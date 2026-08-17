@@ -91,7 +91,6 @@ export function CloserLeaderboard({
                   { label: "Taken", align: "right" },
                   { label: "Closed", align: "right" },
                   { label: "Close rate", align: "right" },
-                  { label: "On call", align: "right" },
                   { label: "Cash", align: "right" },
                   { label: "Avg score", align: "right" },
                   // Sits next to the close rate on purpose: a lower close rate
@@ -137,9 +136,6 @@ export function CloserLeaderboard({
                     </td>
                     <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-200">
                       {row.closeRate == null ? "—" : `${Math.round(row.closeRate)}%`}
-                    </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400">
-                      {currency(row.cashOnCall)}
                     </td>
                     <td className="px-5 py-3 text-right font-mono tabular-nums text-gold-400">
                       {currency(row.cashCollected)}

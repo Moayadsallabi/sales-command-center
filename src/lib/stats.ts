@@ -9,7 +9,6 @@ import { OBJECTION_TYPES, LEAD_MAX } from "./lead-quality";
 import {
   carriesCash,
   carriesRevenue,
-  reportingCashOnCall,
   reportingCollected,
   reportingRevenue,
 } from "./money";
@@ -55,7 +54,6 @@ export interface CloserStats {
   /** Every payment received on these deals so far, in the reporting currency. */
   cashCollected: number;
   /** The subset of that taken during the call itself — the closer's own number. */
-  cashOnCall: number;
   revenue: number;
   avgScore: number | null;
   scoredCalls: number;
@@ -137,7 +135,6 @@ function statsFor(
     // wins — see carriesCash. Totalling both over customers hid deposits taken
     // while booking a follow-up, and made this table disagree with the call list.
     cashCollected: paying.reduce((sum, c) => sum + reportingCollected(c), 0),
-    cashOnCall: paying.reduce((sum, c) => sum + reportingCashOnCall(c), 0),
     revenue: calls
       .filter(carriesRevenue)
       .reduce((sum, c) => sum + reportingRevenue(c), 0),

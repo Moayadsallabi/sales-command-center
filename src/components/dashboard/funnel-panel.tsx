@@ -5,12 +5,9 @@ import { CallRecord } from "@/lib/types";
 import {
   LinkedBooking,
   funnelStats,
-  leadTimeBuckets,
   sourceStats,
   closerDisagreements,
   LATE_CANCEL_HOURS,
-  MIN_PER_LEAD_BUCKET,
-  MIN_COVERAGE_FOR_RATE,
 } from "@/lib/bookings";
 import { CalendarX2, Contact, Link2Off } from "lucide-react";
 
@@ -64,21 +61,10 @@ export function FunnelPanel({
   }
 
   const stats = funnelStats(bookings, calls);
-  const buckets = leadTimeBuckets(bookings);
   const sources = sourceStats(bookings);
   const disagreements = closerDisagreements(bookings, calls);
 
-  // Too much of the calendar unaccounted for to state a show rate as a figure.
-  const thin =
-    stats.coverage != null && stats.coverage < MIN_COVERAGE_FOR_RATE;
-
   const tagged = sources.filter((s) => s.source !== "Untagged");
-  const readyBuckets = buckets.filter((b) => b.ready);
-  const spread =
-    readyBuckets.length >= 2
-      ? Math.max(...readyBuckets.map((b) => b.showRate)) -
-        Math.min(...readyBuckets.map((b) => b.showRate))
-      : null;
 
   if (stats.booked === 0 && stats.upcoming === 0) {
     return (
@@ -117,35 +103,30 @@ export function FunnelPanel({
           </div>
         </div>
 
-        {/* Show rate, honestly bounded. */}
+        {/* Three numbers, each of which names something someone can go and
+            fix. There was a show rate here; it is gone because it could not be
+            stated — with most of the calendar producing no recording either
+            way, the honest answer was a range forty points wide, and the width
+            of that range is just the first tile below said as a percentage. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Stat
-            label="Show rate"
-            value={
-              // Only stated when most of the calendar is accounted for.
-              // Otherwise this is the rate among the few calls we happen to
-              // know about, which is not the show rate and reads far too high.
-              stats.showRate == null || !thin
-                ? stats.showRate == null
-                  ? "—"
-                  : `${Math.round(stats.showRate)}%`
-                : "—"
-            }
+            label="Never accounted for"
+            value={String(stats.unrecorded)}
             sub={
-              stats.showRateRange && stats.unrecorded > 0
-                ? `somewhere between ${Math.round(
-                    stats.showRateRange.low
-                  )}% and ${Math.round(stats.showRateRange.high)}% — ${
-                    stats.unrecorded
-                  } of ${stats.kept + stats.noShow + stats.unrecorded} unaccounted for`
-                : `${stats.kept} of ${stats.kept + stats.noShow} that were due`
+              stats.unrecorded === 0
+                ? "every booking produced a recording or a cancellation"
+                : `bookings that were due and produced neither a recording nor a cancellation`
             }
             accent
           />
           <Stat
-            label="Booked that held"
-            value={stats.heldRate == null ? "—" : `${Math.round(stats.heldRate)}%`}
-            sub={`${stats.kept} calls out of ${stats.booked} bookings made`}
+            label="Cancelled by your own side"
+            value={String(stats.canceledByHost)}
+            sub={
+              stats.canceled === 0
+                ? "nothing cancelled in this window"
+                : `of ${stats.canceled} cancellations — the prospect made ${stats.canceledByInvitee}`
+            }
           />
           <Stat
             label="Late cancellations"
@@ -163,121 +144,36 @@ export function FunnelPanel({
             <>Nothing in this window has been accounted for yet.</>
           ) : (
             <>
-              Of the {stats.booked} calls booked, {stats.kept} happened,{" "}
-              {stats.noShow} nobody turned up to and {stats.canceled} were called
-              off beforehand.{" "}
-              {stats.canceled > 0 && stats.medianCancelNotice != null && (
+              {stats.booked} calls were booked and {stats.kept} produced a
+              recording. {stats.canceled} were cancelled
+              {stats.medianCancelNotice != null && (
+                <> on {formatNotice(stats.medianCancelNotice)} of notice</>
+              )}
+              , and {stats.noShow} nobody turned up to.{" "}
+              {stats.canceledByHost > stats.canceledByInvitee && (
+                <span className="text-zinc-300">
+                  Cancelling your own booked calls is the largest single thing
+                  happening on this calendar, and it is not the prospects doing
+                  it.{" "}
+                </span>
+              )}
+              {stats.canceledAfterStart > 0 && (
                 <>
-                  The typical cancellation gave{" "}
-                  <span className="font-medium text-zinc-200">
-                    {formatNotice(stats.medianCancelNotice)}
-                  </span>{" "}
-                  of notice.{" "}
-                  {stats.canceledByHost > stats.canceledByInvitee ? (
-                    <>
-                      <span className="text-zinc-300">
-                        {stats.canceledByHost} of them were cancelled by your own
-                        side, not the prospect
-                      </span>
-                      , which is a different problem from prospects backing out
-                      and worth reading as one.{" "}
-                    </>
-                  ) : (
-                    <>{stats.canceledByInvitee} came from the prospect. </>
-                  )}
-                  {stats.canceledAfterStart > 0 && (
-                    <>
-                      <span className="text-zinc-300">
-                        {stats.canceledAfterStart} were cancelled after the call
-                        was already due to start
-                      </span>
-                      , so nothing was called off in advance — that is usually a
-                      no-show being cleared off the calendar afterwards, and it
-                      is counted here as a cancellation because Calendly has no
-                      other way to record it.{" "}
-                    </>
-                  )}
+                  {stats.canceledAfterStart} were cancelled after the call was
+                  already due to start, which is usually a no-show being cleared
+                  off the calendar afterwards.{" "}
                 </>
               )}
               {stats.unrecorded > 0 && (
-                <>
-                  <span className="text-zinc-300">
-                    {stats.unrecorded} bookings were due and produced neither a
-                    recording nor a cancellation
-                  </span>
-                  , so nobody can say from here whether those people turned up.
-                  That is the number to shrink: it is the width of the range
-                  above.
-                </>
+                <span className="text-zinc-300">
+                  Until the {stats.unrecorded} unaccounted-for bookings get
+                  recorded, no rate on this page can be trusted to within forty
+                  points.
+                </span>
               )}
             </>
           )}
         </p>
-
-        {/* Lead time — the one lever this panel exposes that coaching cannot reach. */}
-        <div>
-          <h4 className="mb-2 text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-            Show rate by how far ahead it was booked
-          </h4>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {buckets.map((bucket) => (
-              <div
-                key={bucket.label}
-                className="rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2.5"
-              >
-                <div className="text-[11px] text-zinc-500">{bucket.label}</div>
-                <div
-                  className={`mt-0.5 font-mono text-[15px] tabular-nums ${
-                    bucket.ready && !thin ? "text-zinc-200" : "text-zinc-600"
-                  }`}
-                >
-                  {bucket.accounted === 0 || thin
-                    ? "—"
-                    : `${Math.round(bucket.showRate)}%`}
-                </div>
-                <div className="text-[10px] text-zinc-600">
-                  {bucket.accounted === 0
-                    ? "no bookings"
-                    : thin
-                    ? `${bucket.kept} of ${bucket.accounted} traced`
-                    : bucket.ready
-                    ? `${bucket.kept} of ${bucket.accounted}`
-                    : `${bucket.accounted} booking${
-                        bucket.accounted === 1 ? "" : "s"
-                      } — too few to read`}
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 max-w-[75ch] text-[12px] leading-relaxed text-zinc-500">
-            {thin ? (
-              <>
-                These rates sit near 100% for the same reason the show rate above
-                is blank: the only bookings that can be placed in a bucket are the
-                ones that produced a recording, and those are the ones that
-                happened. Until most of the calendar is accounted for, this
-                compares booking lead times among calls already known to have gone
-                ahead, which is not a comparison at all.
-              </>
-            ) : spread != null && spread >= 15 ? (
-              <>
-                There is a{" "}
-                <span className="font-medium text-gold-300">
-                  {Math.round(spread)}-point
-                </span>{" "}
-                spread between these buckets. When the gap sits this wide, the
-                fix is in booking and confirmation — reminders, shorter lead
-                times, a confirmation step — not in how the calls are run.
-              </>
-            ) : (
-              <>
-                Buckets under {MIN_PER_LEAD_BUCKET} bookings are greyed out
-                rather than shown as a rate, because at that size one person
-                turning up moves the number by twenty points.
-              </>
-            )}
-          </p>
-        </div>
 
         {/* Where the bookings came from, from the link rather than the call. */}
         {tagged.length > 0 && (

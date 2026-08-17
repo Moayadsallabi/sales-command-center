@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
 import { CallRecord } from "@/lib/types";
-import { FunnelStats, MIN_COVERAGE_FOR_RATE } from "@/lib/bookings";
+import { FunnelStats } from "@/lib/bookings";
 import {
   carriesCash,
   carriesRevenue,
@@ -13,9 +13,7 @@ import {
 } from "@/lib/money";
 import {
   CalendarCheck,
-  CalendarPlus,
   PhoneCall,
-  PhoneIncoming,
   Target,
   DollarSign,
   Banknote,
@@ -38,27 +36,6 @@ interface KPICardsProps {
 export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
   const total = calls.length;
   const showed = calls.filter((c) => c.outcome !== "No show");
-  /**
-   * With no bookings to compare against, the only show rate available divides
-   * recordings by recordings — a prospect who cancelled or never appeared left
-   * nothing to count, so it reads high by however many of those there were.
-   * Connecting Calendly replaces it with the real one.
-   */
-  const recordedShowRate = total > 0 ? Math.round((showed.length / total) * 100) : 0;
-  /**
-   * With a calendar behind it but most of that calendar unaccounted for, there
-   * is no honest single figure to show. The rate among the handful of bookings
-   * we can trace is not the show rate — on thin coverage it sits near 100%,
-   * because the ones we can trace are precisely the ones that produced a
-   * recording. So the card goes blank and points at the panel, which carries
-   * the range and the reason.
-   */
-  const tooThin =
-    funnel != null &&
-    funnel.coverage != null &&
-    funnel.coverage < MIN_COVERAGE_FOR_RATE;
-  const showRate =
-    funnel?.showRate != null ? Math.round(funnel.showRate) : recordedShowRate;
   const customers = calls.filter((c) => c.outcome === "Customer");
   const closeRate = showed.length > 0 ? Math.round((customers.length / showed.length) * 100) : 0;
   // Every total below is converted into the reporting currency first, so a
@@ -77,6 +54,20 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
   );
 
   /**
+   * There was a Show Rate tile here. It is gone because it never had an answer
+   * to give: with most of the calendar producing no recording either way, the
+   * honest figure is a range forty points wide, and a range is not a number
+   * anyone can act on. What the calendar can say plainly is how much of it
+   * reached this page at all, so that is what sits under Recorded instead.
+   */
+  const recordedNote =
+    funnel && funnel.booked > 0 && funnel.heldRate != null
+      ? `${funnel.booked} calls were booked in this window — ${Math.round(
+          funnel.heldRate
+        )}% of them produced a recording`
+      : null;
+
+  /**
    * With Whop connected the tile shows the money that actually moved, and the
    * note names the gap to what the closers logged — worded for whichever way
    * it runs, because off-platform payments can put the tracker AHEAD of the
@@ -93,19 +84,6 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
   })();
 
   const kpis = [
-    // Only meaningful with a calendar behind it. Without one there is no way
-    // to know what was booked, which is exactly the gap this card fills.
-    ...(funnel
-      ? [
-          {
-            label: "Booked",
-            value: funnel.booked,
-            format: "number" as const,
-            icon: CalendarPlus,
-            accent: false,
-          },
-        ]
-      : []),
     {
       // Named for what it counts. It has never been the number of calls that
       // were kept — a booking nobody recorded never reached this dashboard.
@@ -114,14 +92,7 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       format: "number" as const,
       icon: CalendarCheck,
       accent: false,
-    },
-    {
-      label: "Show Rate",
-      value: showRate,
-      format: "percent" as const,
-      icon: PhoneIncoming,
-      accent: false,
-      unavailable: tooThin ? "too much of the calendar unaccounted for" : null,
+      note: recordedNote,
     },
     {
       label: "Calls Taken",
@@ -129,6 +100,7 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       format: "number" as const,
       icon: PhoneCall,
       accent: false,
+      note: null,
     },
     {
       label: "Close Rate",
@@ -136,6 +108,7 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       format: "percent" as const,
       icon: Target,
       accent: false,
+      note: null,
     },
     {
       label: "New Customers",
@@ -143,6 +116,7 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       format: "number" as const,
       icon: UserPlus,
       accent: false,
+      note: null,
     },
     {
       label: "Cash Collected",
@@ -158,13 +132,14 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       format: "currency" as const,
       icon: DollarSign,
       accent: true,
+      note: null,
     },
   ];
 
   return (
-    // Four across, two rows. Eight in one row leaves each card too narrow for
-    // a six-figure total, which clips the number the card exists to show.
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+    // Three across, two rows. Six in one row leaves each card too narrow for a
+    // six-figure total, which clips the number the card exists to show.
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
       {kpis.map((kpi, i) => (
         <motion.div
           key={kpi.label}
@@ -188,31 +163,18 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
               strokeWidth={1.5}
             />
           </div>
-          {"unavailable" in kpi && kpi.unavailable ? (
-            <>
-              <span className="font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums text-zinc-600">
-                —
-              </span>
-              <span className="mt-1 block text-[10px] leading-snug text-zinc-600">
-                {kpi.unavailable}
-              </span>
-            </>
-          ) : (
-            <>
-              <AnimatedNumber
-                value={kpi.value}
-                format={kpi.format}
-                className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
-                  kpi.accent ? "text-gold-400" : "text-zinc-100"
-                }`}
-              />
-              {"note" in kpi && kpi.note ? (
-                <span className="mt-1 block text-[10px] leading-snug text-zinc-500">
-                  {kpi.note}
-                </span>
-              ) : null}
-            </>
-          )}
+          <AnimatedNumber
+            value={kpi.value}
+            format={kpi.format}
+            className={`font-mono text-2xl lg:text-3xl font-bold tracking-tight tabular-nums ${
+              kpi.accent ? "text-gold-400" : "text-zinc-100"
+            }`}
+          />
+          {kpi.note ? (
+            <span className="mt-1 block text-[10px] leading-snug text-zinc-500">
+              {kpi.note}
+            </span>
+          ) : null}
         </motion.div>
       ))}
     </div>

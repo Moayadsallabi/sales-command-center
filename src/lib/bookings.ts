@@ -35,8 +35,6 @@ export const LATE_CANCEL_HOURS = 24;
  */
 export const MIN_COVERAGE_FOR_RATE = 90;
 
-/** Bookings a lead-time bucket needs before its show rate is worth reading. */
-export const MIN_PER_LEAD_BUCKET = 5;
 
 export type BookingState =
   /** Still ahead of us. Not a show or a no-show yet, so it counts as neither. */
@@ -476,53 +474,6 @@ export function funnelStats(
 }
 
 /* ---------------------------------------------------------- booking lead time */
-
-export interface LeadTimeBucket {
-  label: string;
-  /** Bookings due in this bucket whose fate is known. */
-  accounted: number;
-  kept: number;
-  showRate: number;
-  /** Whether there are enough bookings here to read the rate as a finding. */
-  ready: boolean;
-}
-
-const LEAD_BUCKETS: { label: string; max: number }[] = [
-  { label: "Same day", max: 1 },
-  { label: "1–2 days", max: 3 },
-  { label: "3–6 days", max: 7 },
-  { label: "7+ days", max: Infinity },
-];
-
-/**
- * Show rate against how far ahead the call was booked.
- *
- * This is the one place the dashboard can say something about the booking
- * process rather than the call: if the calls booked a week out are the ones
- * nobody turns up to, the fix is confirmation and reminders, not coaching.
- */
-export function leadTimeBuckets(bookings: LinkedBooking[]): LeadTimeBucket[] {
-  const accounted = bookings.filter(
-    (b) => (b.state === "kept" || b.state === "no_show") && b.lead_time_days != null
-  );
-
-  return LEAD_BUCKETS.map(({ label, max }, index) => {
-    const min = index === 0 ? 0 : LEAD_BUCKETS[index - 1].max;
-    const inBucket = accounted.filter((b) => {
-      const days = b.lead_time_days as number;
-      return days >= min && days < max;
-    });
-    const kept = inBucket.filter((b) => b.state === "kept").length;
-
-    return {
-      label,
-      accounted: inBucket.length,
-      kept,
-      showRate: inBucket.length === 0 ? 0 : (kept / inBucket.length) * 100,
-      ready: inBucket.length >= MIN_PER_LEAD_BUCKET,
-    };
-  });
-}
 
 /* -------------------------------------------------------------- attribution */
 

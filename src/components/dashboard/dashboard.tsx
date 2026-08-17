@@ -14,10 +14,6 @@ import {
 } from "@/lib/bookings";
 import { KPICards } from "./kpi-cards";
 import { FunnelPanel } from "./funnel-panel";
-import { OutcomeChart } from "./outcome-chart";
-import { RevenueChart } from "./revenue-chart";
-import { LeadSourceChart } from "./lead-source-chart";
-import { TierChart } from "./tier-chart";
 import { CallTable } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
 import { WhatsCostingYou } from "./whats-costing-you";
@@ -415,16 +411,6 @@ export function Dashboard({
         <LeadImpact calls={scoped} />
 
         <ObjectionPanel calls={scoped} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <OutcomeChart calls={scoped} />
-          <RevenueChart calls={scoped} />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <LeadSourceChart calls={scoped} />
-          <TierChart calls={scoped} />
-        </div>
 
         <CallTable calls={scoped} onSelect={setOpenCall} />
       </main>

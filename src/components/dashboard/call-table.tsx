@@ -45,7 +45,6 @@ export function CallTable({
                 "Tier",
                 "Cash Collected",
                 "Revenue",
-                "Niche",
                 "Source",
                 "Score",
               ].map((h) => (
@@ -139,9 +138,6 @@ export function CallTable({
                   ) : (
                     <span className="text-zinc-700">—</span>
                   )}
-                </td>
-                <td className="px-5 py-3 max-w-[200px] truncate text-xs text-zinc-500">
-                  {call.niche || "—"}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-500">
                   {call.lead_source ?? "—"}
