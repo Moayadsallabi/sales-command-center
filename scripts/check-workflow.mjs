@@ -65,22 +65,24 @@ const mockAi = {
   location: "Dubai",
   lead_source: "IG",
   summary: "Alex closed on tier 2 with a two-part payment.",
-  // One null score, so the average must skip it rather than counting it as 0.
+  // One unassessed score, sent as 0 — which is what the schema now demands and
+  // therefore what a real call sends. The average must skip it, and it must
+  // reach Notion as an empty cell, not as a zero out of ten.
   scores: Object.fromEntries(
     rubric.dimensions.map((d, i) => [
       d.key,
       i === rubric.dimensions.length - 1
-        ? { score: null, reasoning: `No evidence for ${d.name} on this call.` }
+        ? { score: 0, reasoning: `No evidence for ${d.name} on this call.` }
         : { score: 7, reasoning: `Reasoning for ${d.name}.` },
     ])
   ),
-  // Every factor at half its ceiling except the last, which is null — so the
-  // Lead Score must come out of the seven that scored, not all eight.
+  // Every factor at half its ceiling except the last, which is unassessed — so
+  // the Lead Score must come out of the seven that scored, not all eight.
   lead_quality: Object.fromEntries(
     rubric.leadQuality.factors.map((f, i) => [
       f.key,
       i === rubric.leadQuality.factors.length - 1
-        ? { score: null, reasoning: `${f.name} never came up.` }
+        ? { score: 0, reasoning: `${f.name} never came up.` }
         : { score: Math.round(f.max / 2), reasoning: `Reasoning for ${f.name}.` },
     ])
   ),
@@ -318,11 +320,11 @@ if (notionBody) {
   });
   if (wrongDims.length)
     fail(`dimension columns missing or wrong: ${wrongDims.map((d) => d.column).join(", ")}`);
-  else pass(`all ${rubric.dimensions.length} dimension columns written (null carried as null)`);
+  else pass(`all ${rubric.dimensions.length} dimension columns written (0 carried as an empty cell)`);
 
-  // Seven 7s and one null must average to 7 — a null counted as 0 gives 6.1.
+  // Seven 7s and one unassessed must average to 7 — counting the 0 gives 6.1.
   if (props["Quality Score"]?.number !== 7)
-    fail(`Quality Score should skip null scores (expected 7, got ${props["Quality Score"]?.number})`);
+    fail(`Quality Score should skip unassessed scores (expected 7, got ${props["Quality Score"]?.number})`);
   else pass("Quality Score averages only the scored dimensions");
 
   // The join to the KPI dashboard. Without it a call can only be tied to a

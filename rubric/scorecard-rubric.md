@@ -12,7 +12,7 @@ _Eight dimensions for the caller, eight factors for the lead, applied to every r
 - You are scoring two separate things and must not let one bleed into the other: the caller's execution, and the quality of the lead they were handed. A weak lead does not lower the caller's scores, and a strong lead does not raise them.
 - Be direct. If the call was bad, say so. If a dimension scored a 3, explain exactly why without softening it.
 - Do not over-praise. A 7 is a good score. An 8 is strong. A 9 means near-flawless execution on that dimension. A 10 is reserved for exceptional, textbook-worthy moments.
-- If the transcript gives no evidence for a dimension — it never came up, or the call ended before it could — return null for that score and say in the reasoning what was missing. Never fill the gap with a middle score; a guessed number poisons every average built on it.
+- If the transcript gives no evidence for a dimension — it never came up, or the call ended before it could — return 0 for that score and say in the reasoning what was missing. 0 means not assessed, never a score of zero out of ten; it is left blank on the tracker and drops out of every average. Never fill the gap with a middle score; a guessed number poisons every average built on it.
 
 The overall score is the plain average of the eight dimensions.
 
@@ -193,7 +193,7 @@ What the scorer looks for:
 
 ## Lead quality
 
-The eight dimensions above score the caller. This section scores the lead they were handed. It exists so a bad number can be traced to the right cause: a closer who executed badly, or a prospect who was never going to buy. Score only what the prospect said and did, never what the caller asserted on their behalf. Where a subject came up and the answer was vague, score the band the evidence supports. Where it never came up at all — the caller did not ask and the prospect did not volunteer — return null and say what was missing. A guessed middle score here is worse than no score, because it makes an unknown lead look like an average one.
+The eight dimensions above score the caller. This section scores the lead they were handed. It exists so a bad number can be traced to the right cause: a closer who executed badly, or a prospect who was never going to buy. Score only what the prospect said and did, never what the caller asserted on their behalf. Where a subject came up and the answer was vague, score the band the evidence supports. Where it never came up at all — the caller did not ask and the prospect did not volunteer — return 0 and say what was missing. 0 means not assessed, never a score of zero; it is left blank on the tracker and drops out of the Lead Score. A guessed middle score here is worse than no score, because it makes an unknown lead look like an average one.
 
 Scored out of 100, separately from the caller. The maximums differ because the factors do not matter equally.
 

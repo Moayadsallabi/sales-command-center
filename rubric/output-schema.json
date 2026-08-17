@@ -130,31 +130,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Did the caller control the conversation's direction, pacing, and agenda throughout? Null when the transcript gives no evidence to judge this."
+              "description": "Did the caller control the conversation's direction, pacing, and agenda throughout? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Frame Ownership score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Frame Ownership score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -167,31 +161,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "How many layers deep did the caller go? Null when the transcript gives no evidence to judge this."
+              "description": "How many layers deep did the caller go? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Discovery Depth score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Discovery Depth score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -204,31 +192,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Were the seven buying beliefs built during the call? Null when the transcript gives no evidence to judge this."
+              "description": "Were the seven buying beliefs built during the call? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Belief Architecture score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Belief Architecture score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -241,31 +223,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables? Null when the transcript gives no evidence to judge this."
+              "description": "Was the pitch custom-built for this prospect, and did it sell the transformation rather than the deliverables? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Pitch Precision score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Pitch Precision score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -278,31 +254,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Could the caller hold tension without becoming needy? Null when the transcript gives no evidence to judge this."
+              "description": "Could the caller hold tension without becoming needy? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Tension Management score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Tension Management score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -315,31 +285,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Were objections handled in the correct sequence? Null when the transcript gives no evidence to judge this."
+              "description": "Were objections handled in the correct sequence? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Objection Resolution score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Objection Resolution score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -352,31 +316,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Did the caller establish early whether this is a real prospect, and act on what they found? Null when the transcript gives no evidence to judge this."
+              "description": "Did the caller establish early whether this is a real prospect, and act on what they found? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Qualification score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Qualification score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -389,31 +347,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Did the caller read the room and adapt in real time? Null when the transcript gives no evidence to judge this."
+              "description": "Did the caller read the room and adapt in real time? Answer 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Strategic Awareness score, quoting the transcript. When score is null, say what evidence was missing."
+              "description": "Two to four sentences justifying the Strategic Awareness score, quoting the transcript. When the score is 0, say what evidence was missing."
             }
           },
           "required": [
@@ -442,36 +394,30 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    14,
-                    15
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
               ],
-              "description": "How badly is the prospect's current situation actually hurting them? Out of 15. Null when the call never produced evidence either way."
+              "description": "How badly is the prospect's current situation actually hurting them? Out of 15. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Pain Severity score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Pain Severity score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -484,36 +430,30 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    14,
-                    15
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
               ],
-              "description": "Is there a reason this has to be solved now rather than in six months? Out of 15. Null when the call never produced evidence either way."
+              "description": "Is there a reason this has to be solved now rather than in six months? Out of 15. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Urgency score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Urgency score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -526,36 +466,30 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    14,
-                    15
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
               ],
-              "description": "Can the prospect describe the specific outcome they want? Out of 15. Null when the call never produced evidence either way."
+              "description": "Can the prospect describe the specific outcome they want? Out of 15. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Desire Clarity score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Desire Clarity score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -568,36 +502,30 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10,
-                    11,
-                    12,
-                    13,
-                    14,
-                    15
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15
               ],
-              "description": "Does the prospect believe this kind of solution works? Out of 15. Null when the call never produced evidence either way."
+              "description": "Does the prospect believe this kind of solution works? Out of 15. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Solution Belief score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Solution Belief score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -610,31 +538,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Does the prospect believe they can execute it, while accepting they need help to do so? Out of 10. Null when the call never produced evidence either way."
+              "description": "Does the prospect believe they can execute it, while accepting they need help to do so? Out of 10. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Self-Efficacy score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Self-Efficacy score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -647,31 +569,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Can this person decide alone, and do the people around them back it? Out of 10. Null when the call never produced evidence either way."
+              "description": "Can this person decide alone, and do the people around them back it? Out of 10. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Authority score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Authority score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -684,31 +600,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Can the prospect actually pay what this offer costs? Out of 10. Null when the call never produced evidence either way."
+              "description": "Can the prospect actually pay what this offer costs? Out of 10. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the Financial Capacity score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the Financial Capacity score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [
@@ -721,31 +631,25 @@
           "type": "object",
           "properties": {
             "score": {
-              "anyOf": [
-                {
-                  "type": "integer",
-                  "enum": [
-                    1,
-                    2,
-                    3,
-                    4,
-                    5,
-                    6,
-                    7,
-                    8,
-                    9,
-                    10
-                  ]
-                },
-                {
-                  "type": "null"
-                }
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10
               ],
-              "description": "Is this the kind of buyer the offer is actually built for? Out of 10. Null when the call never produced evidence either way."
+              "description": "Is this the kind of buyer the offer is actually built for? Out of 10. Answer 0 when the call never produced evidence either way."
             },
             "reasoning": {
               "type": "string",
-              "description": "Two to four sentences justifying the ICP Fit score, quoting the prospect with its [mm:ss]. When score is null, say what never came up."
+              "description": "Two to four sentences justifying the ICP Fit score, quoting the prospect with its [mm:ss]. When the score is 0, say what never came up."
             }
           },
           "required": [

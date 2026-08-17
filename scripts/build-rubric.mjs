@@ -167,9 +167,36 @@ function objectionsSection(r) {
 
 // Structured outputs reject `minimum`/`maximum`, so a bounded integer is
 // expressed as an enum of its allowed values.
-const SCORE_VALUES = Array.from({ length: 10 }, (_, i) => i + 1);
+//
+// 0 is the "no evidence" value, and it is in the enum rather than expressed as
+// `null` because the API caps a schema at 16 union-typed parameters and every
+// nullable field spends one. With sixteen scores plus the commercial fields,
+// nullable scores put this schema at 25 and every request was refused outright
+// with a 400 — silently, since nothing validates the schema until a real call
+// reaches the model. Scores run from 1, so 0 cannot collide with a real one.
+// It is translated back to an empty cell at the Notion write, which is the only
+// place that has to know: everything downstream still reads a blank score as
+// "not assessed" exactly as before.
+const NO_EVIDENCE = 0;
+const SCORE_VALUES = [NO_EVIDENCE, ...Array.from({ length: 10 }, (_, i) => i + 1)];
+
+/** How many union-typed parameters the API will accept in one schema. */
+const UNION_LIMIT = 16;
 
 const nullable = (schema) => ({ anyOf: [schema, { type: "null" }] });
+
+/** Every parameter in the schema expressed as a union, at any depth. */
+function countUnions(node) {
+  let count = 0;
+  if (node && typeof node === "object") {
+    for (const value of Object.values(node.properties ?? {})) {
+      if (Array.isArray(value.type) || "anyOf" in value || "oneOf" in value) count++;
+      count += countUnions(value);
+    }
+    if (node.items && typeof node.items === "object") count += countUnions(node.items);
+  }
+  return count;
+}
 
 function obj(properties) {
   return {
@@ -184,36 +211,36 @@ function buildOutputSchema(r) {
   const scores = {};
   for (const d of r.dimensions) {
     scores[d.key] = obj({
-      // Nullable so a dimension the call never reached is recorded as "no
-      // evidence" instead of a guessed middle score that pollutes averages.
+      // 0 means "no evidence", so a dimension the call never reached is
+      // recorded as unjudged instead of a guessed middle score that pollutes
+      // averages. See NO_EVIDENCE for why this is not `null`.
       score: {
-        anyOf: [{ type: "integer", enum: SCORE_VALUES }, { type: "null" }],
-        description: `${d.question} Null when the transcript gives no evidence to judge this.`,
+        type: "integer",
+        enum: SCORE_VALUES,
+        description: `${d.question} Answer ${NO_EVIDENCE} when the transcript gives no evidence to judge this.`,
       },
       reasoning: {
         type: "string",
-        description: `Two to four sentences justifying the ${d.name} score, quoting the transcript. When score is null, say what evidence was missing.`,
+        description: `Two to four sentences justifying the ${d.name} score, quoting the transcript. When the score is ${NO_EVIDENCE}, say what evidence was missing.`,
       },
     });
   }
 
-  // Each lead factor has its own maximum, so each gets its own enum. Nullable
-  // for the same reason the dimensions are: a factor the call never reached is
-  // recorded as no evidence, and the Lead Score is then averaged over the
+  // Each lead factor has its own maximum, so each gets its own enum. 0 carries
+  // the same meaning it does on the dimensions: a factor the call never reached
+  // is recorded as no evidence, and the Lead Score is then averaged over the
   // factors that do have one rather than over a set padded with guesses.
   const leadFactors = {};
   for (const f of r.leadQuality.factors) {
     leadFactors[f.key] = obj({
       score: {
-        anyOf: [
-          { type: "integer", enum: Array.from({ length: f.max }, (_, i) => i + 1) },
-          { type: "null" },
-        ],
-        description: `${f.question} Out of ${f.max}. Null when the call never produced evidence either way.`,
+        type: "integer",
+        enum: [NO_EVIDENCE, ...Array.from({ length: f.max }, (_, i) => i + 1)],
+        description: `${f.question} Out of ${f.max}. Answer ${NO_EVIDENCE} when the call never produced evidence either way.`,
       },
       reasoning: {
         type: "string",
-        description: `Two to four sentences justifying the ${f.name} score, quoting the prospect with its [mm:ss]. When score is null, say what never came up.`,
+        description: `Two to four sentences justifying the ${f.name} score, quoting the prospect with its [mm:ss]. When the score is ${NO_EVIDENCE}, say what never came up.`,
       },
     });
   }
@@ -233,7 +260,7 @@ function buildOutputSchema(r) {
     narrative[n.key] = { type: "string", description: n.instruction };
   }
 
-  return obj({
+  const schema = obj({
     outcome: { type: "string", enum: r.commercial.outcomes },
     tier: nullable({ type: "integer", enum: r.commercial.tiers }),
     price_discussed: nullable({ type: "number" }),
@@ -274,6 +301,22 @@ function buildOutputSchema(r) {
     flags: obj(flags),
     narrative: obj(narrative),
   });
+
+  // The API refuses a schema with more than UNION_LIMIT union-typed parameters
+  // and refuses it at request time, not at build time — so without this check
+  // the failure surfaces as a 400 on a live call, days after the rubric shipped,
+  // with nothing in the repo looking wrong. Rubric v1.5.0 sat live and scored
+  // nothing for a day exactly this way. Fail the build instead.
+  const unions = countUnions(schema);
+  if (unions > UNION_LIMIT) {
+    throw new Error(
+      `Output schema has ${unions} union-typed parameters; the API accepts ${UNION_LIMIT}.\n` +
+        `  Every nullable field spends one. Express "absent" without a union — a\n` +
+        `  sentinel inside the enum, as the scores do with ${NO_EVIDENCE} — or drop a field.`
+    );
+  }
+
+  return schema;
 }
 
 /* ---------------------------------------------------------------- markdown */
