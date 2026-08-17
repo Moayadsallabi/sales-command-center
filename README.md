@@ -125,6 +125,29 @@ opinion. It also flags calls the closer recorded that never reached the tracker
 at all, which are missing from every figure on the dashboard rather than just
 this one.
 
+## Checking it against the money
+
+The tracker records what a call looked like when it ended. Payments do not stop
+there — a prospect marked BAMFAM on Tuesday pays on Friday, and nothing goes
+back to change Tuesday's row. Left alone, every one of those is a close the
+dashboard reports as a loss.
+
+```bash
+npm run check:payments
+```
+
+Reads the payment processor and names the disagreements: rows that took money
+but are not marked Customer, customer rows whose cash figure does not match what
+was banked, and buyers with no call on the tracker at all. The first two are a
+person's editing list. The third is the coverage gap — calls that never reached
+the tracker — and is the number to watch when judging whether the dashboard's
+revenue can be read as the business's revenue.
+
+Needs `WHOP_API_KEY` in `.env.local`, with the `payment:basic:read` permission.
+Rows without a prospect email fall back to matching on name; anything matched
+that way is labelled, because a wrong guess would send someone to edit the wrong
+prospect's row.
+
 ## Access control
 
 [`src/proxy.ts`](src/proxy.ts) puts HTTP basic auth in front of every route, and

@@ -14,6 +14,7 @@
     "check:notion": "node scripts/check-notion.mjs",
     "check:calendly": "node scripts/check-calendly.mjs",
     "check:accuracy": "node scripts/check-accuracy.mjs",
+    "check:payments": "node scripts/check-payments.mjs",
     "fix:notion": "node scripts/fix-notion.mjs",
     "configure:client": "node scripts/configure-client.mjs",
     "build:rubric": "node scripts/build-rubric.mjs",
