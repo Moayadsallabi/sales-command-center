@@ -165,6 +165,46 @@ for (const [name, type] of Object.entries(REQUIRED_PROPS)) {
   else if (prop.type !== type) mismatched.push(`${name}: expected ${type}, found ${prop.type}`);
 }
 
+// 3b. A dropdown with nothing in it.
+//
+// This is the failure that has broken every install so far, and it is invisible
+// to a check that only looks at names and types: the column is present, it is
+// the right type, and the first scored call still fails, because some Notion
+// API surfaces reject a write naming an option that does not exist rather than
+// creating it. `Closer` ships empty on purpose and has to be filled in by hand,
+// so it gets its own message rather than being listed as a fault.
+const optionsFor = (prop) => (prop.select ?? prop.multi_select)?.options ?? [];
+const EXPECTED_OPTIONS = {
+  Outcome: rubric.commercial.outcomes,
+  "Payment Structure": rubric.commercial.paymentStructures,
+  Currency: rubric.commercial.currencies,
+  ...Object.fromEntries(
+    rubric.bonusFlags
+      .filter((f) => f.type === "enum")
+      .map((f) => [f.column, f.options ?? []])
+  ),
+  [rubric.objections.column]: rubric.objections.types.map((t) => t.name),
+  [rubric.objections.primaryColumn]: rubric.objections.types.map((t) => t.name),
+};
+
+const emptyDropdowns = [];
+const incompleteDropdowns = [];
+for (const [name, expected] of Object.entries(EXPECTED_OPTIONS)) {
+  const prop = actual[name];
+  if (!prop || (prop.type !== "select" && prop.type !== "multi_select")) continue;
+  const have = new Set(optionsFor(prop).map((o) => o.name));
+  if (have.size === 0) {
+    emptyDropdowns.push(name);
+    continue;
+  }
+  const gaps = expected.filter((o) => !have.has(o));
+  if (gaps.length) incompleteDropdowns.push(`${name}: missing ${gaps.join(", ")}`);
+}
+
+const closer = actual.Closer;
+const closerEmpty =
+  closer && closer.type === "select" && optionsFor(closer).length === 0;
+
 if (missing.length) {
   console.warn(`\n⚠ Missing properties (these will read as empty):\n  - ${missing.join("\n  - ")}`);
 }
@@ -173,6 +213,25 @@ if (mismatched.length) {
 }
 if (!missing.length && !mismatched.length) {
   console.log(`✓ All ${Object.keys(REQUIRED_PROPS).length} expected properties present`);
+}
+
+if (emptyDropdowns.length || incompleteDropdowns.length) {
+  console.error(
+    `\n✗ Dropdowns with no choices in them — the first scored call will fail on these:` +
+      (emptyDropdowns.length ? `\n  - ${emptyDropdowns.join("\n  - ")}` : "") +
+      (incompleteDropdowns.length ? `\n  - ${incompleteDropdowns.join("\n  - ")}` : "") +
+      `\n\n  Fix: npm run fix:notion -- --apply`
+  );
+} else {
+  console.log("✓ Every dropdown has its choices filled in");
+}
+
+if (closerEmpty) {
+  console.warn(
+    "\n⚠ `Closer` has no names in it yet. It is the one dropdown nobody can fill" +
+      "\n  in for you — open the database and type your closers' names, spelled" +
+      "\n  exactly as the calendar invite spells them, before the first call."
+  );
 }
 
 // 4. Can we actually query rows?
@@ -187,6 +246,14 @@ const count = query.body.results.length;
 console.log(
   `✓ Query works — ${count}${query.body.has_more ? "+" : ""} row${count === 1 ? "" : "s"} readable`
 );
+
+// An empty dropdown is a hard failure rather than a warning: unlike a missing
+// column, which reads as blank and loses one field, it rejects the whole write
+// and the call never lands at all.
+if (emptyDropdowns.length || incompleteDropdowns.length) {
+  console.error("\nNot ready — run `npm run fix:notion -- --apply`, then rerun this.");
+  process.exit(1);
+}
 
 console.log(
   missing.length || mismatched.length

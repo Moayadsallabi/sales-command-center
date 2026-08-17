@@ -16,6 +16,7 @@
 // workflow template) and re-run this script.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -630,7 +631,23 @@ function buildWorkflow(r, systemPrompt, schema) {
   return template;
 }
 
+/* ---------------------------------------------------------------- exports */
+
+// configure-client.mjs imports these to rebuild the prompt and the schema for
+// one client's own currency and tiers. It reuses the real generator rather than
+// carrying a copy — a second implementation would happily agree with itself
+// while disagreeing with what `npm run build:rubric` actually ships.
+export { buildSystemPrompt, buildOutputSchema };
+
 /* -------------------------------------------------------------------- run */
+
+// Only when run directly. Importing it must not rewrite the repo's files.
+const RUN_DIRECTLY =
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (!RUN_DIRECTLY) {
+  // Nothing else to do — the caller wanted the builders, not the build.
+} else {
 
 console.log(
   `Building rubric v${rubric.version} (${rubric.dimensions.length} dimensions, ` +
@@ -662,3 +679,5 @@ write(
 );
 
 console.log("Done.");
+
+}

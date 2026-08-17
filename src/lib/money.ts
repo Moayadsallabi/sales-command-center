@@ -82,6 +82,29 @@ export function reportingRevenue(call: CallRecord): number {
   return toReporting(call.price_closed, call);
 }
 
+/* ------------------------------------------------- which calls carry money */
+
+/**
+ * Whether this call's cash counts towards the totals.
+ *
+ * Cash and revenue answer different questions, so they have different
+ * denominators. Revenue is the value of deals won, so only a `Customer` row
+ * has any. Cash is money that actually moved, and money moves on calls that
+ * are not wins: a deposit taken while booking a follow-up is in the bank
+ * whatever the row is later marked as. Counting cash on customers only made a
+ * paid deposit visible in the call table and absent from every total above it.
+ *
+ * A REFUND is the one outcome that carries neither — the money went back.
+ */
+export function carriesCash(call: CallRecord): boolean {
+  return call.outcome !== "REFUND";
+}
+
+/** Whether this call's closed price counts as revenue. */
+export function carriesRevenue(call: CallRecord): boolean {
+  return call.outcome === "Customer";
+}
+
 /* -------------------------------------------------------------- data health */
 
 /**

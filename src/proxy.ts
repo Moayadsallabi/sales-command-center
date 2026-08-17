@@ -2,14 +2,25 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Optional HTTP Basic auth over the whole dashboard.
+ * HTTP Basic auth over the whole dashboard.
  *
- * Off by default: with DASHBOARD_PASSWORD unset, every request passes through
- * and the dashboard is public. Set DASHBOARD_PASSWORD (and optionally
- * DASHBOARD_USER, default "admin") to require a login.
+ * **Closed unless told otherwise.** This page renders prospect names, deal
+ * sizes, recording links and what was said on private sales calls, so the
+ * safe state is the one you get by forgetting to configure something. With
+ * `DASHBOARD_PASSWORD` unset the dashboard now refuses to serve at all and
+ * says why, rather than serving that page to anyone holding the URL.
+ *
+ * To publish it deliberately — a demo, a screen on a wall — set
+ * `DASHBOARD_PUBLIC=1`. That is a decision someone has to type out.
  */
 
 const REALM = 'Basic realm="Sales Command Center", charset="UTF-8"';
+
+const LOCKED_OUT = `Sales Command Center is not configured.
+
+Set DASHBOARD_PASSWORD to require a login, or DASHBOARD_PUBLIC=1 to publish
+this dashboard to anyone with the address. It renders prospect names, deal
+sizes and call summaries, so it does not serve without one of the two.`;
 
 /** Length-independent comparison so the check does not leak the password. */
 function safeEqual(a: string, b: string): boolean {
@@ -27,9 +38,24 @@ export function proxy(request: NextRequest) {
   const password = process.env.DASHBOARD_PASSWORD;
   const user = process.env.DASHBOARD_USER ?? "admin";
 
-  // No password configured — the dashboard is intentionally open. Set
-  // DASHBOARD_PASSWORD in the environment to turn auth back on.
-  if (!password) return NextResponse.next();
+  // Deliberately public, or showing invented data. Demo mode reads nothing
+  // from Notion, so there is no private call on the page to protect.
+  if (
+    !password &&
+    (process.env.DASHBOARD_PUBLIC === "1" ||
+      process.env.DASHBOARD_DEMO_DATA === "1")
+  ) {
+    return NextResponse.next();
+  }
+
+  // Neither configured. Fail closed and explain, rather than defaulting to
+  // publishing a page of private sales calls.
+  if (!password) {
+    return new NextResponse(LOCKED_OUT, {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
 
   const header = request.headers.get("authorization");
 

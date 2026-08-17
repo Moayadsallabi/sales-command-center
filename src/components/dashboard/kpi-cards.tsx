@@ -5,6 +5,8 @@ import { AnimatedNumber } from "./animated-number";
 import { CallRecord } from "@/lib/types";
 import { FunnelStats, MIN_COVERAGE_FOR_RATE } from "@/lib/bookings";
 import {
+  carriesCash,
+  carriesRevenue,
   reportingCashOnCall,
   reportingCollected,
   reportingOutstanding,
@@ -57,13 +59,20 @@ export function KPICards({ calls, funnel = null }: KPICardsProps) {
   const closeRate = showed.length > 0 ? Math.round((customers.length / showed.length) * 100) : 0;
   // Every total below is converted into the reporting currency first, so a
   // euro retainer and a dollar sprint can sit in the same number honestly.
-  const totalRevenue = customers.reduce((sum, c) => sum + reportingRevenue(c), 0);
-  const totalCashCollected = customers.reduce(
+  //
+  // Revenue counts wins; cash counts money that moved. A deposit taken while
+  // booking a follow-up belongs in the second and not the first, which is why
+  // the two use different sets rather than both filtering to customers.
+  const paying = calls.filter(carriesCash);
+  const totalRevenue = calls
+    .filter(carriesRevenue)
+    .reduce((sum, c) => sum + reportingRevenue(c), 0);
+  const totalCashCollected = paying.reduce(
     (sum, c) => sum + reportingCollected(c),
     0
   );
-  const cashOnCall = customers.reduce((sum, c) => sum + reportingCashOnCall(c), 0);
-  const outstanding = customers.reduce((sum, c) => sum + reportingOutstanding(c), 0);
+  const cashOnCall = paying.reduce((sum, c) => sum + reportingCashOnCall(c), 0);
+  const outstanding = paying.reduce((sum, c) => sum + reportingOutstanding(c), 0);
 
   const kpis = [
     // Only meaningful with a calendar behind it. Without one there is no way

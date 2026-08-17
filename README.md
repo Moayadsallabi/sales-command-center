@@ -127,13 +127,18 @@ this one.
 
 ## Access control
 
-[`src/proxy.ts`](src/proxy.ts) can put HTTP basic auth in front of every route.
-It is **off by default** — with `DASHBOARD_PASSWORD` unset, the dashboard is
-public to anyone with the URL, which matters because it renders prospect names,
-deal sizes and call summaries.
+[`src/proxy.ts`](src/proxy.ts) puts HTTP basic auth in front of every route, and
+it is **closed unless you configure it**. With `DASHBOARD_PASSWORD` unset the
+dashboard returns a 503 explaining itself rather than serving, because the page
+renders prospect names, deal sizes, recording links and what was said on private
+sales calls — the state you get by forgetting a variable should not be the one
+that publishes all of that.
 
-To require a login, set `DASHBOARD_PASSWORD` (and optionally `DASHBOARD_USER`,
-default `admin`) in the environment. Unset it to make the dashboard public again.
+Set `DASHBOARD_PASSWORD` (and optionally `DASHBOARD_USER`, default `admin`) to
+require a login. To publish it with no login on purpose — a demo, a screen on a
+wall — leave the password blank and set `DASHBOARD_PUBLIC=1`. Demo mode
+(`DASHBOARD_DEMO_DATA=1`) serves without either, since nothing on the page is
+real.
 
 Note this is `proxy.ts`, not `middleware.ts` — Next 16 renamed that convention.
 

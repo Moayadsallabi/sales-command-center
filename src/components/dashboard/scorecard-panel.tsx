@@ -14,6 +14,7 @@ import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
 import { POOR_SCORE } from "@/lib/stats";
 import { LinkedBooking } from "@/lib/bookings";
 import { withTimestamps } from "@/lib/timestamps";
+import { formatMoney } from "@/lib/money";
 import {
   X,
   ExternalLink,
@@ -620,6 +621,8 @@ function ScorecardBody({
           </Section>
         )}
 
+        <CallFacts call={call} />
+
         <div className="flex flex-wrap gap-3 border-t border-white/[0.06] pt-5">
           {call.recording_url && (
             <a
@@ -644,5 +647,77 @@ function ScorecardBody({
         </div>
       </div>
     </motion.aside>
+  );
+}
+
+/**
+ * The facts of the deal, as opposed to the judgement of the call.
+ *
+ * Every field here was already being extracted on every call and written to
+ * Notion, and none of it was rendered anywhere in the app — the scorer spent
+ * tokens on it, the schema check asserted it, and nobody could see it. Four
+ * columns of collected-and-discarded data is worse than not collecting it,
+ * because it reads as a system that knows something it never shows you.
+ *
+ * The discount is the pair that earns its place most: a price discussed well
+ * above the price closed, on a call that scored badly on holding tension, is
+ * the same story told twice.
+ */
+function CallFacts({ call }: { call: CallRecord }) {
+  const discount =
+    call.price_discussed != null &&
+    call.price_closed != null &&
+    call.price_discussed > call.price_closed
+      ? Math.round(
+          ((call.price_discussed - call.price_closed) / call.price_discussed) * 100
+        )
+      : null;
+
+  const facts: { label: string; value: string; tone?: "warn" }[] = [];
+
+  if (call.price_discussed != null) {
+    facts.push({
+      label: "Price discussed",
+      value: formatMoney(call.price_discussed, call.currency),
+    });
+  }
+  if (discount != null) {
+    facts.push({
+      label: "Discount given",
+      value: `${discount}%`,
+      tone: "warn",
+    });
+  }
+  if (call.payment_structure) {
+    facts.push({ label: "Paid by", value: call.payment_structure });
+  }
+  if (call.prospect_revenue) {
+    facts.push({ label: "Their revenue", value: call.prospect_revenue });
+  }
+  if (call.niche) facts.push({ label: "Niche", value: call.niche });
+  if (call.location) facts.push({ label: "Based in", value: call.location });
+
+  if (facts.length === 0) return null;
+
+  return (
+    <Section title="About the deal">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+        {facts.map((f) => (
+          <div key={f.label} className="min-w-0">
+            <dt className="text-[10px] uppercase tracking-[0.08em] text-zinc-600">
+              {f.label}
+            </dt>
+            <dd
+              className={`truncate text-[13px] ${
+                f.tone === "warn" ? "text-amber-300" : "text-zinc-300"
+              }`}
+              title={f.value}
+            >
+              {f.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Section>
   );
 }

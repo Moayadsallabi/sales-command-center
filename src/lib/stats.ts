@@ -7,6 +7,8 @@ import {
 import { DIMENSIONS, Dimension, DimensionKey, GOOD_SCORE } from "./dimensions";
 import { OBJECTION_TYPES, LEAD_MAX } from "./lead-quality";
 import {
+  carriesCash,
+  carriesRevenue,
   reportingCashOnCall,
   reportingCollected,
   reportingRevenue,
@@ -106,6 +108,7 @@ function statsFor(
 ): CloserStats {
   const taken = calls.filter((c) => c.outcome !== "No show");
   const customers = calls.filter((c) => c.outcome === "Customer");
+  const paying = calls.filter(carriesCash);
   const averages = dimensionAverages(calls);
 
   const now = mean(calls.map(overallScore).filter((v): v is number => v != null));
@@ -117,20 +120,32 @@ function statsFor(
     .map(leadQualityScore)
     .filter((v): v is number => v != null);
 
+  // Naming someone's weakest habit needs more than one call to have seen it.
+  // The costing panel has always applied this bar; the leaderboard did not, so
+  // a closer with a single scored call was still being told what they are worst
+  // at — off one reading, on one prospect, on one day.
+  const scored = scoredCalls(calls).length;
+  const enoughToJudge = scored >= MIN_CALLS_PER_CLOSER;
+
   return {
     closer,
     calls: calls.length,
     taken: taken.length,
     customers: customers.length,
     closeRate: closeRate(taken),
-    cashCollected: customers.reduce((sum, c) => sum + reportingCollected(c), 0),
-    cashOnCall: customers.reduce((sum, c) => sum + reportingCashOnCall(c), 0),
-    revenue: customers.reduce((sum, c) => sum + reportingRevenue(c), 0),
+    // Cash counts money that moved on any of their calls, revenue only their
+    // wins — see carriesCash. Totalling both over customers hid deposits taken
+    // while booking a follow-up, and made this table disagree with the call list.
+    cashCollected: paying.reduce((sum, c) => sum + reportingCollected(c), 0),
+    cashOnCall: paying.reduce((sum, c) => sum + reportingCashOnCall(c), 0),
+    revenue: calls
+      .filter(carriesRevenue)
+      .reduce((sum, c) => sum + reportingRevenue(c), 0),
     avgScore: now,
-    scoredCalls: scoredCalls(calls).length,
+    scoredCalls: scored,
     trend: now != null && before != null ? now - before : null,
     dimensionAverages: averages,
-    weakest: weakestOf(averages),
+    weakest: enoughToJudge ? weakestOf(averages) : null,
     avgLeadScore: mean(leadScores),
     leadScoredCalls: leadScores.length,
   };

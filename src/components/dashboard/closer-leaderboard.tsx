@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
-import { closerLeaderboard } from "@/lib/stats";
+import { closerLeaderboard, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { formatReporting } from "@/lib/money";
 import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
@@ -180,7 +180,14 @@ export function CloserLeaderboard({
                           </span>
                         </>
                       ) : (
-                        <span className="text-zinc-700">not scored yet</span>
+                        // Blank for two different reasons, and they want
+                        // different responses: nothing scored yet, or scored
+                        // but too few to call anything a habit.
+                        <span className="text-zinc-700">
+                          {row.scoredCalls === 0
+                            ? "not scored yet"
+                            : `${row.scoredCalls} of ${MIN_CALLS_PER_CLOSER} scored calls`}
+                        </span>
                       )}
                     </td>
                   </tr>

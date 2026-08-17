@@ -61,9 +61,13 @@ export function ObjectionPanel({ calls }: { calls: CallRecord[] }) {
           ))}
 
           <div className="flex items-center gap-4 pt-2 text-[10px] text-zinc-600">
+            {/* "Reviewed for objections" rather than "assessed" — the lead
+                panel uses a stricter test for its own count, and the two
+                numbers sitting under the same word looked like a bug. */}
             <span>
-              Across {result.assessed} assessed{" "}
-              {result.assessed === 1 ? "call" : "calls"}, closing {base}% overall
+              Across {result.assessed}{" "}
+              {result.assessed === 1 ? "call" : "calls"} reviewed for objections,
+              closing {base}% overall
             </span>
             <span className="ml-auto">
               One call can raise more than one, so these do not add to 100%.

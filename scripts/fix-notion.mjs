@@ -16,12 +16,25 @@ import { dirname, join } from "node:path";
 const NOTION_VERSION = "2022-06-28";
 const APPLY = process.argv.includes("--apply");
 
+/** Price bands this client sells. Match whatever configure:client used. */
+const tiersFlag = process.argv.indexOf("--tiers");
+const tiersOverride = tiersFlag === -1 ? null : Number(process.argv[tiersFlag + 1]);
+if (tiersFlag !== -1 && (!Number.isInteger(tiersOverride) || tiersOverride < 1)) {
+  console.error("\n✗ --tiers needs a whole number after it, such as --tiers 3");
+  process.exit(1);
+}
+
 const rubric = JSON.parse(
   readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), "..", "rubric", "rubric.json"),
     "utf8"
   )
 );
+
+const TIERS =
+  tiersOverride != null
+    ? Array.from({ length: tiersOverride }, (_, i) => i + 1)
+    : rubric.commercial.tiers;
 
 // The Notion definition for every column, keyed by name. Same source of truth as
 // check-notion.mjs: the scorecard columns come from the rubric, so adding a
@@ -38,7 +51,12 @@ const SPEC = {
       ),
     },
   },
-  Tier: { select: { options: [{ name: "Tier 1" }, { name: "Tier 2" }] } },
+  // From the rubric, not a hardcoded pair — a client with three price bands
+  // was getting a Tier column that could only hold two of them. `--tiers N`
+  // overrides it to match whatever configure:client built the workflow with.
+  Tier: {
+    select: { options: TIERS.map((t) => ({ name: `Tier ${t}` })) },
+  },
   "Price Discussed": { number: {} },
   "Price Closed": { number: {} },
   "Payment Structure": {
@@ -58,9 +76,7 @@ const SPEC = {
   Location: { rich_text: {} },
   "Lead Source": {
     select: {
-      options: ["Skool", "IG", "YouTube", "Referral", "Direct", "Unknown"].map((name) => ({
-        name,
-      })),
+      options: (rubric.commercial.leadSources ?? ["Unknown"]).map((name) => ({ name })),
     },
   },
   "Quality Score": { number: {} },
@@ -172,8 +188,63 @@ if (mismatched.length) {
   );
 }
 
+/**
+ * Choices missing from a dropdown that already exists.
+ *
+ * Adding the column was never the whole job. A `Weakest Belief` column present
+ * but with an empty choice list is what broke the first two installs: the
+ * column passed every check, and the first scored call was rejected outright
+ * because it named a choice that did not exist. Creating columns fixed a
+ * database that had none and did nothing at all for the far more common case
+ * of a database built from an older template.
+ */
+const optionsOf = (definition) =>
+  (definition.select ?? definition.multi_select)?.options ?? null;
+
+const optionGaps = [];
+for (const [name, definition] of Object.entries(SPEC)) {
+  const wanted = optionsOf(definition);
+  const live = actual[name];
+  if (!wanted || !live || live.type !== typeOf(definition)) continue;
+
+  const have = (live[live.type]?.options ?? []).map((o) => o.name);
+  const gaps = wanted.map((o) => o.name).filter((o) => !have.includes(o));
+  if (gaps.length) optionGaps.push({ name, type: live.type, have: live[live.type].options, gaps });
+}
+
+if (!missing.length && !optionGaps.length) {
+  console.log("\n✓ Nothing to do — every column exists and every dropdown is filled in.");
+  process.exit(0);
+}
+
+if (optionGaps.length) {
+  console.log(`\n${optionGaps.length} dropdown${optionGaps.length === 1 ? "" : "s"} missing choices:`);
+  for (const g of optionGaps) console.log(`  ~ ${g.name} — adding: ${g.gaps.join(", ")}`);
+}
+
 if (!missing.length) {
-  console.log("\n✓ Nothing to add — every expected column already exists.");
+  if (!APPLY) {
+    console.log("\nDry run — nothing was changed. Rerun with --apply to fill them in.");
+    process.exit(0);
+  }
+  const patched = await call(`databases/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      properties: Object.fromEntries(
+        // Existing choices are sent back with their ids so Notion keeps them
+        // and their colours; sending only the new ones would replace the list.
+        optionGaps.map((g) => [
+          g.name,
+          { [g.type]: { options: [...g.have, ...g.gaps.map((name) => ({ name }))] } },
+        ])
+      ),
+    }),
+  });
+  if (!patched.ok) {
+    fail(`Notion rejected the change (${patched.status}): ${patched.body.message ?? ""}`);
+  }
+  console.log(`\n✓ Filled in ${optionGaps.length} dropdown${optionGaps.length === 1 ? "" : "s"}.`);
+  console.log("Run `npm run check:notion` to confirm.");
   process.exit(0);
 }
 
@@ -196,7 +267,17 @@ if (!APPLY) {
 const patch = await call(`databases/${id}`, {
   method: "PATCH",
   body: JSON.stringify({
-    properties: Object.fromEntries(missing.map((name) => [name, SPEC[name]])),
+    properties: {
+      ...Object.fromEntries(missing.map((name) => [name, SPEC[name]])),
+      // Columns that already exist but are missing choices, fixed in the same
+      // request so one run leaves the database ready rather than two.
+      ...Object.fromEntries(
+        optionGaps.map((g) => [
+          g.name,
+          { [g.type]: { options: [...g.have, ...g.gaps.map((name) => ({ name }))] } },
+        ])
+      ),
+    },
   }),
 });
 

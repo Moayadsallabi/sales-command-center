@@ -115,9 +115,14 @@ export function LeadImpact({ calls }: { calls: CallRecord[] }) {
           </p>
 
           <div className="flex items-center gap-4 pt-1 text-[10px] text-zinc-600">
+            {/* Says which calls, not just how many. This count and the
+                objection panel's are both "assessed" and are not the same set:
+                a lead needs four scored factors to have a score at all, while
+                an objection only needs the call to have been reviewed. Two
+                different numbers under one word read as an error. */}
             <span>
-              {result.assessed} assessed{" "}
-              {result.assessed === 1 ? "call" : "calls"} in this window
+              {result.assessed} {result.assessed === 1 ? "call" : "calls"} with a
+              lead score in this window
             </span>
             <span className="ml-auto">
               Split at your own median, so both halves always have calls in them.

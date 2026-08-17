@@ -12,11 +12,24 @@ import {
   Tooltip,
 } from "recharts";
 import { CallRecord } from "@/lib/types";
-import { reportingRevenue } from "@/lib/money";
+import { carriesRevenue, formatReporting, reportingRevenue } from "@/lib/money";
+
+/**
+ * Axis ticks in the reporting currency. Thousands are abbreviated only once
+ * the axis actually reaches them — a client whose months run to four figures
+ * was getting an axis reading $0k, $1k, $1k, because every tick rounded to the
+ * nearest thousand before it was shown.
+ */
+function axisTick(value: number): string {
+  if (Math.abs(value) >= 10_000) {
+    return `${formatReporting(Math.round(value / 1000))}k`;
+  }
+  return formatReporting(value);
+}
 
 export function RevenueChart({ calls }: { calls: CallRecord[] }) {
   const customers = calls
-    .filter((c) => c.outcome === "Customer" && c.call_date && c.price_closed)
+    .filter((c) => carriesRevenue(c) && c.call_date && c.price_closed)
     .sort((a, b) => a.call_date!.localeCompare(b.call_date!));
 
   // Converted first: a line that adds euros to dollars is not a revenue line.
@@ -71,7 +84,7 @@ export function RevenueChart({ calls }: { calls: CallRecord[] }) {
                 tick={{ fill: "#52525b", fontSize: 11, fontFamily: "var(--font-jetbrains)" }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                tickFormatter={axisTick}
               />
               <Tooltip
                 contentStyle={{
@@ -81,10 +94,7 @@ export function RevenueChart({ calls }: { calls: CallRecord[] }) {
                   fontSize: 12,
                   fontFamily: "var(--font-jetbrains)",
                 }}
-                formatter={(value) => [
-                  `$${Number(value).toLocaleString()}`,
-                  undefined,
-                ]}
+                formatter={(value) => [formatReporting(Number(value)), undefined]}
                 cursor={{ fill: "#ffffff05" }}
               />
               <Bar
