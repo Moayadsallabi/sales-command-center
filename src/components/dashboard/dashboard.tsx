@@ -17,7 +17,6 @@ import { KPICards } from "./kpi-cards";
 import { CoverageAlarm } from "./coverage-alarm";
 import { WhopGap } from "./whop-gap";
 import { FollowUps } from "./follow-ups";
-import { FunnelPanel } from "./funnel-panel";
 import { CallTable } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
 import { WhatsCostingYou } from "./whats-costing-you";
@@ -577,16 +576,6 @@ export function Dashboard({
             Reads the unfiltered call list: an unworked follow-up does not stop
             being owed when the date filter moves. */}
         <FollowUps calls={calls} today={today} />
-
-        {calendly.link && (
-          <FunnelPanel
-            bookings={scopedBookings}
-            calls={scoped}
-            windowStart={calendly.windowStart}
-            pending={calendly.pending}
-            total={calendly.total}
-          />
-        )}
 
         <CloserLeaderboard
           calls={filtered}

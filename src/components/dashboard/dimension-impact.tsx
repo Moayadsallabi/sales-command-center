@@ -38,9 +38,13 @@ export function DimensionImpact({ calls }: { calls: CallRecord[] }) {
       <p className="mb-5 max-w-[70ch] text-[12px] leading-relaxed text-zinc-600">
         Each row splits your scored calls in two — the calls where this part
         scored {GOOD_SCORE} or better, and the calls where it scored below{" "}
-        {GOOD_SCORE} — then shows how often you closed in each group. A wide gap
-        is a pattern worth drilling, not proof: a strong prospect lifts the score
-        and the close together.
+        {GOOD_SCORE} — then shows how often you closed in each group.{" "}
+        <span className="text-zinc-500">
+          The length of each bar is that group&rsquo;s close rate, and the number
+          on the right is how far apart the two rates are.
+        </span>{" "}
+        A wide gap is a pattern worth drilling, not proof: a strong prospect
+        lifts the score and the close together.
       </p>
 
       {!result.ready ? (
@@ -132,30 +136,37 @@ function ImpactRow({ impact }: { impact: Impact }) {
         <Bar
           width={good}
           className="bg-gold-500/70"
-          label={`${impact.goodCloses} of ${impact.goodCalls} closed`}
+          label={`${good}% closed — ${impact.goodCloses} of ${impact.goodCalls}`}
           labelClassName="text-gold-200/70"
           title={`${impact.goodCloses} of the ${impact.goodCalls} calls where this scored ${GOOD_SCORE} or better ended as a customer`}
         />
         <Bar
           width={poor}
           className="bg-zinc-600/60"
-          label={`${impact.poorCloses} of ${impact.poorCalls} closed`}
+          label={`${poor}% closed — ${impact.poorCloses} of ${impact.poorCalls}`}
           labelClassName="text-zinc-500"
           title={`${impact.poorCloses} of the ${impact.poorCalls} calls where this scored below ${GOOD_SCORE} ended as a customer`}
         />
       </div>
 
       <span
-        className={`w-[88px] shrink-0 text-right font-mono text-[12px] font-medium tabular-nums ${
-          impact.conclusive ? "text-gold-400" : "text-zinc-600"
-        }`}
+        className="w-[104px] shrink-0 text-right"
         title={
           impact.conclusive
-            ? `${gap} percentage points between the two close rates`
-            : `A gap of ${gap} points, against ${Math.round(impact.swing)} points of swing from one call`
+            ? `Closed ${good}% of the time when this went well against ${poor}% when it did not`
+            : `${good}% against ${poor}%, a gap of ${gap} — smaller than the ${Math.round(impact.swing)} one call landing the other way would move it`
         }
       >
-        {impact.conclusive ? `+${gap} pts` : `${gap} pts`}
+        <span
+          className={`block font-mono text-[13px] font-medium tabular-nums ${
+            impact.conclusive ? "text-gold-400" : "text-zinc-600"
+          }`}
+        >
+          {gap > 0 ? `+${gap}` : `${gap}`}
+        </span>
+        <span className="block text-[9px] leading-tight text-zinc-600">
+          {good}% vs {poor}%
+        </span>
       </span>
     </div>
   );

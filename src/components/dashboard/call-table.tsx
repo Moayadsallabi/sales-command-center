@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CallRecord, OUTCOME_COLORS } from "@/lib/types";
+import { CallRecord, OUTCOME_COLORS, leadQualityScore } from "@/lib/types";
+import { leadBandFor } from "@/lib/lead-quality";
 import { collectedToDate, formatMoney, formatReporting } from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
@@ -46,7 +47,12 @@ export function CallTable({
                 "Cash Collected",
                 "Revenue",
                 "Source",
-                "Score",
+                // Two different questions, so both are named rather than one of
+                // them owning the word "score": the lead is who turned up, the
+                // call is how it was run. A single "Score" column made the
+                // second look like the only thing being measured.
+                "Lead",
+                "Call score",
               ].map((h) => (
                 <th
                   key={h}
@@ -152,6 +158,34 @@ export function CallTable({
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-500">
                   {call.lead_source ?? "—"}
+                </td>
+                {/* The lead, out of 100. Blank rather than zero when too few
+                    factors were assessed to score it — leadQualityScore returns
+                    null there, and a 0 would read as a terrible prospect
+                    instead of one nobody judged. */}
+                <td className="px-5 py-3 whitespace-nowrap">
+                  {(() => {
+                    const lead = leadQualityScore(call);
+                    if (lead == null) return <span className="text-zinc-700">—</span>;
+                    return (
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${lead}%`,
+                              background:
+                                lead >= 75 ? "#d4af37" : lead >= 55 ? "#f59e0b" : "#ef4444",
+                            }}
+                          />
+                        </div>
+                        <span className="font-mono text-xs text-zinc-500 tabular-nums">
+                          {lead}
+                        </span>
+                        <span className="text-[10px] text-zinc-600">{leadBandFor(lead)}</span>
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap">
                   {call.quality_score != null ? (
