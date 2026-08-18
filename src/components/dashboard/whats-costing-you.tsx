@@ -1,9 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import { biggestCosts, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { AlertTriangle, TrendingDown, TrendingUp, Users, User } from "lucide-react";
+import { Panel, PanelHeader } from "./panel";
 
 function scoreHex(score: number): string {
   if (score >= 7.5) return "#d4af37";
@@ -14,14 +14,16 @@ function scoreHex(score: number): string {
 function Trend({ value }: { value: number }) {
   // Below this it is measurement wobble, not movement.
   if (Math.abs(value) < 0.3) {
-    return <span className="text-[11px] text-zinc-600">no change</span>;
+    return <span className="text-[11px] text-zinc-400">no change</span>;
   }
   const better = value > 0;
   const Icon = better ? TrendingUp : TrendingDown;
   return (
     <span
       className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-        better ? "text-emerald-400" : "text-red-400"
+        better
+          ? "text-[var(--color-positive)]"
+          : "text-[var(--color-negative)]"
       }`}
     >
       <Icon className="h-3 w-3" strokeWidth={2} />
@@ -40,34 +42,52 @@ export function WhatsCostingYou({
   calls,
   previousCalls,
   closer,
+  order = 0,
 }: {
   calls: CallRecord[];
   previousCalls: CallRecord[];
   closer: string | null;
+  order?: number;
 }) {
   const costs = biggestCosts(calls, previousCalls);
   const scored = costs[0]?.scored ?? 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.65, duration: 0.4 }}
-      className="rounded-xl border border-white/[0.06] glass-card p-5"
-    >
-      <div className="mb-5 flex items-center justify-between">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-          {closer ? `What is costing ${closer}` : "What is costing you"}
-        </h3>
-        {scored > 0 && (
-          <span className="font-mono text-[11px] tabular-nums text-zinc-600">
-            from {scored} scored {scored === 1 ? "call" : "calls"}
-          </span>
-        )}
-      </div>
+    <Panel order={order}>
+      <PanelHeader
+        icon={AlertTriangle}
+        title={closer ? `What is costing ${closer}` : "What is costing you"}
+        subtitle="The two parts of the call worth acting on, and whether it is a coaching problem or a script one."
+        info={
+          <>
+            <p>
+              Deliberately two rows rather than a chart of all eight. When six
+              dimensions sit at the same number, showing them costs a third of
+              the screen and says nothing.
+            </p>
+            <p>
+              &ldquo;Whole team&rdquo; means every closer is weak here, so it is
+              the script or the training. A named closer means the others handle
+              it fine, which is a conversation rather than a rewrite.
+            </p>
+            <p>
+              A closer needs {MIN_CALLS_PER_CLOSER} scored calls before they are
+              counted, and any movement smaller than 0.3 reads as no change
+              because below that it is measurement wobble.
+            </p>
+          </>
+        }
+        right={
+          scored > 0 ? (
+            <span className="font-mono text-[11px] tabular-nums text-zinc-400">
+              from {scored} scored {scored === 1 ? "call" : "calls"}
+            </span>
+          ) : null
+        }
+      />
 
       {costs.length === 0 ? (
-        <p className="text-sm text-zinc-600">
+        <p className="t-body text-zinc-300">
           {scored === 0
             ? "No scored calls in this range yet."
             : "Nothing is dragging here — every part of the call is scoring 7 or better."}
@@ -79,7 +99,7 @@ export function WhatsCostingYou({
               key={cost.dimension.key}
               className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4"
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col-reverse items-start justify-between gap-2 sm:flex-row sm:gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5">
                     <h4 className="text-[15px] font-medium text-zinc-100">
@@ -87,7 +107,7 @@ export function WhatsCostingYou({
                     </h4>
                     {cost.scope !== "unknown" && (
                       <span
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
                           cost.scope === "team"
                             ? "border-amber-500/25 bg-amber-500/[0.08] text-amber-300"
                             : "border-white/[0.08] bg-white/[0.03] text-zinc-400"
@@ -107,11 +127,11 @@ export function WhatsCostingYou({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-[12px] text-zinc-500">
+                  <p className="mt-1 text-[13px] text-zinc-400">
                     {cost.dimension.plainQuestion}
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
+                <div className="flex shrink-0 items-baseline gap-3 text-right sm:block">
                   <div
                     className="font-mono text-2xl font-bold tabular-nums"
                     style={{ color: scoreHex(cost.average) }}
@@ -140,14 +160,14 @@ export function WhatsCostingYou({
                   </p>
                 )}
                 {cost.scope === "team" && (
-                  <p className="flex items-start gap-1.5 pt-1 text-[12px] text-amber-300/90">
+                  <p className="flex items-start gap-1.5 pt-1 text-[13px] text-amber-300">
                     <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" strokeWidth={1.5} />
                     Every closer is weak here, so this is the script or the training —
                     not one person to coach.
                   </p>
                 )}
                 {cost.scope === "individual" && cost.closers.length > 0 && (
-                  <p className="pt-1 text-[12px] text-zinc-500">
+                  <p className="pt-1 text-[13px] text-zinc-400">
                     Others on the team handle this fine, so it is a coaching
                     conversation rather than a script change.
                   </p>
@@ -157,13 +177,13 @@ export function WhatsCostingYou({
           ))}
 
           {!closer && (
-            <p className="text-[10px] text-zinc-600">
+            <p className="text-[11px] text-zinc-400">
               A closer needs {MIN_CALLS_PER_CLOSER} scored calls before they are
               counted here.
             </p>
           )}
         </div>
       )}
-    </motion.div>
+    </Panel>
   );
 }

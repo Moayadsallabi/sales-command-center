@@ -1,18 +1,20 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { CallRecord, OUTCOME_COLORS, leadQualityScore } from "@/lib/types";
 import { leadBandFor } from "@/lib/lead-quality";
 import { carriesRevenue, collectedToDate, formatMoney, formatReporting } from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
+import { Panel, PanelHeader } from "./panel";
 
 export function CallTable({
   calls,
   onSelect,
+  order = 0,
 }: {
   calls: CallRecord[];
   onSelect: (call: CallRecord) => void;
+  order?: number;
 }) {
   const sorted = [...calls].sort((a, b) => {
     if (!a.call_date) return 1;
@@ -21,21 +23,35 @@ export function CallTable({
   });
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 1.0, duration: 0.4 }}
-      className="rounded-xl border border-white/[0.06] glass-card overflow-hidden"
-    >
+    <Panel order={order} padded={false} className="overflow-hidden">
       <div className="p-5 pb-0">
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500 mb-1">
-          All Calls
-        </h3>
-        <p className="text-[10px] text-zinc-600 mb-4">
-          Click a row to open its scorecard.
-        </p>
+        <PanelHeader
+          title="All calls"
+          subtitle="Click a row to open its scorecard."
+          right={
+            <span className="font-mono text-[13px] tabular-nums text-zinc-400">
+              {sorted.length}
+            </span>
+          }
+          info={
+            <>
+              <p>
+                Cash Collected and Revenue are shown in the deal&apos;s own
+                currency and are never converted, so a row always matches the
+                contract behind it. The totals at the top of the page do convert
+                — that is why a euro row can read differently in the two places.
+              </p>
+              <p>
+                Lead and Call score are two different questions. The lead is who
+                turned up; the call score is how it was run. A blank lead means
+                too few factors were assessed to score it, which is not the same
+                as a bad prospect.
+              </p>
+            </>
+          }
+        />
       </div>
-      <div className="overflow-x-auto">
+      <div className="scroll-x">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/[0.06]">
@@ -56,7 +72,7 @@ export function CallTable({
               ].map((h) => (
                 <th
                   key={h}
-                  className="text-left text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 px-5 py-3 whitespace-nowrap"
+                  className="t-label sticky top-0 z-10 whitespace-nowrap bg-[#0f0f12] px-5 py-3 text-left text-zinc-400"
                 >
                   {h}
                 </th>
@@ -81,17 +97,17 @@ export function CallTable({
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-zinc-600 hover:text-gold-400 transition-colors"
+                        className="text-zinc-500 transition-colors hover:text-gold-400"
                       >
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
                   </div>
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-400">
-                  {call.closer ?? <span className="text-zinc-700">—</span>}
+                <td className="px-5 py-3 whitespace-nowrap text-[13px] text-zinc-400">
+                  {call.closer ?? <span className="text-zinc-500">—</span>}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap font-mono text-xs text-zinc-500 tabular-nums">
+                <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] text-zinc-400 tabular-nums">
                   {call.call_date
                     ? new Date(call.call_date + "T00:00:00").toLocaleDateString("en-US", {
                         month: "short",
@@ -101,7 +117,7 @@ export function CallTable({
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap">
                   <span
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-medium"
                     style={{
                       color: OUTCOME_COLORS[call.outcome ?? ""] ?? "#9ca3af",
                       background: `${OUTCOME_COLORS[call.outcome ?? ""] ?? "#9ca3af"}15`,
@@ -124,7 +140,7 @@ export function CallTable({
                       Notion, which this does not do. */}
                   {wasSettledByPayment(call) && (
                     <span
-                      className="ml-2 text-[10px] text-zinc-500 whitespace-nowrap"
+                      className="ml-2 whitespace-nowrap text-[11px] text-zinc-400"
                       title={`Recorded as "${call.recorded_outcome}" on the day. Counted as a close because ${formatReporting(call.paid_total ?? 0)} was received. Correct the row in Notion to clear this.`}
                     >
                       was {call.recorded_outcome} · paid
@@ -133,18 +149,18 @@ export function CallTable({
                 </td>
                 {/* Shown in the deal's own currency — never converted, so the
                     row always matches the contract. */}
-                <td className="px-5 py-3 whitespace-nowrap font-mono text-xs tabular-nums">
+                <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] tabular-nums">
                   {collectedToDate(call) ? (
                     <span className="text-gold-400">
                       {formatMoney(collectedToDate(call), call.currency)}
                       {call.outstanding ? (
-                        <span className="ml-1 text-[10px] text-zinc-500">
+                        <span className="ml-1 text-[11px] text-zinc-400">
                           +{formatMoney(call.outstanding, call.currency)} due
                         </span>
                       ) : null}
                     </span>
                   ) : (
-                    <span className="text-zinc-700">—</span>
+                    <span className="text-zinc-500">—</span>
                   )}
                 </td>
                 {/* carriesRevenue, not price_closed alone. Every total on this
@@ -155,16 +171,16 @@ export function CallTable({
                     ever defined the field for it — fixed at the source and at
                     the write, and guarded here too so the display cannot
                     disagree with the totals above it whatever arrives. */}
-                <td className="px-5 py-3 whitespace-nowrap font-mono text-xs tabular-nums">
+                <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] tabular-nums">
                   {carriesRevenue(call) && call.price_closed ? (
                     <span className="text-gold-400/50">
                       {formatMoney(call.price_closed, call.currency)}
                     </span>
                   ) : (
-                    <span className="text-zinc-700">—</span>
+                    <span className="text-zinc-500">—</span>
                   )}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-500">
+                <td className="px-5 py-3 whitespace-nowrap text-[13px] text-zinc-400">
                   {call.lead_source ?? "—"}
                 </td>
                 {/* The lead, out of 100. Blank rather than zero when too few
@@ -174,7 +190,7 @@ export function CallTable({
                 <td className="px-5 py-3 whitespace-nowrap">
                   {(() => {
                     const lead = leadQualityScore(call);
-                    if (lead == null) return <span className="text-zinc-700">—</span>;
+                    if (lead == null) return <span className="text-zinc-500">—</span>;
                     return (
                       <div className="flex items-center gap-2">
                         <div className="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
@@ -187,10 +203,10 @@ export function CallTable({
                             }}
                           />
                         </div>
-                        <span className="font-mono text-xs text-zinc-500 tabular-nums">
+                        <span className="font-mono text-[13px] text-zinc-400 tabular-nums">
                           {lead}
                         </span>
-                        <span className="text-[10px] text-zinc-600">{leadBandFor(lead)}</span>
+                        <span className="text-[11px] text-zinc-400">{leadBandFor(lead)}</span>
                       </div>
                     );
                   })()}
@@ -212,12 +228,12 @@ export function CallTable({
                           }}
                         />
                       </div>
-                      <span className="font-mono text-xs text-zinc-500 tabular-nums">
+                      <span className="font-mono text-[13px] text-zinc-400 tabular-nums">
                         {call.quality_score}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-zinc-700">—</span>
+                    <span className="text-zinc-500">—</span>
                   )}
                 </td>
               </tr>
@@ -225,6 +241,6 @@ export function CallTable({
           </tbody>
         </table>
       </div>
-    </motion.div>
+    </Panel>
   );
 }

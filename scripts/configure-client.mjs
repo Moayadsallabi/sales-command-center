@@ -228,12 +228,16 @@ const alert = nodeBy("Untracked — Alert");
 // because it was broken, not because it was clear — and an empty queue is
 // exactly what a working one looks like.
 //
-// `channel_not_found` does NOT mean the channel is missing. Authentication had
-// already succeeded by the time Slack looked, so the credential is fine; the
-// cause is the channel being in another workspace, the app not being a member
-// of it, or the app lacking the scope to resolve a channel by NAME. The last
-// one is the trap, because the channel can exist and the app can be in it and
-// it still fails. Prefer the channel ID over its name.
+// `channel_not_found` does NOT mean the channel is missing, and it is a bad
+// error message for what it usually means. Brey's case, resolved 2026-08-18:
+// the token was VALID and n8n's own "Test" button said so — it just belonged
+// to a different Slack workspace, where that channel id does not exist. The
+// app was installed, was in the channel, and had chat:write; none of that
+// mattered, because the token was for somewhere else.
+//
+// The tell was that the credential could not list a single channel. A token
+// that is healthy and pointed at the right workspace always sees something.
+// If it sees nothing, stop checking the channel and check the workspace.
 //
 // The template's value is treated as a placeholder, not a default.
 const TEMPLATE_CHANNEL = "sales-tracker";

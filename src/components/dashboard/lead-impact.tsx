@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import { LeadBucket, leadImpact } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { UserSearch } from "lucide-react";
+import { Panel, PanelHeader } from "./panel";
 
 /**
  * Close rate on this account's better leads against its worse ones.
@@ -14,28 +14,43 @@ import { UserSearch } from "lucide-react";
  * a close rate that barely moves between the two halves is a selling problem,
  * and one that swings hard is a traffic problem the closers cannot fix.
  */
-export function LeadImpact({ calls }: { calls: CallRecord[] }) {
+export function LeadImpact({
+  calls,
+  order = 0,
+}: {
+  calls: CallRecord[];
+  order?: number;
+}) {
   const result = leadImpact(calls);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.75, duration: 0.4 }}
-      className="rounded-xl border border-white/[0.06] glass-card p-5"
-    >
-      <div className="mb-1 flex items-center gap-2">
-        <UserSearch className="h-3.5 w-3.5 text-gold-500" strokeWidth={1.5} />
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-          What the leads are worth
-        </h3>
-      </div>
-      <p className="mb-5 max-w-[70ch] text-[12px] leading-relaxed text-zinc-600">
-        Every prospect is scored out of {LEAD_MAX} on how buyable they were when
-        they arrived — pain, urgency, authority, money and the rest — separately
-        from how the call was run. This splits your calls at your own median and
-        shows how often each half closed.
-      </p>
+    <Panel order={order}>
+      <PanelHeader
+        icon={UserSearch}
+        title="What the leads are worth"
+        subtitle="How often your better half of leads closed, against your worse half."
+        info={
+          <>
+            <p>
+              Every prospect is scored out of {LEAD_MAX} on how buyable they
+              were when they arrived — pain, urgency, authority, money and the
+              rest — separately from how the call was run.
+            </p>
+            <p>
+              This splits your calls at your OWN median rather than a fixed
+              threshold, so both halves always have calls in them and the
+              comparison holds however good or bad your traffic is.
+            </p>
+            <p>
+              Everything else on this page measures the closers. This measures
+              what they were given, and it decides which conversation to have: a
+              close rate that barely moves between the halves is a selling
+              problem, and one that swings hard is a traffic problem the closers
+              cannot fix.
+            </p>
+          </>
+        }
+      />
 
       {!result.ready ? (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
@@ -57,7 +72,7 @@ export function LeadImpact({ calls }: { calls: CallRecord[] }) {
               </>
             )}
           </p>
-          <p className="mt-1.5 text-[11px] text-zinc-600">
+          <p className="mt-1.5 text-[11px] text-zinc-400">
             Calls scored before lead quality was added do not count here — they
             were never assessed, which is different from scoring badly.
           </p>
@@ -114,7 +129,7 @@ export function LeadImpact({ calls }: { calls: CallRecord[] }) {
             )}
           </p>
 
-          <div className="flex items-center gap-4 pt-1 text-[10px] text-zinc-600">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-zinc-400">
             {/* Says which calls, not just how many. This count and the
                 objection panel's are both "assessed" and are not the same set:
                 a lead needs four scored factors to have a score at all, while
@@ -130,7 +145,7 @@ export function LeadImpact({ calls }: { calls: CallRecord[] }) {
           </div>
         </div>
       )}
-    </motion.div>
+    </Panel>
   );
 }
 
@@ -147,36 +162,52 @@ function Row({
 }) {
   const rate = Math.round(bucket.closeRate);
 
+  const inside = rate >= 45;
+
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5">
-      <span className="w-[140px] shrink-0 text-[13px] text-zinc-300">
+    <div className="flex flex-col gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+      <span className="shrink-0 text-[13px] text-zinc-200 sm:w-[140px] sm:text-zinc-300">
         {label}
-        <span className="block text-[11px] text-zinc-600">{sub}</span>
+        <span className="ml-1.5 text-[11px] text-zinc-400 sm:ml-0 sm:block">
+          {sub}
+        </span>
       </span>
 
       {/* Both bars run 0–100% of the same width from the same origin, so the
-          overhang between them is the gap without anyone doing arithmetic. */}
-      <div className="flex-1">
-        <div className="h-5 overflow-hidden rounded bg-white/[0.03]">
+          overhang between them is the gap without anyone doing arithmetic.
+
+          The count used to live inside the fill at whatever width the fill
+          happened to be, so on a short bar it spilled onto the dark track in a
+          colour chosen for gold. It follows the end of the bar now. */}
+      <div className="min-w-0 flex-1">
+        <div
+          className="relative h-5 rounded bg-white/[0.03]"
+          title={`${bucket.closes} of these ${bucket.calls} calls ended as a customer`}
+        >
           <div
-            className={`flex h-full items-center rounded ${
-              tone === "gold" ? "bg-gold-500/70" : "bg-zinc-600/60"
+            className={`absolute inset-y-0 left-0 rounded ${
+              tone === "gold" ? "bg-gold-500/80" : "bg-zinc-500/45"
             }`}
             style={{ width: `${Math.max(rate, 1)}%` }}
+          />
+          <span
+            className={`absolute inset-y-0 flex items-center justify-end whitespace-nowrap text-[11px] ${
+              inside && tone === "gold"
+                ? "font-medium text-[var(--color-gold-ink)]"
+                : "text-zinc-100"
+            }`}
+            style={
+              inside
+                ? { left: 0, width: `${Math.max(rate, 1)}%`, paddingRight: 8 }
+                : { left: `calc(${Math.max(rate, 1)}% + 8px)` }
+            }
           >
-            <span
-              className={`whitespace-nowrap pl-2 text-[10px] ${
-                tone === "gold" ? "text-gold-100/80" : "text-zinc-300/80"
-              }`}
-              title={`${bucket.closes} of these ${bucket.calls} calls ended as a customer`}
-            >
-              {bucket.closes} of {bucket.calls} closed
-            </span>
-          </div>
+            {bucket.closes} of {bucket.calls} closed
+          </span>
         </div>
       </div>
 
-      <span className="w-11 shrink-0 text-right font-mono text-[13px] tabular-nums text-zinc-300">
+      <span className="shrink-0 text-right font-mono text-[15px] tabular-nums text-zinc-200 sm:w-11 sm:text-[13px]">
         {rate}%
       </span>
     </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import {
   recordingWeeks,
@@ -8,6 +7,7 @@ import {
   SILENCE_DAYS,
 } from "@/lib/follow-ups";
 import { AlertTriangle, Activity } from "lucide-react";
+import { Panel, PanelHeader } from "./panel";
 
 /**
  * Whether the tracker is still being fed.
@@ -41,12 +41,14 @@ export function CoverageAlarm({
   calls,
   today,
   booked = null,
+  order = 0,
 }: {
   /** Every call, unfiltered. */
   calls: CallRecord[];
   today: string;
   /** Bookings in the visible window, when Calendly is connected. */
   booked?: number | null;
+  order?: number;
 }) {
   const weeks = recordingWeeks(calls, today, 6);
   const silent = silentClosers(calls, today);
@@ -67,26 +69,35 @@ export function CoverageAlarm({
   const alarming = collapsed || silent.length > 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className={`rounded-xl border p-5 ${
-        alarming
-          ? "border-amber-500/25 bg-amber-500/[0.04]"
-          : "border-white/[0.06] glass-card"
-      }`}
-    >
-      <div className="mb-4 flex items-center gap-2">
-        {alarming ? (
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-400" strokeWidth={1.5} />
-        ) : (
-          <Activity className="h-3.5 w-3.5 text-gold-500" strokeWidth={1.5} />
-        )}
-        <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-          Is the tracker still being fed
-        </h3>
-      </div>
+    <Panel order={order} tone={alarming ? "alert" : "default"}>
+      <PanelHeader
+        icon={alarming ? AlertTriangle : Activity}
+        title="Is the tracker still being fed"
+        subtitle="Six weeks of recordings, and any closer who has gone quiet."
+        info={
+          <>
+            <p>
+              A call that never reaches the tracker is missing from every figure
+              on this page — close rate, cash, the scorecards — and nothing
+              about the page looks wrong when it happens. A close rate does not
+              wobble when a closer stops delivering recordings; it stays
+              perfectly plausible and describes a fraction of the business.
+            </p>
+            <p>
+              That failure has already happened here once and took five weeks to
+              notice, which is why it has a panel rather than a footnote.
+            </p>
+            <p>
+              This reads the whole tracker and ignores the date range at the top
+              of the page: the point is to compare recent weeks against normal
+              ones, and a seven-day window has no normal to compare against. The
+              current week is never the evidence a warning rests on, because it
+              is part-run by definition and would fire every Monday.
+            </p>
+            <p>A closer counts as quiet after {SILENCE_DAYS} days.</p>
+          </>
+        }
+      />
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
         {/* Six weeks of recordings, empty weeks included. A gap week left out
@@ -97,7 +108,7 @@ export function CoverageAlarm({
               const current = i === weeks.length - 1;
               return (
                 <div key={w.week} className="flex w-9 flex-col items-center gap-1">
-                  <span className="font-mono text-[10px] tabular-nums text-zinc-500">
+                  <span className="font-mono text-[11px] tabular-nums text-zinc-300">
                     {w.calls}
                   </span>
                   <div
@@ -115,7 +126,7 @@ export function CoverageAlarm({
               );
             })}
           </div>
-          <div className="mt-1.5 flex justify-between text-[10px] text-zinc-600">
+          <div className="mt-1.5 flex justify-between text-[11px] text-zinc-400">
             <span>6 weeks ago</span>
             <span>this week</span>
           </div>
@@ -151,20 +162,17 @@ export function CoverageAlarm({
             </p>
           )}
 
-          <p className="max-w-[75ch] text-[11px] leading-relaxed text-zinc-600">
-            A call that never reaches the tracker is missing from every figure on
-            this page — close rate, cash, the scorecards — and nothing about the
-            page looks wrong when it happens.{" "}
-            {booked != null && booked > 0 && (
-              <>
-                Calendly has {booked} bookings in the window currently shown, so
-                that is the ceiling the recordings are being measured against.{" "}
-              </>
-            )}
-            A closer counts as quiet after {SILENCE_DAYS} days.
-          </p>
+          {/* The long version of this moved into the panel's info popover.
+              What stays on screen is the one fact that changes with the date
+              range and therefore cannot be written once and forgotten. */}
+          {booked != null && booked > 0 && (
+            <p className="max-w-[80ch] text-[11px] leading-relaxed text-zinc-400">
+              Calendly has {booked} bookings in the window currently shown, so
+              that is the ceiling the recordings are being measured against.
+            </p>
+          )}
         </div>
       </div>
-    </motion.div>
+    </Panel>
   );
 }

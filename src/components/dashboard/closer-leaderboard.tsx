@@ -1,11 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
 import { closerLeaderboard, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { formatReporting } from "@/lib/money";
 import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
+import { Panel, PanelHeader } from "./panel";
 
 /** Leaderboard figures are cross-call totals, so already in one currency. */
 const currency = (value: number) => formatReporting(value);
@@ -22,14 +22,16 @@ function scoreColor(score: number | null): string {
 const TREND_NOISE = 0.3;
 
 function Trend({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-zinc-700">—</span>;
-  if (Math.abs(value) < TREND_NOISE) return <span className="text-zinc-600">flat</span>;
+  if (value == null) return <span className="text-zinc-500">—</span>;
+  if (Math.abs(value) < TREND_NOISE) return <span className="text-zinc-400">flat</span>;
   const better = value > 0;
   const Icon = better ? TrendingUp : TrendingDown;
   return (
     <span
       className={`inline-flex items-center justify-end gap-1 ${
-        better ? "text-emerald-400" : "text-red-400"
+        better
+        ? "text-[var(--color-positive)]"
+        : "text-[var(--color-negative)]"
       }`}
     >
       <Icon className="h-3 w-3" strokeWidth={2} />
@@ -44,42 +46,61 @@ export function CloserLeaderboard({
   previousCalls,
   selected,
   onSelect,
+  order = 0,
 }: {
   calls: CallRecord[];
   previousCalls: CallRecord[];
   selected: string | null;
   onSelect: (closer: string | null) => void;
+  order?: number;
 }) {
   const rows = closerLeaderboard(calls, previousCalls);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.55, duration: 0.4 }}
-      className="rounded-xl border border-white/[0.06] glass-card overflow-hidden"
-    >
-      <div className="flex items-center justify-between p-5 pb-4">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-3.5 h-3.5 text-gold-500" strokeWidth={1.5} />
-          <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-            Closers
-          </h3>
-        </div>
-        {selected && (
-          <button
-            onClick={() => onSelect(null)}
-            className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            Show everyone
-          </button>
-        )}
+    <Panel order={order} padded={false} className="overflow-hidden">
+      <div className="p-5 pb-0">
+        <PanelHeader
+          icon={Trophy}
+          title="Closers"
+          subtitle="Click a row to narrow everything below to that person."
+          info={
+            <>
+              <p>
+                Lead quality sits next to close rate on purpose. A lower close
+                rate against lower-quality leads is a different finding from a
+                lower close rate against the same leads as everyone else, and
+                only one of the two is a coaching conversation.
+              </p>
+              <p>
+                Trend is the change in average call score against the previous
+                period. Anything inside {TREND_NOISE} of zero reads as flat,
+                because below that it is measurement wobble rather than
+                movement.
+              </p>
+              <p>
+                A closer needs {MIN_CALLS_PER_CLOSER} scored calls before a
+                weakest part of their call is named — under that it is one bad
+                call, not a habit.
+              </p>
+            </>
+          }
+          right={
+            selected ? (
+              <button
+                onClick={() => onSelect(null)}
+                className="rounded-full border border-white/[0.08] px-2.5 py-1 text-[11px] text-zinc-300 transition-colors hover:border-white/20 hover:text-zinc-100"
+              >
+                Show everyone
+              </button>
+            ) : null
+          }
+        />
       </div>
 
       {rows.length === 0 ? (
-        <div className="px-5 pb-6 text-sm text-zinc-600">No calls in this range.</div>
+        <div className="px-5 pb-6 t-body text-zinc-300">No calls in this range.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="scroll-x">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
@@ -193,6 +214,6 @@ export function CloserLeaderboard({
           </table>
         </div>
       )}
-    </motion.div>
+    </Panel>
   );
 }
