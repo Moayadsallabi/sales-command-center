@@ -541,9 +541,12 @@ if (noBooking.length) {
     console.log(`  ${day(f.call)}  ${f.call.name.padEnd(22)} ${why}`);
   }
   console.log(
-    `\n  This is the ceiling rather than a bug: a call booked over DM, moved by hand,\n` +
-      `  or held on a link nobody tagged was never on this calendar to be found. It\n` +
-      `  falls when booking habits change, not when the matching does.`
+    `\n  Two different problems wear this label. Either the call was never booked\n` +
+      `  here — taken over DM, or moved by hand onto a slot the booking no longer\n` +
+      `  describes — or it was booked here and the row cannot be recognised as the\n` +
+      `  same person, because a call is titled whatever the closer typed. A row\n` +
+      `  reading "Unknown" is the second kind, and no amount of matching reaches it.\n` +
+      `  Check the recording's own title before writing these off as not booked.`
   );
 }
 

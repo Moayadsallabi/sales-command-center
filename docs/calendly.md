@@ -131,7 +131,7 @@ looked like, and that is what licenses the write.
 | Recovered | The matcher would not choose between two bookings; the recording's slot did, and the name agrees. Written |
 | Unconfirmed | Matched on the name, with no recording to check it against. Not written without `--unverified` |
 | Held back | The two records disagree — a different slot, a different person on the invite, or a different closer. Never written |
-| No booking | Nothing on this calendar matches. The ceiling, not a fault |
+| No booking | Nothing on this calendar matches — either never booked here, or booked here under a name the call row cannot be recognised by |
 
 Held-back rows are the point of the exercise as much as the written ones. On a
 first live run they caught a booking 22 hours from the recording it was matched
