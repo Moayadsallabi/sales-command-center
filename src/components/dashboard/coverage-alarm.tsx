@@ -18,9 +18,14 @@ import { AlertTriangle, Activity } from "lucide-react";
  * not wobble when a closer stops delivering; it stays perfectly plausible and
  * describes a fraction of the business.
  *
- * That failure has already happened here once and took five weeks to notice.
- * It gets a strip at the top rather than a footnote, because a footnote is
- * where it was.
+ * That failure has already happened here once and took five weeks to notice,
+ * so it gets its own panel rather than the footnote it used to be.
+ *
+ * It sits directly BELOW the KPI cards, not above them (moved 2026-08-18). It
+ * opened the page for a while, which put a caveat in front of the result it
+ * qualifies and made every visit lead with a problem. Beneath the numbers it
+ * still cannot be missed and it finally reads in the right order: here is the
+ * close rate, and here is how much of the business it actually covers.
  *
  * It reads the whole tracker, never the filtered window: the point is to
  * compare recent weeks against normal ones, and a seven-day view has no normal

@@ -385,15 +385,33 @@ export function Dashboard({
 
       {/* Content */}
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
-        {/* Whether the numbers below are built on all of the calls or some of
-            them. It reads the unfiltered list, because a seven-day window has
-            no normal week to compare this week against. */}
-        <CoverageAlarm calls={calls} today={today} booked={funnel?.booked ?? null} />
+        {/* THE ORDER OF THIS PAGE, AND WHY.
+            ANSWER -> ACT -> UNDERSTAND -> RAW.
 
+            The numbers come first. Nothing goes above them.
+
+            Until 2026-08-18 the coverage warning opened the page, so every
+            visit led with a problem before it showed a result. Two amber
+            panels bracketed the KPI cards and between them took the whole
+            first screen: you had to scroll past a caveat to reach the figure
+            it was cautioning you about. That is backwards. A person opens
+            this page to see how the business is doing; a warning is what
+            qualifies that answer, not a substitute for it.
+
+            Data-quality panels sit directly BENEATH the metrics they qualify,
+            which is also where they read correctly — "here is the close rate,
+            and here is how complete the data behind it is" — rather than as a
+            standalone alarm about nothing yet named. */}
         <KPICards calls={scoped} funnel={funnel} bank={bank} />
 
-        {/* The two worklists, above everything that only describes. Both read
-            the unfiltered call list: an unworked follow-up and an unruled
+        {/* Qualifies every figure above: they are all computed from
+            recordings, so they are wrong in exact proportion to the
+            recordings that never arrived. Reads the unfiltered list, because
+            a seven-day window has no normal week to compare against. */}
+        <CoverageAlarm calls={calls} today={today} booked={funnel?.booked ?? null} />
+
+        {/* ACT. The two worklists, above everything that only describes. Both
+            read the unfiltered call list: an unworked follow-up and an unruled
             payment do not stop being owed when the date filter moves. */}
         {reconciliation && <WhopGap reconciliation={reconciliation} />}
 
