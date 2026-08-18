@@ -30,7 +30,14 @@ interface KPICardsProps {
    * is what the closers wrote down for the same window. Null keeps the tile
    * on the tracker figure.
    */
-  bank?: { collected: number; trackerLogged: number } | null;
+  bank?: {
+    collected: number;
+    trackerLogged: number;
+    /** Buyers who first paid inside this window with no call anywhere. */
+    missedCount: number;
+    /** What those buyers have paid to date — lifetime, not window. */
+    missedWorth: number;
+  } | null;
 }
 
 export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
@@ -83,6 +90,14 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       : `from Whop — closers logged ${formatReporting(bank.trackerLogged)}, ${formatReporting(-gap)} of that isn't in Whop`;
   })();
 
+  const revenueNote = (() => {
+    if (bank === null || bank.missedCount === 0) return null;
+    const people = bank.missedCount === 1 ? "1 buyer" : `${bank.missedCount} buyers`;
+    return `${people} first paid in this window with no call on the tracker — ${formatReporting(
+      bank.missedWorth
+    )} so far, none of it in this figure`;
+  })();
+
   const kpis = [
     {
       // Named for what it counts. It has never been the number of calls that
@@ -132,7 +147,18 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
       format: "currency" as const,
       icon: DollarSign,
       accent: true,
-      note: null,
+      // WHAT THIS FIGURE CANNOT SEE, SAID NEXT TO IT.
+      //
+      // Revenue only counts calls that were recorded, so a sale made on a call
+      // nobody recorded is missing from it with nothing on the page saying so.
+      // This is the size of that hole for the window on screen.
+      //
+      // "so far" is doing real work: the count is people who FIRST paid inside
+      // this window, but the amount is everything they have paid to date,
+      // because the payment feed carries no buyer and their share of this
+      // window cannot be separated out. Better a slightly wide number that
+      // says so than a precise-looking one that is wrong.
+      note: revenueNote,
     },
   ];
 

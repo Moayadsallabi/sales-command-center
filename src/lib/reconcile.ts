@@ -47,6 +47,21 @@ export interface Reconciliation {
   /** Buyers with no call on the tracker at all — the coverage gap, not a typo. */
   untracked: number;
   untrackedWorth: number;
+  /**
+   * The same buyers, as records rather than a tally.
+   *
+   * Both figures above are LIFETIME: every buyer who has never matched a call,
+   * and everything they have ever paid. That is the right shape for the panel
+   * at the bottom of the page, and the wrong shape for answering "what did
+   * unrecorded calls cost me this month" — which is what Moayad asked on
+   * 2026-08-18, having reasonably read the lifetime number as a monthly one.
+   *
+   * Windowing needs a date, and only the caller knows which window is on
+   * screen, so the list travels and the date filter stays where every other
+   * date filter lives. Each buyer carries `first` (their earliest payment) and
+   * `paid` (their lifetime total).
+   */
+  untrackedBuyers: WhopBuyer[];
   /** Everything the two lists are worth together, for the headline. */
   worth: number;
 }
@@ -177,6 +192,7 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     cashOff,
     untracked: untracked.length,
     untrackedWorth: untracked.reduce((sum, b) => sum + b.paid, 0),
+    untrackedBuyers: untracked,
     worth:
       missedCloses.reduce((sum, m) => sum + m.paid, 0) +
       cashOff.reduce((sum, m) => sum + Math.abs(m.paid - (collectedToDate(m.call) ?? 0)), 0),

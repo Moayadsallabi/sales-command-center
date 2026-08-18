@@ -169,8 +169,40 @@ export function Dashboard({
       .filter((c) => !cutoff || (c.call_date && c.call_date >= cutoff))
       .filter(carriesCash)
       .reduce((sum, c) => sum + reportingCollected(c), 0);
-    return { collected, trackerLogged };
-  }, [payments, calls, dateRange, selectedOutcomes, selectedSources, selectedCloser, today]);
+    // WHAT UNRECORDED CALLS COST, FOR THIS WINDOW ONLY.
+    //
+    // Revenue adds up the closed price of calls that were RECORDED, so a sale
+    // made on a call nobody recorded is invisible to it. The panel at the
+    // bottom of the page already counts those buyers, but over all time and
+    // over everything they have ever paid — which reads as a monthly figure
+    // and is not one. Moayad read it that way on 2026-08-18, correctly asking
+    // whether Revenue was low because calls went unrecorded.
+    //
+    // Windowed on `first`, the buyer's earliest payment: someone who first
+    // bought inside this window and has no call anywhere is a sale this window
+    // should have counted and could not. `paid` stays their lifetime total —
+    // the payment feed is day-and-amount with no buyer on it, so their share
+    // of THIS window's money cannot be isolated. The wording says "so far"
+    // rather than implying it all landed here.
+    //
+    // A DATE IS ONLY REQUIRED WHEN THERE IS A WINDOW TO TEST IT AGAINST.
+    //
+    // Written the other way round first — `b.first && (!cutoff || ...)` — which
+    // silently dropped undated buyers even on "All time", so this line and the
+    // panel at the bottom of the page reported different counts for the same
+    // set. Two numbers for one thing is the fault this dashboard has spent the
+    // day removing; it is not worth reintroducing for an edge case.
+    const newUntracked = reconciliation
+      ? reconciliation.untrackedBuyers.filter((b) => !cutoff || (b.first != null && b.first >= cutoff))
+      : [];
+
+    return {
+      collected,
+      trackerLogged,
+      missedCount: newUntracked.length,
+      missedWorth: newUntracked.reduce((sum, b) => sum + b.paid, 0),
+    };
+  }, [payments, calls, reconciliation, dateRange, selectedOutcomes, selectedSources, selectedCloser, today]);
 
   /**
    * Bookings narrowed the same way the calls above them are, so the funnel and
