@@ -122,6 +122,10 @@ async function readTracker() {
         outcome: p.Outcome?.select?.name ?? null,
         priceClosed: p["Price Closed"]?.number ?? null,
         cash: p["Cash Collected"]?.number ?? p["Collected On Call"]?.number ?? 0,
+        // Kept apart from `cash` on purpose. This one is written by the
+        // workflow from what happened on the recording, so it is a claim about
+        // money taken during the call — not a figure a human reconciled after.
+        onCall: p["Collected On Call"]?.number ?? 0,
         url: `https://www.notion.so/${row.id.replace(/-/g, "")}`,
       });
     }
@@ -193,11 +197,18 @@ async function readPayments() {
         name: user.name || user.username || "",
         billing: "",
         paid: 0,
+        // Money that went back out. Kept rather than just netted off, because
+        // "never paid" and "paid and was refunded" are different facts about a
+        // call and want different rows on the tracker.
+        refunded: 0,
+        gross: 0,
         payments: 0,
         first: day,
       };
       if (billing && !buyer.billing) buyer.billing = billing;
       buyer.paid += net;
+      buyer.refunded += p.refunded_amount ?? 0;
+      buyer.gross += gross;
       buyer.payments += 1;
       if (day && (!buyer.first || day < buyer.first)) buyer.first = day;
       buyers.set(email, buyer);
@@ -314,11 +325,25 @@ const missedCloses = [];
 const cashOff = [];
 const noPayment = [];
 const belowBar = [];
+/**
+ * Money the closer recorded taking on the call that Whop has never seen.
+ *
+ * `Collected On Call` is written at scoring time from what was said on the
+ * recording, and a payment link sent is not a payment made. Nothing goes back
+ * afterwards to ask whether it landed, so the claim sits on the row looking
+ * exactly like cash. Checked for every outcome, because a deposit on an open
+ * call is claimed the same way a sale is.
+ */
+const unbanked = [];
 /** Money banked against a call that is correctly still open. Not a problem. */
 const deposits = [];
 
 for (const row of tracker) {
   const match = matches.get(row);
+
+  if (row.onCall > 0 && (match?.buyer.paid ?? 0) + CASH_TOLERANCE < row.onCall) {
+    unbanked.push({ row, ...(match ?? {}) });
+  }
 
   if (!match) {
     if (row.outcome === "Customer") noPayment.push(row);
@@ -356,6 +381,7 @@ const byDate = (a, b) => String(a.row?.date ?? a.date).localeCompare(String(b.ro
 missedCloses.sort(byDate);
 cashOff.sort(byDate);
 belowBar.sort(byDate);
+unbanked.sort(byDate);
 deposits.sort(byDate);
 noPayment.sort(byDate);
 
@@ -401,6 +427,26 @@ if (belowBar.length) {
     console.log(`      ${m.row.url}`);
   }
   console.log();
+}
+
+if (unbanked.length) {
+  const claimedTotal = unbanked.reduce((sum, m) => sum + m.row.onCall, 0);
+  console.log(
+    `✗ ${unbanked.length} row${unbanked.length === 1 ? " records" : "s record"} money taken on the call ` +
+      `that Whop does not hold — ${money(claimedTotal)} claimed:\n`
+  );
+  for (const m of unbanked) {
+    const held = m.buyer ? money(m.buyer.paid) : "nothing";
+    console.log(
+      `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} row says ${money(m.row.onCall).padEnd(8)} ` +
+        `Whop holds ${held}${m.row.email ? "" : "  [no prospect email on the row]"}${m.buyer ? guess(m) : ""}`
+    );
+    console.log(`      ${m.row.url}`);
+  }
+  console.log(
+    "\n  A card entered as the call ended is the usual cause, and it either cleared\n" +
+      "  later or it never did. Check the ones more than a day old first.\n"
+  );
 }
 
 if (cashOff.length) {
@@ -466,6 +512,42 @@ if (untracked.length) {
   console.log();
 }
 
+/* ------------------------------------------------------------------ refunds */
+
+// [STATED — Moayad, 2026-08-18] "If a refund is done we remove it from cash."
+// A refund is not a smaller payment, it is a reversed one, so a row whose money
+// came back should say REFUND rather than sit as a customer with a shrinking
+// cash figure. The dashboard already keeps REFUND rows out of both cash and
+// revenue; what was missing was anything to notice one had happened. Vellatino
+// Crawford paid $2,000, had all of it returned, and read as a customer who had
+// simply never paid.
+const refunded = [];
+for (const [row, match] of matches) {
+  const back = match.buyer.refunded ?? 0;
+  if (back <= 0) continue;
+  const whole = (match.buyer.paid ?? 0) === 0;
+  if (row.outcome === "REFUND" && whole) continue;
+  refunded.push({ row, buyer: match.buyer, back, whole });
+}
+
+if (refunded.length > 0) {
+  const full = refunded.filter((r) => r.whole);
+  console.log(
+    `↩ ${refunded.length} row${refunded.length === 1 ? "" : "s"} had money refunded` +
+      `${full.length ? `, ${full.length} of them in full` : ""}:\n`
+  );
+  for (const r of refunded) {
+    console.log(
+      `  ${(r.row.date ?? "?").slice(0, 10)}  ${r.row.name.padEnd(22)} ` +
+        `${money(r.buyer.gross ?? 0)} in, ${money(r.back)} back` +
+        `${r.whole ? "  — mark this REFUND" : `, ${money(r.buyer.paid)} kept`}` +
+        `${r.row.outcome === "REFUND" ? "" : `  [row says ${r.row.outcome ?? "nothing"}]`}`
+    );
+    console.log(`      ${r.row.url}`);
+  }
+  console.log();
+}
+
 /* -------------------------------------------------------------------- apply */
 
 // `--apply` writes the corrections above straight into Notion instead of
@@ -503,7 +585,7 @@ const emailOnly = [...matches.entries()].filter(
     !cashOff.some((x) => x.row === row)
 );
 
-if (applying && (missedCloses.length || cashOff.length || emailOnly.length)) {
+if (applying && (missedCloses.length || cashOff.length || emailOnly.length || refunded.length)) {
   console.log("\nApplying the corrections to Notion:\n");
   let written = 0;
 
@@ -523,6 +605,15 @@ if (applying && (missedCloses.length || cashOff.length || emailOnly.length)) {
     if (!m.row.email) properties["Prospect Email"] = { email: m.buyer.email };
     if (await patchRow(m.row, properties, `cash ${money(m.row.cash)} → ${money(m.buyer.paid)}`)) written++;
     await new Promise((r) => setTimeout(r, 350));
+  }
+
+  // A row whose money all went back becomes a REFUND with its cash cleared.
+  // Only a full refund: a partial one is a smaller payment, not a reversal, and
+  // the cash correction above already handles it.
+  for (const r of refunded.filter((x) => x.whole && x.row.outcome !== "REFUND")) {
+    const properties = { Outcome: { select: { name: "REFUND" } }, "Cash Collected": { number: 0 } };
+    if (await patchRow(r.row, properties, `→ REFUND, ${money(r.back)} returned`)) written++;
+    await new Promise((res) => setTimeout(res, 350));
   }
 
   // Matched rows that needed no money correction still get their email filled

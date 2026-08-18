@@ -181,7 +181,13 @@ npm run check:payments
 
 Reads the payment processor and names the disagreements: rows that took money
 but are not marked Customer, customer rows whose cash figure does not match what
-was banked, and buyers with no call on the tracker at all. The first two are a
+was banked, rows whose money was **refunded**, and buyers with no call on the
+tracker at all.
+
+A refund is a reversed payment, not a smaller one, so a row whose money came
+back is named and — on `--apply` — marked REFUND with its cash cleared, which
+is the outcome the dashboard already keeps out of both cash and revenue. Without
+that, a refunded customer reads as one who simply never paid. The first two are a
 person's editing list. The third is the coverage gap — calls that never reached
 the tracker — and is the number to watch when judging whether the dashboard's
 revenue can be read as the business's revenue.

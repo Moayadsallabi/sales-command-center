@@ -410,7 +410,75 @@ if (notionBody) {
   else pass("no block exceeds Notion's 2000-character limit");
 }
 
-/* ------------------------------------------ 4b. Prospect name extraction */
+/* ------------------------------------- 4a. The deposit-filed-as-a-sale bar */
+
+// A closer takes a token payment, the prospect says yes, and the call is
+// written up as a sale. [STATED — Moayad, 2026-08-18] A deposit is not a sale
+// until at least 25% of the deal lands, so the outcome is decided here by
+// arithmetic rather than left to the scorer's reading of the conversation.
+//
+// The bar is only applied where a deposit was actually recorded. Nought in
+// `Collected On Call` means nobody wrote down what was taken, which is the
+// normal state on this tracker — reading that as "no money" would demote every
+// genuine sale on the board.
+
+/** The same node, run against a variant of the scored payload. */
+function bodyFor(overrides) {
+  const ai = { ...mockAi, ...overrides };
+  return JSON.parse(
+    evalExpr(nodeByName["Write to Notion"].parameters.jsonBody, { ...notionScope, $json: { ai } })
+  );
+}
+
+const outcomeOf = (body) => body.properties.Outcome?.select?.name ?? null;
+const closedOf = (body) => body.properties["Price Closed"]?.number ?? null;
+
+// 4,500 of 9,000 is half the deal — a real sale, and it must stay one.
+if (outcomeOf(bodyFor({})) !== "Customer" || closedOf(bodyFor({})) !== 9000)
+  fail("a deal paid above the bar was demoted — the guard is too aggressive");
+else pass("a deposit at or above 25% is left as Customer");
+
+const tokenDeposit = bodyFor({ price_discussed: 2000, price_closed: 2000, collected_on_call: 100 });
+if (outcomeOf(tokenDeposit) !== "BAMFAM")
+  fail(`100 taken on a 2,000 deal should not be written as Customer (got ${outcomeOf(tokenDeposit)})`);
+else if (closedOf(tokenDeposit) !== null)
+  fail("a demoted call kept its Price Closed — the deal value would reach the KPI dashboard as revenue");
+else if (tokenDeposit.properties["Price Discussed"]?.number !== 2000)
+  fail("a demoted call lost its Price Discussed — the pipeline value has to survive");
+else if (
+  !tokenDeposit.children.some((b) =>
+    /below the 25%/.test(b[b.type]?.rich_text?.[0]?.text?.content ?? "")
+  )
+)
+  fail("a demoted call does not say on the page why it was demoted");
+else pass("a token deposit is written as BAMFAM, with the deal value kept on Price Discussed");
+
+// Exactly on the bar is a sale. Written as its own case because an off-by-one
+// here silently reclassifies every deal that pays precisely a quarter up front.
+if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 500 })) !== "Customer")
+  fail("a deposit landing exactly on the 25% bar was demoted");
+else pass("a deposit exactly on the bar counts as a sale");
+
+if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 0 })) !== "Customer")
+  fail("a Customer row with no recorded deposit was demoted — absence of a figure is not absence of money");
+else pass("an unrecorded deposit leaves the outcome alone");
+
+/* --------------------------------------------- 4b. The deciding objection */
+
+// The scorer raised an objection and then returned no primary, which left the
+// column blank on a call where only one objection was ever voiced. Where there
+// is only one candidate the deciding objection is not a judgement call.
+const onePrimary = bodyFor({ objections: { raised: ["Price"], primary: null } });
+if (onePrimary.properties["Primary Objection"]?.select?.name !== "Price")
+  fail("a single raised objection did not fall through to Primary Objection");
+else pass("one raised objection fills the deciding one when the scorer omits it");
+
+const twoNoPrimary = bodyFor({ objections: { raised: ["Price", "Timing"], primary: null } });
+if (twoNoPrimary.properties["Primary Objection"]?.select?.name != null)
+  fail("two raised objections and no primary should stay blank rather than guess");
+else pass("two raised objections with no primary are left blank rather than guessed");
+
+/* ------------------------------------------ 4c. Prospect name extraction */
 
 // Real titles seen in Fathom: "Karan: Strategy Call" (correct), "Alphazone.ai
 // Strategy Call" (no colon) and "Impromptu Zoom Meeting" (no invite at all).
