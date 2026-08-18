@@ -22,7 +22,6 @@ const REQUIRED_PROPS = {
   Closer: "select",
   "Call Date": "date",
   Outcome: "select",
-  Tier: "select",
   "Price Discussed": "number",
   "Price Closed": "number",
   "Payment Structure": "select",

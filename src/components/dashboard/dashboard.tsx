@@ -29,13 +29,14 @@ import { LiveIndicator } from "./live-indicator";
 import { SalesCommandMark } from "@/components/brand/logo";
 import { Filter, X } from "lucide-react";
 
-type DateRange = "30d" | "7d" | "90d" | "all";
+type DateRange = "30d" | "7d" | "90d" | "all" | "custom";
 
 const DATE_RANGES: { value: DateRange; label: string }[] = [
   { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
   { value: "all", label: "All time" },
+  { value: "custom", label: "Custom" },
 ];
 
 const RANGE_DAYS: Record<DateRange, number | null> = {
@@ -43,13 +44,75 @@ const RANGE_DAYS: Record<DateRange, number | null> = {
   "30d": 30,
   "90d": 90,
   all: null,
+  // Custom carries its dates in state, not in a length.
+  custom: null,
 };
+
+/**
+ * Both ends of the period on screen, inclusive, as YYYY-MM-DD. A `null` end is
+ * unbounded — "All time" has neither.
+ *
+ * Every date filter on this page reads one of these rather than working out
+ * its own cutoff. When each panel did its own arithmetic they could disagree
+ * about what "this week" meant and nothing on screen would say so.
+ */
+type DateWindow = { from: string | null; to: string | null };
 
 /** `isoDate` minus `days`, as YYYY-MM-DD. Pure — no clock reading. */
 function daysBefore(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().split("T")[0];
+}
+
+/** Whole days from `from` to `to` inclusive — the 9th to the 9th is one day. */
+function daysBetween(from: string, to: string): number {
+  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
+  return Math.round(ms / 86_400_000) + 1;
+}
+
+/**
+ * A PRESET COUNTS ITS OWN LAST DAY. Seven days ending today is today plus the
+ * six before it, so the first day is today minus SIX.
+ *
+ * It was today minus SEVEN until 2026-08-18, which made every preset one day
+ * longer than its label. The seven-day cash tile showed eight days of money —
+ * $10,175 for a week that took $8,175 — and because the comparison period
+ * underneath was a true seven days, every window was measured against a
+ * shorter one and each trend arrow leaned positive.
+ */
+function presetWindow(today: string, days: number | null): DateWindow {
+  if (days === null) return { from: null, to: null };
+  return { from: daysBefore(today, days - 1), to: today };
+}
+
+/** Inclusive at both ends, and false for a record with no date to test. */
+function withinWindow(date: string | null | undefined, window: DateWindow): boolean {
+  if (window.from === null && window.to === null) return true;
+  if (!date) return false;
+  if (window.from !== null && date < window.from) return false;
+  if (window.to !== null && date > window.to) return false;
+  return true;
+}
+
+/**
+ * The window of the same length ending the day before this one starts, which
+ * is what every "vs last period" figure is measured against. An unbounded
+ * window has no previous — there is nothing before all time.
+ */
+function previousWindow(window: DateWindow): DateWindow | null {
+  if (window.from === null || window.to === null) return null;
+  const length = daysBetween(window.from, window.to);
+  return { from: daysBefore(window.from, length), to: daysBefore(window.from, 1) };
+}
+
+/** `2026-08-12` -> `12 Aug`, for the line under the range buttons. */
+function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 export function Dashboard({
@@ -70,6 +133,11 @@ export function Dashboard({
   demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
+  // Seeded with the opening preset's own dates, so the fields are never empty
+  // when Custom is first picked. An empty end date reads as "no upper bound",
+  // which would quietly show everything since the start date.
+  const [customFrom, setCustomFrom] = useState<string>(() => daysBefore(today, 29));
+  const [customTo, setCustomTo] = useState<string>(today);
   const [selectedOutcomes, setSelectedOutcomes] = useState<Set<string>>(
     new Set()
   );
@@ -87,13 +155,24 @@ export function Dashboard({
     return [...sources].sort();
   }, [calls]);
 
-  const filtered = useMemo(() => {
-    const days = RANGE_DAYS[dateRange];
-    const cutoff = days ? daysBefore(today, days) : null;
+  /**
+   * THE PERIOD ON SCREEN, AND THE ONLY DEFINITION OF IT. The KPI cards, the
+   * cash tile, the bookings and the leaderboard all narrow through this, so a
+   * date change cannot move one number on the page and leave another behind.
+   */
+  const visibleWindow = useMemo<DateWindow>(() => {
+    if (dateRange !== "custom") return presetWindow(today, RANGE_DAYS[dateRange]);
+    // Picking an end date before the start date is a slip, not a request for
+    // an empty page, so the pair is read in whichever order makes a range.
+    const [from, to] =
+      customFrom <= customTo ? [customFrom, customTo] : [customTo, customFrom];
+    return { from, to };
+  }, [dateRange, customFrom, customTo, today]);
 
+  const filtered = useMemo(() => {
     return calls.filter((c) => {
       // Date filter
-      if (cutoff && (!c.call_date || c.call_date < cutoff)) return false;
+      if (!withinWindow(c.call_date, visibleWindow)) return false;
       // Outcome filter
       if (selectedOutcomes.size > 0 && !selectedOutcomes.has(c.outcome ?? ""))
         return false;
@@ -105,19 +184,17 @@ export function Dashboard({
         return false;
       return true;
     });
-  }, [calls, dateRange, selectedOutcomes, selectedSources, today]);
+  }, [calls, visibleWindow, selectedOutcomes, selectedSources]);
 
   // The window immediately before the visible one. Every "vs last period"
   // figure on the page is measured against this, so they all agree. It applies
   // the same outcome and source filters as the visible window — otherwise a
   // filtered view would be compared against an unfiltered past.
   const previous = useMemo(() => {
-    const days = RANGE_DAYS[dateRange];
-    if (days === null) return [];
-    const from = daysBefore(today, days * 2);
-    const to = daysBefore(today, days);
+    const prior = previousWindow(visibleWindow);
+    if (prior === null) return [];
     return calls.filter((c) => {
-      if (!c.call_date || c.call_date < from || c.call_date >= to) return false;
+      if (!withinWindow(c.call_date, prior)) return false;
       if (selectedOutcomes.size > 0 && !selectedOutcomes.has(c.outcome ?? ""))
         return false;
       if (
@@ -127,7 +204,7 @@ export function Dashboard({
         return false;
       return true;
     });
-  }, [calls, dateRange, selectedOutcomes, selectedSources, today]);
+  }, [calls, visibleWindow, selectedOutcomes, selectedSources]);
 
   // The leaderboard always shows every closer — picking one narrows everything
   // below it, but never hides the people you are being compared against.
@@ -160,13 +237,11 @@ export function Dashboard({
     if (payments === null) return null;
     if (selectedOutcomes.size > 0 || selectedSources.size > 0 || selectedCloser !== null)
       return null;
-    const days = RANGE_DAYS[dateRange];
-    const cutoff = days ? daysBefore(today, days) : null;
     const collected = payments
-      .filter((p) => !cutoff || p.day >= cutoff)
+      .filter((p) => withinWindow(p.day, visibleWindow))
       .reduce((sum, p) => sum + p.amount, 0);
     const trackerLogged = calls
-      .filter((c) => !cutoff || (c.call_date && c.call_date >= cutoff))
+      .filter((c) => withinWindow(c.call_date, visibleWindow))
       .filter(carriesCash)
       .reduce((sum, c) => sum + reportingCollected(c), 0);
     // WHAT UNRECORDED CALLS COST, FOR THIS WINDOW ONLY.
@@ -193,7 +268,11 @@ export function Dashboard({
     // set. Two numbers for one thing is the fault this dashboard has spent the
     // day removing; it is not worth reintroducing for an edge case.
     const newUntracked = reconciliation
-      ? reconciliation.untrackedBuyers.filter((b) => !cutoff || (b.first != null && b.first >= cutoff))
+      ? reconciliation.untrackedBuyers.filter(
+          (b) =>
+            (visibleWindow.from === null && visibleWindow.to === null) ||
+            (b.first != null && withinWindow(b.first, visibleWindow))
+        )
       : [];
 
     return {
@@ -202,7 +281,7 @@ export function Dashboard({
       missedCount: newUntracked.length,
       missedWorth: newUntracked.reduce((sum, b) => sum + b.paid, 0),
     };
-  }, [payments, calls, reconciliation, dateRange, selectedOutcomes, selectedSources, selectedCloser, today]);
+  }, [payments, calls, reconciliation, visibleWindow, selectedOutcomes, selectedSources, selectedCloser]);
 
   /**
    * Bookings narrowed the same way the calls above them are, so the funnel and
@@ -214,19 +293,17 @@ export function Dashboard({
    */
   const scopedBookings = useMemo<LinkedBooking[]>(() => {
     if (!calendly.link) return [];
-    const days = RANGE_DAYS[dateRange];
-    const cutoff = days ? daysBefore(today, days) : null;
     const closerOf = (booking: LinkedBooking) =>
       (booking.call_id ? calls.find((c) => c.id === booking.call_id)?.closer : null) ??
       booking.host ??
       UNASSIGNED;
 
     return calendly.link.bookings.filter((booking) => {
-      if (cutoff && bookingDate(booking) < cutoff) return false;
+      if (!withinWindow(bookingDate(booking), visibleWindow)) return false;
       if (selectedCloser !== null && closerOf(booking) !== selectedCloser) return false;
       return true;
     });
-  }, [calendly.link, calls, dateRange, selectedCloser, today]);
+  }, [calendly.link, calls, visibleWindow, selectedCloser]);
 
   // Outcome and source pills filter the recordings, not the calendar, so the
   // funnel is left out when either is on rather than shown against a
@@ -304,21 +381,73 @@ export function Dashboard({
             transition={{ delay: 0.2, duration: 0.4 }}
             className="flex items-center gap-2"
           >
-            {/* Date range */}
-            <div className="flex items-center rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5">
-              {DATE_RANGES.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setDateRange(r.value)}
-                  className={`px-3 py-1.5 text-[11px] font-medium rounded-md transition-all ${
-                    dateRange === r.value
-                      ? "bg-gold-500/15 text-gold-400"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
+            {/* DATE RANGE. The presets answer "how is this week going". The
+                two date fields answer "what happened between these dates",
+                which is what reading a launch week, an ad flight or a single
+                month back needs, and no preset can express. */}
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex items-center gap-2">
+                {dateRange === "custom" && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-gold-500/20 bg-gold-500/[0.06] px-2 py-1">
+                    {/* An empty value would mean "unbounded" to the filter, so
+                        a cleared field keeps the date it had. */}
+                    <input
+                      type="date"
+                      value={customFrom}
+                      max={today}
+                      onChange={(e) => e.target.value && setCustomFrom(e.target.value)}
+                      aria-label="From date"
+                      className="bg-transparent text-[11px] font-medium text-zinc-300 outline-none [color-scheme:dark] hover:text-zinc-100 focus:text-gold-400"
+                    />
+                    <span className="text-[11px] text-zinc-600">to</span>
+                    <input
+                      type="date"
+                      value={customTo}
+                      max={today}
+                      onChange={(e) => e.target.value && setCustomTo(e.target.value)}
+                      aria-label="To date"
+                      className="bg-transparent text-[11px] font-medium text-zinc-300 outline-none [color-scheme:dark] hover:text-zinc-100 focus:text-gold-400"
+                    />
+                  </div>
+                )}
+
+                <div className="flex items-center rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5">
+                  {DATE_RANGES.map((r) => (
+                    <button
+                      key={r.value}
+                      onClick={() => {
+                        // Custom opens on whatever is already on screen rather
+                        // than jumping somewhere else, so the switch shows the
+                        // same numbers until a date is actually moved.
+                        if (r.value === "custom" && dateRange !== "custom") {
+                          if (visibleWindow.from) setCustomFrom(visibleWindow.from);
+                          if (visibleWindow.to) setCustomTo(visibleWindow.to);
+                        }
+                        setDateRange(r.value);
+                      }}
+                      className={`px-3 py-1.5 text-[11px] font-medium rounded-md transition-all ${
+                        dateRange === r.value
+                          ? "bg-gold-500/15 text-gold-400"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* THE DATES THE PAGE IS ACTUALLY SHOWING, SPELLED OUT. A button
+                  reading "7 days" cannot show an off-by-one; two real dates
+                  can, which is how the eight-day week was caught. */}
+              <p className="text-[10px] text-zinc-600 tabular-nums">
+                {visibleWindow.from && visibleWindow.to
+                  ? `${shortDate(visibleWindow.from)} – ${shortDate(visibleWindow.to)} · ${daysBetween(
+                      visibleWindow.from,
+                      visibleWindow.to
+                    )} days`
+                  : "Every call on record"}
+              </p>
             </div>
 
             {/* LIVE indicator — drives the 60s auto-refresh */}

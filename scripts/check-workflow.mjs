@@ -299,6 +299,13 @@ if (notionBody) {
   if (props.Closer?.select?.name !== "Sam Rep") fail("Closer is not being written");
   else pass("Closer is written as a select");
 
+  // The mock still sends a tier, deliberately. Nothing configured tiers for
+  // this rubric, so even a scorer that volunteers one must not put it on the
+  // row — an undefined band written anyway is the guess this removal ended.
+  if ("Tier" in props)
+    fail("a Tier column is still being written even though no tiers are configured");
+  else pass("no Tier is written when the rubric has no tiers");
+
   if (props.Currency?.select?.name !== "EUR")
     fail("Currency is not being written — money totals would mix currencies");
   else pass("Currency is written as a select");

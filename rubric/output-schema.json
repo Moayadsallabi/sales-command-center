@@ -12,20 +12,6 @@
         "REFUND"
       ]
     },
-    "tier": {
-      "anyOf": [
-        {
-          "type": "integer",
-          "enum": [
-            1,
-            2
-          ]
-        },
-        {
-          "type": "null"
-        }
-      ]
-    },
     "price_discussed": {
       "anyOf": [
         {
@@ -462,7 +448,6 @@
   },
   "required": [
     "outcome",
-    "tier",
     "price_discussed",
     "price_closed",
     "collected_on_call",

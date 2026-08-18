@@ -4,6 +4,7 @@ import { queryPayments, isWhopConfigured, WhopRead } from "@/lib/whop";
 import { linkBookings, CalendlyState } from "@/lib/bookings";
 import { CallRecord } from "@/lib/types";
 import { reconcile } from "@/lib/reconcile";
+import { settle } from "@/lib/settle";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
 
@@ -120,15 +121,25 @@ export default async function Home() {
     loadPayments(),
   ]);
 
+  // Matched on the server: the buyer list holds addresses the client has no
+  // reason to receive, and only the disagreements need to travel.
+  //
+  // ORDER MATTERS. reconcile runs on what the closers actually typed, so it can
+  // still see and report the rows that disagree with the processor. settle then
+  // counts those rows as the wins they turned out to be. Doing it the other way
+  // round would settle the calls first and leave reconcile with nothing to
+  // report — the disagreement would vanish from the page instead of being
+  // named, and the Notion rows would never get corrected.
+  const reconciliation = payments ? reconcile(result.calls, payments.buyers) : null;
+  const calls = settle(result.calls, reconciliation);
+
   return (
     <Dashboard
-      calls={result.calls}
+      calls={calls}
       today={today}
       calendly={calendly}
       payments={payments?.days ?? null}
-      // Matched on the server: the buyer list holds addresses the client has
-      // no reason to receive, and only the disagreements need to travel.
-      reconciliation={payments ? reconcile(result.calls, payments.buyers) : null}
+      reconciliation={reconciliation}
     />
   );
 }

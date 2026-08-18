@@ -16,10 +16,17 @@ const SHOWN = 8;
  * revenue both — the dashboard is understating the business. A customer whose
  * cash figure disagrees with the processor is only wrong about the money.
  *
- * Neither can be corrected automatically: only a person knows whether a payment
- * is a deal closing, a deposit on a follow-up, or a second instalment on a deal
- * already counted. So this names the rows and links to them, and the ruling
- * stays with whoever can make it.
+ * WHAT CHANGED, 2026-08-18. The ruling this panel used to wait for has been
+ * made: "even if it was a small deposit it still technically counts as a close"
+ * (and, the day before, "Whop is the only source of truth for money"). So the
+ * rows below are now COUNTED as wins — see lib/settle.ts — and this panel no
+ * longer reports money missing from the totals. What it reports is that the
+ * tracker rows are stale: the dashboard has moved on and Notion has not, and
+ * only a person can correct a Notion row.
+ *
+ * The panel is deliberately still here rather than deleted. Settling fixes the
+ * number on screen; it does not fix the record, and a closer reading their own
+ * tracker would still see a loss where the dashboard shows a win.
  */
 export function WhopGap({ reconciliation }: { reconciliation: Reconciliation }) {
   const { missedCloses, cashOff, untracked, untrackedWorth } = reconciliation;
@@ -44,16 +51,18 @@ export function WhopGap({ reconciliation }: { reconciliation: Reconciliation }) 
       {clean ? (
         <p className="mt-3 text-[13px] text-zinc-400">
           Every prospect who paid is marked Customer, and every customer&apos;s cash
-          figure matches what the processor banked.
+          figure matches what the processor banked. Nothing is being counted
+          differently from how it was recorded.
         </p>
       ) : (
         <>
           <p className="mb-5 max-w-[75ch] text-[12px] leading-relaxed text-zinc-600">
             A row is written when the call ends and money does not respect that
             boundary — a prospect marked as a follow-up on Tuesday pays on
-            Friday, and nothing goes back to change Tuesday. These are the rows
-            where the two records have drifted apart. Each links to its page in
-            the tracker; a person has to decide which record is right.
+            Friday, and nothing goes back to change Tuesday. The money wins:
+            every row below is already counted as a close in the figures above.
+            What is left is the record itself, which still says otherwise. Each
+            links to its page in the tracker so it can be corrected there.
           </p>
 
           {missedCloses.length > 0 && (
@@ -63,7 +72,7 @@ export function WhopGap({ reconciliation }: { reconciliation: Reconciliation }) 
               } not marked Customer`}
               note={`${formatReporting(
                 missedCloses.reduce((s, m) => s + m.paid, 0)
-              )} missing from Revenue and from the close rate`}
+              )} received. Counted as closes above; still recorded as losses in the tracker`}
             >
               {missedCloses.slice(0, SHOWN).map((m) => (
                 <Row

@@ -78,8 +78,21 @@ export function reportingOutstanding(call: CallRecord): number {
   return toReporting(call.outstanding, call);
 }
 
+/**
+ * The value of the deal, never less than the money actually received.
+ *
+ * A follow-up call that later paid often carries no price at all, so reading
+ * `price_closed` alone books a paid deal at zero. Cash received is the floor:
+ * a deal cannot have generated less than the customer handed over. Where a
+ * price IS recorded and only part of it has been paid, the recorded price still
+ * wins — that is the deal value, and the remainder is what is outstanding.
+ *
+ * This is the same rule the KPI dashboard applies (its REVENUE expression in
+ * services/lead-window.js). The two dashboards agreeing is not a coincidence
+ * to be maintained by hand; it is why this function is written this way.
+ */
 export function reportingRevenue(call: CallRecord): number {
-  return toReporting(call.price_closed, call);
+  return Math.max(toReporting(call.price_closed, call), call.paid_total ?? 0);
 }
 
 /**

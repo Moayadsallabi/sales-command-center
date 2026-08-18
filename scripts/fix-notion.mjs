@@ -51,12 +51,12 @@ const SPEC = {
       ),
     },
   },
-  // From the rubric, not a hardcoded pair — a client with three price bands
-  // was getting a Tier column that could only hold two of them. `--tiers N`
-  // overrides it to match whatever configure:client built the workflow with.
-  Tier: {
-    select: { options: TIERS.map((t) => ({ name: `Tier ${t}` })) },
-  },
+  // Only for a client whose offers genuinely come in tiers. With none
+  // configured the column is not created at all, because a band nobody has
+  // defined gets filled in by guesswork. `--tiers N` sets how many.
+  ...(TIERS.length
+    ? { Tier: { select: { options: TIERS.map((t) => ({ name: `Tier ${t}` })) } } }
+    : {}),
   "Price Discussed": { number: {} },
   "Price Closed": { number: {} },
   "Payment Structure": {

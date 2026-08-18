@@ -13,8 +13,34 @@ export interface CallRecord {
   prospect_email: string | null;
   closer: string | null;
   call_date: string | null;
+  /**
+   * What this call is counted as. Usually what the closer typed, but a call
+   * the processor says was paid for is counted as a win whatever the row says
+   * — see `settle` in lib/settle.ts, and `recorded_outcome` below for the
+   * original. Moayad's ruling, 2026-08-18: "even if it was a small deposit it
+   * still technically counts as a close."
+   */
   outcome: string | null;
-  tier: string | null;
+  /**
+   * What the closer actually typed, kept when `outcome` was settled by a
+   * payment. Null on a call nothing overrode, which is almost all of them.
+   *
+   * Both are kept deliberately. A number that moves on its own is one a closer
+   * will dispute, and they are right to — so the row can always show what was
+   * recorded on the day next to what it is being counted as.
+   */
+  recorded_outcome?: string | null;
+  /**
+   * Everything the processor has received for this person, in the reporting
+   * currency, when a payment was matched to this call. Null when none was.
+   *
+   * Revenue is floored at this: a follow-up that later paid often carries no
+   * price at all, and reading `price_closed` alone would book a paid deal at
+   * zero. Where a price IS recorded it wins — that is the deal value, and the
+   * rest is what is still owed. The KPI dashboard applies the same floor, which
+   * is what makes the two totals agree.
+   */
+  paid_total?: number | null;
   price_discussed: number | null;
   price_closed: number | null;
   payment_structure: string | null;

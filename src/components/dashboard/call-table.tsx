@@ -2,7 +2,8 @@
 
 import { motion } from "framer-motion";
 import { CallRecord, OUTCOME_COLORS } from "@/lib/types";
-import { collectedToDate, formatMoney } from "@/lib/money";
+import { collectedToDate, formatMoney, formatReporting } from "@/lib/money";
+import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
 
 export function CallTable({
@@ -42,7 +43,6 @@ export function CallTable({
                 "Closer",
                 "Date",
                 "Outcome",
-                "Tier",
                 "Cash Collected",
                 "Revenue",
                 "Source",
@@ -110,9 +110,20 @@ export function CallTable({
                     />
                     {call.outcome ?? "—"}
                   </span>
-                </td>
-                <td className="px-5 py-3 whitespace-nowrap text-xs text-zinc-500">
-                  {call.tier ?? "—"}
+                  {/* This row is being counted as a win because the processor
+                      says it was paid for, not because anyone marked it one.
+                      Saying so on the row is the point: a closer whose number
+                      moved can see exactly which call moved it, and what the
+                      tracker still says. The real fix is correcting the row in
+                      Notion, which this does not do. */}
+                  {wasSettledByPayment(call) && (
+                    <span
+                      className="ml-2 text-[10px] text-zinc-500 whitespace-nowrap"
+                      title={`Recorded as "${call.recorded_outcome}" on the day. Counted as a close because ${formatReporting(call.paid_total ?? 0)} was received. Correct the row in Notion to clear this.`}
+                    >
+                      was {call.recorded_outcome} · paid
+                    </span>
+                  )}
                 </td>
                 {/* Shown in the deal's own currency — never converted, so the
                     row always matches the contract. */}

@@ -300,8 +300,9 @@ function buildCall({
 }): CallRecord {
   const closed = outcome === "Customer";
   const noShow = outcome === "No show";
-  const tier = closed ? (rand() > 0.55 ? 2 : 1) : rand() > 0.5 ? 1 : null;
-  const price = tier === 2 ? 9000 : 4500;
+  // Two deal sizes, so the money panels have a spread to show. This used to
+  // be a tier, which the tracker no longer records.
+  const price = rand() > 0.55 ? 9000 : 4500;
   const pif = rand() > 0.5;
   const scored = DIMENSIONS.map((d) => scores[d.key]).filter(
     (v): v is number => v != null
@@ -354,7 +355,6 @@ function buildCall({
     closer,
     call_date: shiftDays(today, daysAgo),
     outcome,
-    tier: tier ? `Tier ${tier}` : null,
     price_discussed: noShow ? null : price,
     price_closed: closed ? price : null,
     payment_structure: closed ? (pif ? "PIF" : "installments") : null,

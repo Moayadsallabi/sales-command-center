@@ -206,7 +206,6 @@ export async function queryAllCalls(): Promise<CallRecord[]> {
         closer: extractSelect(props.Closer),
         call_date: extractDate(props["Call Date"]),
         outcome: extractSelect(props.Outcome),
-        tier: extractSelect(props.Tier),
         price_discussed: extractNumber(props["Price Discussed"]),
         price_closed: extractNumber(props["Price Closed"]),
         payment_structure: extractSelect(props["Payment Structure"]),

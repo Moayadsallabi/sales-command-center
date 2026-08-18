@@ -271,9 +271,17 @@ function buildOutputSchema(r) {
     narrative[n.key] = { type: "string", description: n.instruction };
   }
 
+  // `tier` only exists for a client whose offers actually come in tiers. With
+  // none configured the field is left out of the schema altogether rather than
+  // shipped as an always-null column: asking a model to fill in a band nobody
+  // has defined produces a confident guess, which is what it did on Brey's
+  // tracker for months. Put the numbers back in `commercial.tiers` and write
+  // down what they mean, and it returns.
   const schema = obj({
     outcome: { type: "string", enum: r.commercial.outcomes },
-    tier: nullable({ type: "integer", enum: r.commercial.tiers }),
+    ...(r.commercial.tiers.length
+      ? { tier: nullable({ type: "integer", enum: r.commercial.tiers }) }
+      : {}),
     price_discussed: nullable({ type: "number" }),
     price_closed: nullable({ type: "number" }),
     collected_on_call: nullable({ type: "number" }),
@@ -486,7 +494,7 @@ function buildSkill(r, offerContext) {
     "",
     "## Logging the review",
     "",
-    "Pattern detection across calls (recurring weaknesses, per-closer trends) lives in the Sales Command Center dashboard, not in this chat — a review that never reaches the Notion tracker is invisible to it. So after the scorecard, offer to output the review as JSON matching the tracker's schema (`rubric/output-schema.json` in the sales-command-center repo: outcome, tier, prices, lead_source, summary, scores with reasoning, flags, narrative), so the user can add it to the tracker and keep manual and automated reviews in one dataset.",
+    "Pattern detection across calls (recurring weaknesses, per-closer trends) lives in the Sales Command Center dashboard, not in this chat — a review that never reaches the Notion tracker is invisible to it. So after the scorecard, offer to output the review as JSON matching the tracker's schema (`rubric/output-schema.json` in the sales-command-center repo: outcome, prices, lead_source, summary, scores with reasoning, flags, narrative), so the user can add it to the tracker and keep manual and automated reviews in one dataset.",
     ""
   );
 

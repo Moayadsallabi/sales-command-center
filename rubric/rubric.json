@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "title": "Sales Call Scorecard",
   "subtitle": "Eight dimensions for the caller, eight factors for the lead, applied to every recorded sales call.",
   "offerContextPlaceholder": "[OFFER CONTEXT — replace this paragraph during setup. Describe what the business sells, to whom, at what price points, and what language the pitch should use. The scorer uses this to judge whether a pitch was on-message. See the setup manual.]",
@@ -671,9 +671,6 @@
       "Direct",
       "Unknown"
     ],
-    "tiers": [
-      1,
-      2
-    ]
+    "tiers": []
   }
 }

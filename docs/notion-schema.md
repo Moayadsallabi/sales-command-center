@@ -24,7 +24,6 @@ missing or the wrong type before you ever run a real call through the workflow.
 | Column | Type | Options |
 | --- | --- | --- |
 | `Outcome` | Select | Customer, BAMFAM, No offer made, No deal, No show, REFUND |
-| `Tier` | Select | Tier 1, Tier 2 |
 | `Payment Structure` | Select | PIF, installments, custom |
 | `Lead Source` | Select | Skool, IG, YouTube, Referral, Direct, Unknown |
 | `Price Discussed` | Number | |
