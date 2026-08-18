@@ -11,6 +11,19 @@
  * So this is not a metric. It is a worklist, and it is deliberately not
  * narrowed by the date filter above it: a follow-up owed since July is exactly
  * the one a thirty-day view would hide.
+ *
+ * **How a row leaves the list.** Nothing ever edits the BAMFAM row itself, so
+ * "done" cannot be read off it. What happens instead is that the follow-up call
+ * is recorded and arrives as its OWN row, a few days later, under the same
+ * name. So a prospect drops off here when a later call exists for them — which
+ * is the only evidence this tracker produces that the conversation continued.
+ * Without that rule the list was wrong in the worst direction: Zay closed nine
+ * days after his BAMFAM and was still sitting in the chase list a month later.
+ *
+ * The consequence is that a follow-up that happens and is NOT recorded looks
+ * identical to one that never happened. Both stay here. That is the honest
+ * answer — the tracker genuinely does not know — and it is the same recording
+ * gap the coverage panel exists to shrink.
  */
 
 import { CallRecord } from "./types";
@@ -40,6 +53,50 @@ export interface FollowUpResult {
   /** How many are past the stale and cold marks. */
   stale: number;
   cold: number;
+  /** Dropped because a later call exists for the same person. Never silent. */
+  spokenAgain: number;
+}
+
+/**
+ * A name reduced to something safe to compare two rows on.
+ *
+ * Returns null for anything that is not really a name. The tracker writes
+ * "Unknown" whenever Fathom gave it no invitee, and on this account that is
+ * several rows — matching two of those to each other would silently retire a
+ * real follow-up because a different anonymous prospect was called later.
+ */
+function comparableName(name: string): string | null {
+  const cleaned = name
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length < 3) return null;
+  if (cleaned === "unknown" || cleaned === "no name") return null;
+  return cleaned;
+}
+
+/**
+ * Whether this prospect shows up again on a later call.
+ *
+ * Email when both rows carry one, since that is an identifier. Otherwise the
+ * whole name has to match, which is an inference — but a weak inference here
+ * costs one unnecessary row leaving a chase list, while not making it at all
+ * costs a closed customer being chased for a month.
+ */
+function spokeAgain(call: CallRecord, calls: CallRecord[]): boolean {
+  const date = call.call_date;
+  if (!date) return false;
+  const name = comparableName(call.name);
+
+  return calls.some((other) => {
+    if (other.id === call.id) return false;
+    if (!other.call_date || other.call_date <= date) return false;
+    if (call.prospect_email && other.prospect_email) {
+      return call.prospect_email === other.prospect_email;
+    }
+    return name != null && comparableName(other.name) === name;
+  });
 }
 
 /** Whole days from `date` to `today`, both YYYY-MM-DD. Negative clamps to 0. */
@@ -59,8 +116,11 @@ function daysBetween(date: string, today: string): number {
  * scrolls past it.
  */
 export function followUps(calls: CallRecord[], today: string): FollowUpResult {
-  const items = calls
-    .filter((c) => c.outcome === OPEN_OUTCOME && c.call_date)
+  const open = calls.filter((c) => c.outcome === OPEN_OUTCOME && c.call_date);
+  const answered = open.filter((c) => spokeAgain(c, calls));
+  const outstanding = open.filter((c) => !answered.includes(c));
+
+  const items = outstanding
     .map((call) => ({
       call,
       age: daysBetween(call.call_date as string, today),
@@ -73,6 +133,7 @@ export function followUps(calls: CallRecord[], today: string): FollowUpResult {
     worth: items.reduce((sum, i) => sum + i.worth, 0),
     stale: items.filter((i) => i.age >= FOLLOW_UP_STALE_DAYS).length,
     cold: items.filter((i) => i.age >= FOLLOW_UP_COLD_DAYS).length,
+    spokenAgain: answered.length,
   };
 }
 

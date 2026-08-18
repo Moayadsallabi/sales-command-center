@@ -69,6 +69,17 @@ export function FollowUps({
             calls to make.
           </p>
 
+          {/* Named columns. The right-hand figure was reading as revenue when
+              it is a quote — the price talked about on a call that did not
+              close. Nothing here is money in. */}
+          <div className="flex items-center gap-3 px-3.5 pb-1.5 text-[10px] uppercase tracking-[0.1em] text-zinc-600">
+            <span className="w-[72px] shrink-0">Waiting</span>
+            <span className="min-w-0 flex-1">Prospect</span>
+            <span className="w-[110px] shrink-0">Closer</span>
+            <span className="w-[90px] shrink-0 text-right">Price quoted</span>
+            <span className="w-3 shrink-0" />
+          </div>
+
           <div className="space-y-1">
             {shown.map(({ call, age, worth }) => (
               <a
@@ -95,7 +106,7 @@ export function FollowUps({
                 <span className="w-[110px] shrink-0 truncate text-[12px] text-zinc-500">
                   {call.closer ?? "—"}
                 </span>
-                <span className="w-[80px] shrink-0 text-right font-mono text-[12px] tabular-nums text-gold-400/80">
+                <span className="w-[90px] shrink-0 text-right font-mono text-[12px] tabular-nums text-zinc-400">
                   {worth > 0 ? formatMoney(call.price_discussed, call.currency) : "—"}
                 </span>
                 <ExternalLink className="h-3 w-3 shrink-0 text-zinc-700" />
@@ -122,9 +133,24 @@ export function FollowUps({
                 place in the pipeline.{" "}
               </>
             )}
-            This list ignores the date range at the top of the page on purpose: a
-            follow-up owed since July is exactly the one a thirty-day view would
-            hide. Money shown is what was discussed on the call, not money in.
+            <span className="text-zinc-500">
+              A prospect leaves this list when a later call with them reaches the
+              tracker
+            </span>
+            , because nothing ever edits the original row — the follow-up arrives
+            as its own recording a few days later.
+            {result.spokenAgain > 0 && (
+              <>
+                {" "}
+                {result.spokenAgain}{" "}
+                {result.spokenAgain === 1 ? "prospect has" : "prospects have"}{" "}
+                dropped off that way. A follow-up that happens without being
+                recorded cannot be told apart from one that never happened, so it
+                stays here.
+              </>
+            )}{" "}
+            The date range at the top of the page does not apply: a follow-up owed
+            since July is exactly the one a thirty-day view would hide.
           </p>
         </>
       )}
