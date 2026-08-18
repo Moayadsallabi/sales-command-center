@@ -257,7 +257,13 @@ function scoreCandidates(row, buyers, haystacks) {
       // A buyer carrying the whole name outranks one sharing a single word.
       return { buyer, score: hits === 0 ? 0 : hits + (text.includes(full) ? 1 : 0), certain: false };
     })
-    .filter((c) => c.score > 0)
+    // Two signals, never one. A single shared word off a two-word name is not
+    // a weak match, it is a different person: "Barron ace" scored a hit on
+    // "Ace Acosta" and reported his $4,000 against Barron's call, and "Jon
+    // gonzalez" took Robinson Gonzalez's $562. Both were the only candidate, so
+    // nothing else caught them. A one-word row name is unaffected — the whole
+    // name is then the token, so a genuine hit scores two on its own.
+    .filter((c) => c.score >= 2)
     .sort((a, b) => b.score - a.score);
 }
 

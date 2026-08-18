@@ -247,6 +247,21 @@ if (fathomReachable) {
 }
 
 /**
+ * Name parts two names share.
+ *
+ * The matcher has its own copy of this and keeps it private, which is correct —
+ * that one decides which booking a call belongs to, and this one only ever asks
+ * whether a booking the clock already identified is plausibly the same person.
+ * Kept deliberately separate so tightening one never silently moves the other.
+ */
+function sharesName(a, b) {
+  const tokens = (v) =>
+    String(v ?? "").toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter((t) => t.length >= 3);
+  const left = new Set(tokens(a));
+  return tokens(b).some((t) => left.has(t));
+}
+
+/**
  * Whether the booking and the recording are the same appointment.
  *
  * Returns the reason it could not be confirmed rather than a bare false, so the
@@ -262,6 +277,22 @@ function confirm(call, booking) {
   const drift =
     Math.abs(Date.parse(meeting.scheduled_start_time) - Date.parse(booking.scheduled_at)) / 60000;
   if (!Number.isFinite(drift) || drift > SLOT_TOLERANCE_MINUTES) {
+    // A slot that disagrees usually means the call was moved by hand after it
+    // was booked, and the question then is whether the disagreement is about
+    // *which* booking or about *who*. If every booking near this call under
+    // this name belongs to one person, it is only about which — and the
+    // address is the same whichever one it was. A prospect who booked, dropped
+    // out and rebooked is the ordinary case, not the rare one.
+    const near = read.bookings.filter(
+      (b) =>
+        b.email &&
+        sharesName(call.name, b.name) &&
+        Math.abs(Date.parse(b.scheduled_at) - Date.parse(call.call_date)) / 864e5 <= 1.5
+    );
+    const people = new Set(near.map((b) => b.email));
+    if (people.size === 1 && near.length > 1) {
+      return { ok: true, oneperson: true };
+    }
     return { ok: false, why: "different-slot", drift };
   }
 
@@ -276,21 +307,6 @@ function confirm(call, booking) {
   }
 
   return { ok: true, alsoOnInvite: emails.includes(booking.email) };
-}
-
-/**
- * Name parts two names share.
- *
- * The matcher has its own copy of this and keeps it private, which is correct —
- * that one decides which booking a call belongs to, and this one only ever asks
- * whether a booking the clock already identified is plausibly the same person.
- * Kept deliberately separate so tightening one never silently moves the other.
- */
-function sharesName(a, b) {
-  const tokens = (v) =>
-    String(v ?? "").toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter((t) => t.length >= 3);
-  const left = new Set(tokens(a));
-  return tokens(b).some((t) => left.has(t));
 }
 
 /**
@@ -388,7 +404,13 @@ for (const call of blank) {
   }
 
   const verdict = confirm(call, booking);
-  if (verdict.ok) confirmed.push({ ...entry, alsoOnInvite: verdict.alsoOnInvite });
+  if (verdict.ok) {
+    confirmed.push({
+      ...entry,
+      alsoOnInvite: verdict.alsoOnInvite,
+      tie: verdict.oneperson ? `${tie}; booked more than once, one person` : tie,
+    });
+  }
   else if (verdict.why === "different-slot") {
     held.push({
       ...entry,
