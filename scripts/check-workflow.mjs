@@ -483,6 +483,36 @@ if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 0 })) !== "Custom
   fail("a Customer row with no recorded deposit was demoted — absence of a figure is not absence of money");
 else pass("an unrecorded deposit leaves the outcome alone");
 
+// A PRICE THE PROSPECT REFUSED IS NOT A PRICE THEY CLOSED AT.
+//
+// The two price fields were the only money fields the scorer was never given a
+// definition for, so it filled both with the number that was quoted: calls
+// recorded as "No deal" arrived carrying a closed price of 1,500 on a deal that
+// was named and turned down. The instruction is now written (build-rubric.mjs),
+// and this is the belt to its braces — the same shape as the deposit floor
+// above, because a rule that lives only in a prompt is a rule the next model
+// revision gets to reinterpret.
+for (const losing of ["No deal", "BAMFAM", "No offer made", "No show"]) {
+  const refused = bodyFor({ outcome: losing, price_discussed: null, price_closed: 1500, collected_on_call: null });
+  if (closedOf(refused) !== null)
+    fail(`a "${losing}" call kept a Price Closed — it would show as a deal that never happened`);
+  else if (refused.properties["Price Discussed"]?.number !== 1500)
+    fail(`a "${losing}" call dropped the refused price entirely — it belongs on Price Discussed`);
+  else pass(`a "${losing}" call carries the price as discussed, not as closed`);
+}
+
+// The fallback must not overwrite a discussed price the scorer got right.
+const bothPrices = bodyFor({ outcome: "No deal", price_discussed: 2000, price_closed: 1500 });
+if (bothPrices.properties["Price Discussed"]?.number !== 2000)
+  fail("the discussed price was overwritten by the closed one instead of kept");
+else pass("a call that names two figures keeps the one that was discussed");
+
+// And a real sale is untouched by any of it.
+const won = bodyFor({ outcome: "Customer", price_discussed: 9000, price_closed: 9000, collected_on_call: 500 });
+if (closedOf(won) !== 9000)
+  fail("a genuine sale lost its Price Closed — the guard is too wide");
+else pass("a sale keeps its closed price");
+
 /* --------------------------------------------- 4b. The deciding objection */
 
 // The scorer raised an objection and then returned no primary, which left the

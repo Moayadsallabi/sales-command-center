@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { CallRecord, OUTCOME_COLORS, leadQualityScore } from "@/lib/types";
 import { leadBandFor } from "@/lib/lead-quality";
-import { collectedToDate, formatMoney, formatReporting } from "@/lib/money";
+import { carriesRevenue, collectedToDate, formatMoney, formatReporting } from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
 
@@ -147,8 +147,16 @@ export function CallTable({
                     <span className="text-zinc-700">—</span>
                   )}
                 </td>
+                {/* carriesRevenue, not price_closed alone. Every total on this
+                    dashboard asks whether the call was won before counting a
+                    price; this column did not, so a call recorded as "No deal"
+                    printed the price it was refused at under a heading that
+                    says Revenue. The scorer wrote that figure because nothing
+                    ever defined the field for it — fixed at the source and at
+                    the write, and guarded here too so the display cannot
+                    disagree with the totals above it whatever arrives. */}
                 <td className="px-5 py-3 whitespace-nowrap font-mono text-xs tabular-nums">
-                  {call.price_closed ? (
+                  {carriesRevenue(call) && call.price_closed ? (
                     <span className="text-gold-400/50">
                       {formatMoney(call.price_closed, call.currency)}
                     </span>
