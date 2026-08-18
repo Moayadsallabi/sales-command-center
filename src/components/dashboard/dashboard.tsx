@@ -477,35 +477,39 @@ export function Dashboard({
                 {selectedCloser ? ` · ${selectedCloser}` : ""}
               </p>
             </div>
-          </motion.div>
 
-          <motion.div
-            {...controlsMotion}
-            className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end"
-          >
             {/* ONE LINE WHEN SOMETHING IS WRONG, NOT THREE BANDS.
                 Three stacked amber strips sat above the numbers and were the
                 loudest thing on the page — every visit opened on a caveat
                 before it showed a result. The caveats now live in the
                 data-health band at the foot of the page, where a reader goes
                 when a figure surprises them, and this is the pointer down to
-                them. Amber is spent here and nowhere above the fold. */}
+                them. Amber is spent here and nowhere above the fold.
+
+                It rides with the TITLE rather than with the date controls: on
+                a phone those controls already fill their row, and a chip
+                squeezed in beside them landed on top of the range buttons. */}
             {issues.length > 0 && (
               <a
                 href="#data-health"
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] font-medium text-amber-300 transition-colors hover:bg-amber-500/[0.14]"
+                className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/25 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] font-medium text-amber-300 transition-colors hover:bg-amber-500/[0.14]"
               >
                 <AlertTriangle className="h-3 w-3" strokeWidth={2} />
                 {issues.length} to check
               </a>
             )}
+          </motion.div>
 
+          <motion.div
+            {...controlsMotion}
+            className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:justify-end"
+          >
             {/* DATE RANGE. The presets answer "how is this week going". The
                 two date fields answer "what happened between these dates",
                 which is what reading a launch week, an ad flight or a single
                 month back needs, and no preset can express. */}
-            <div className="flex min-w-0 flex-col items-end gap-1.5">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 sm:flex-none sm:items-end">
+              <div className="flex w-full min-w-0 items-center gap-2">
                 {dateRange === "custom" && (
                   <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gold-500/20 bg-gold-500/[0.06] px-2 py-1">
                     {/* An empty value would mean "unbounded" to the filter, so
@@ -530,7 +534,11 @@ export function Dashboard({
                   </div>
                 )}
 
-                <div className="scroll-x flex items-center rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5">
+                {/* `min-w-0` is what lets this scroll instead of pushing the
+                    live indicator off the edge — without it a flex child
+                    refuses to shrink below its content and the whole header
+                    overflows rather than the button strip scrolling. */}
+                <div className="scroll-x flex min-w-0 items-center rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5">
                   {DATE_RANGES.map((r) => (
                     <button
                       key={r.value}

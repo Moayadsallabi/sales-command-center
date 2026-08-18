@@ -59,10 +59,13 @@ export function FollowUps({
         right={
           result.items.length > 0 ? (
             <span className="font-mono text-[13px] tabular-nums text-gold-300">
-              {formatReporting(result.worth)}
-              <span className="ml-1.5 text-[11px] font-sans text-zinc-400">
-                quoted
-              </span>
+              {formatReporting(result.worth)}{" "}
+              {/* A REAL SPACE, NOT JUST A MARGIN. `ml-1.5` separates the two
+                  words on screen and leaves none in the text itself, so a
+                  screen reader and anyone copying the line both get
+                  "$27,000quoted". This page has already shipped that exact
+                  defect twice. */}
+              <span className="text-[11px] font-sans text-zinc-400">quoted</span>
             </span>
           ) : null
         }

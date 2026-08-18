@@ -64,12 +64,12 @@ export function SetupNotice({ failure }: { failure: NotionFailure }) {
         </div>
 
         <h1 className="mt-4 text-xl font-semibold text-zinc-100">{title}</h1>
-        <p className="mt-2 text-sm text-zinc-400">{summary}</p>
+        <p className="mt-2 text-[13px] text-zinc-400">{summary}</p>
 
         <ol className="mt-6 space-y-3">
           {steps.map((step, i) => (
-            <li key={step} className="flex gap-3 text-sm text-zinc-400">
-              <span className="mt-px font-mono text-xs tabular-nums text-gold-500/60">
+            <li key={step} className="flex gap-3 text-[13px] text-zinc-400">
+              <span className="mt-px font-mono text-[13px] tabular-nums text-gold-500/60">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span>{step}</span>
@@ -77,7 +77,7 @@ export function SetupNotice({ failure }: { failure: NotionFailure }) {
           ))}
         </ol>
 
-        <p className="mt-8 border-t border-white/[0.04] pt-4 text-[11px] text-zinc-600">
+        <p className="mt-8 border-t border-white/[0.04] pt-4 text-[11px] text-zinc-400">
           This screen replaces the dashboard until the connection succeeds. Full
           setup steps are in the Setup Manual.
         </p>

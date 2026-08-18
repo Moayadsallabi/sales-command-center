@@ -94,7 +94,7 @@ export function LeadImpact({
             />
           </div>
 
-          <p className="max-w-[70ch] text-[12px] leading-relaxed text-zinc-400">
+          <p className="max-w-[70ch] text-[13px] leading-relaxed text-zinc-400">
             {result.conclusive ? (
               <>
                 Your better leads close{" "}

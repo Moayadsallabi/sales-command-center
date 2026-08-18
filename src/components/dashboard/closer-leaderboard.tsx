@@ -12,10 +12,10 @@ const currency = (value: number) => formatReporting(value);
 
 /** Gold above 7.5, amber 6 to 7.5, red below 6 — same thresholds everywhere. */
 function scoreColor(score: number | null): string {
-  if (score == null) return "text-zinc-600";
+  if (score == null) return "text-zinc-400";
   if (score >= 7.5) return "text-gold-400";
   if (score >= 6) return "text-amber-400";
-  return "text-red-400";
+  return "text-[var(--color-negative)]";
 }
 
 /** Movement under this is measurement wobble rather than a real change. */
@@ -101,7 +101,7 @@ export function CloserLeaderboard({
         <div className="px-5 pb-6 t-body text-zinc-300">No calls in this range.</div>
       ) : (
         <div className="scroll-x">
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-white/[0.06]">
                 {/* Alignment is declared per column rather than by index, so
@@ -123,7 +123,7 @@ export function CloserLeaderboard({
                 ].map(({ label, align }) => (
                   <th
                     key={label}
-                    className={`text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 px-5 py-3 whitespace-nowrap ${
+                    className={`text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 px-5 py-3 whitespace-nowrap ${
                       align === "left" ? "text-left" : "text-right"
                     }`}
                   >
@@ -181,18 +181,18 @@ export function CloserLeaderboard({
                       ) : (
                         <>
                           {Math.round(row.avgLeadScore)}
-                          <span className="text-zinc-600">/{LEAD_MAX}</span>
+                          <span className="text-zinc-400">/{LEAD_MAX}</span>
                         </>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono text-[12px] tabular-nums">
+                    <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums">
                       <Trend value={row.trend} />
                     </td>
                     <td className="px-5 py-3 whitespace-nowrap text-zinc-500 text-[13px]">
                       {row.weakest ? (
                         <>
                           {row.weakest.dimension.plainName}{" "}
-                          <span className="font-mono tabular-nums text-zinc-600">
+                          <span className="font-mono tabular-nums text-zinc-400">
                             {row.weakest.score.toFixed(1)}
                           </span>
                         </>
@@ -200,7 +200,7 @@ export function CloserLeaderboard({
                         // Blank for two different reasons, and they want
                         // different responses: nothing scored yet, or scored
                         // but too few to call anything a habit.
-                        <span className="text-zinc-700">
+                        <span className="text-zinc-500">
                           {row.scoredCalls === 0
                             ? "not scored yet"
                             : `${row.scoredCalls} of ${MIN_CALLS_PER_CLOSER} scored calls`}

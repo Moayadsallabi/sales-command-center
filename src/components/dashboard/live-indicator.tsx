@@ -65,14 +65,16 @@ export function LiveIndicator() {
   }, [router]);
 
   return (
-    <div className="flex items-center gap-2 ml-2">
+    <div className="flex shrink-0 items-center gap-2">
       <div
-        className={`w-1.5 h-1.5 rounded-full transition-colors ${
+        className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
           syncing ? "bg-gold-300 animate-pulse" : "bg-gold-500"
         }`}
       />
+      {/* Never wraps. "54S AGO" breaking across two lines was pushing the
+          header a row taller on a phone for a label nobody reads twice. */}
       <span
-        className="text-[11px] text-zinc-500 font-mono tabular-nums"
+        className="whitespace-nowrap font-mono text-[11px] tabular-nums text-zinc-400"
         title="Auto-refreshes every 60 seconds"
       >
         {syncing ? "SYNCING" : ago(elapsed).toUpperCase()}

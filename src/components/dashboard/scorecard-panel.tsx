@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   CallRecord,
   OUTCOME_COLORS,
@@ -70,13 +70,13 @@ function BeforeTheCall({ booking }: { booking: LinkedBooking }) {
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
       <div className="mb-2 flex items-center gap-2">
         <CalendarClock className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
-        <h4 className="text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600">
+        <h4 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400">
           Before the call
         </h4>
       </div>
 
       {facts.length > 0 && (
-        <p className="text-[12px] leading-relaxed text-zinc-400">
+        <p className="text-[13px] leading-relaxed text-zinc-400">
           {facts.join(" · ")}
         </p>
       )}
@@ -85,7 +85,7 @@ function BeforeTheCall({ booking }: { booking: LinkedBooking }) {
         <dl className="mt-3 space-y-2">
           {booking.answers.map((qa) => (
             <div key={qa.question}>
-              <dt className="text-[11px] text-zinc-600">{qa.question}</dt>
+              <dt className="text-[11px] text-zinc-400">{qa.question}</dt>
               <dd className="text-[13px] leading-relaxed text-zinc-300">
                 {qa.answer}
               </dd>
@@ -106,7 +106,7 @@ function Section({
 }) {
   return (
     <div>
-      <h4 className="mb-2 text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600">
+      <h4 className="mb-2 text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400">
         {title}
       </h4>
       {children}
@@ -167,6 +167,7 @@ function ScorecardBody({
   booking: LinkedBooking | null;
   onClose: () => void;
 }) {
+  const still = useReducedMotion();
   const [showAllScores, setShowAllScores] = useState(false);
   const [showAllFactors, setShowAllFactors] = useState(false);
 
@@ -217,10 +218,15 @@ function ScorecardBody({
 
   return (
     <motion.aside
-      initial={{ x: "100%" }}
+      // A drawer someone deliberately opened, so it is allowed to travel —
+      // the slide says where it came from and where clicking away sends it.
+      // Under reduced motion it appears and disappears instead.
+      initial={still ? false : { x: "100%" }}
       animate={{ x: 0 }}
-      exit={{ x: "100%" }}
-      transition={{ type: "spring", damping: 30, stiffness: 300 }}
+      exit={still ? { opacity: 0 } : { x: "100%" }}
+      transition={
+        still ? { duration: 0.12 } : { type: "spring", damping: 30, stiffness: 300 }
+      }
       role="dialog"
       aria-label={`Scorecard for the call with ${call.name}`}
       className="fixed right-0 top-0 z-50 h-full w-full max-w-[540px] overflow-y-auto border-l border-white/[0.08] bg-[#0c0c0e] shadow-2xl"
@@ -250,7 +256,7 @@ function ScorecardBody({
                   is visible without scrolling. */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span
-            className="rounded-full px-2.5 py-1 text-[10px] font-medium"
+            className="rounded-full px-2.5 py-1 text-[11px] font-medium"
             style={{
               background: `${OUTCOME_COLORS[call.outcome ?? ""] ?? "#6b7280"}1a`,
               color: OUTCOME_COLORS[call.outcome ?? ""] ?? "#a1a1aa",
@@ -259,14 +265,14 @@ function ScorecardBody({
             {call.outcome ?? "Unknown"}
           </span>
           {overall != null && (
-            <span className="font-mono text-sm tabular-nums" title="How the call was run">
+            <span className="font-mono text-[13px] tabular-nums" title="How the call was run">
               <span
                 className="text-lg font-bold"
                 style={{ color: scoreHex(overall) }}
               >
                 {overall.toFixed(1)}
               </span>
-              <span className="text-zinc-600">/10</span>{" "}
+              <span className="text-zinc-400">/10</span>{" "}
               <span className="text-zinc-500">{verdictFor(overall)}</span>
             </span>
           )}
@@ -274,20 +280,20 @@ function ScorecardBody({
               the same 5/10 means opposite things at 82 and at 31. */}
           {lead != null && (
             <span
-              className="font-mono text-sm tabular-nums"
+              className="font-mono text-[13px] tabular-nums"
               title="How good the lead was, scored separately from the call"
             >
               <span className="text-lg font-bold" style={{ color: leadHex(lead) }}>
                 {lead}
               </span>
-              <span className="text-zinc-600">/{LEAD_MAX}</span>{" "}
+              <span className="text-zinc-400">/{LEAD_MAX}</span>{" "}
               <span className="text-zinc-500">{leadBandFor(lead)} lead</span>
             </span>
           )}
           {flags.map((f) => (
             <span
               key={f.label}
-              className="rounded-full border border-red-500/25 bg-red-500/[0.08] px-2.5 py-1 text-[10px] text-red-300"
+              className="rounded-full border border-red-500/25 bg-red-500/[0.08] px-2.5 py-1 text-[11px] text-red-300"
             >
               {f.label}
             </span>
@@ -302,7 +308,7 @@ function ScorecardBody({
         {booking && <BeforeTheCall booking={booking} />}
 
         {overall == null ? (
-          <p className="text-sm text-zinc-500">
+          <p className="text-[13px] text-zinc-500">
             {call.outcome === "No show"
               ? "Nobody turned up, so there is nothing to score."
               : "This call has no scorecard. It was recorded before the scoring was installed, or the scoring step failed."}
@@ -314,7 +320,7 @@ function ScorecardBody({
               <div className="rounded-lg border border-gold-500/25 bg-gold-500/[0.07] p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <Zap className="h-3.5 w-3.5 text-gold-400" strokeWidth={2} />
-                  <h4 className="text-[10px] font-medium uppercase tracking-[0.1em] text-gold-400">
+                  <h4 className="text-[11px] font-medium uppercase tracking-[0.1em] text-gold-400">
                     Do this on the next call
                   </h4>
                 </div>
@@ -350,7 +356,7 @@ function ScorecardBody({
                         <p className="text-[13px] font-medium text-zinc-200">
                           {dimension.plainName}
                         </p>
-                        <p className="mt-0.5 text-[12px] text-zinc-500">
+                        <p className="mt-0.5 text-[13px] text-zinc-500">
                           {dimension.plainQuestion}
                         </p>
                       </div>
@@ -358,13 +364,13 @@ function ScorecardBody({
                   ))}
                 </div>
                 {alsoWeak > 0 && (
-                  <p className="mt-2 text-[11px] text-zinc-600">
+                  <p className="mt-2 text-[11px] text-zinc-400">
                     {alsoWeak} other {alsoWeak === 1 ? "part" : "parts"} also scored
                     below {GOOD_SCORE}. Open all eight below to see them.
                   </p>
                 )}
                 {alsoWeak === 0 && weakSpots.every((w) => w.score >= POOR_SCORE) && (
-                  <p className="mt-2 text-[11px] text-zinc-600">
+                  <p className="mt-2 text-[11px] text-zinc-400">
                     Nothing here is badly wrong — these are just the weakest parts
                     of a call that mostly went well.
                   </p>
@@ -398,13 +404,13 @@ function ScorecardBody({
               <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <UserSearch className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
-                  <h4 className="text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-500">
+                  <h4 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
                     The lead they were handed
                   </h4>
                 </div>
 
                 {lead == null ? (
-                  <p className="text-[12px] text-zinc-500">
+                  <p className="text-[13px] text-zinc-500">
                     The call ended before enough of the prospect was established to
                     score them. That is a fact about the call, not about the lead.
                   </p>
@@ -416,14 +422,14 @@ function ScorecardBody({
                       </p>
                     )}
 
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-zinc-600">
+                    <p className="mb-2 text-[11px] uppercase tracking-[0.1em] text-zinc-400">
                       Thinnest on
                     </p>
                     <div className="space-y-1.5">
                       {thinnest.map(({ factor, score }) => (
                         <div key={factor.key} className="flex items-center gap-3">
                           <span
-                            className="w-[132px] shrink-0 truncate text-[12px] text-zinc-400"
+                            className="w-[132px] shrink-0 truncate text-[13px] text-zinc-400"
                             title={factor.question}
                           >
                             {factor.name}
@@ -437,9 +443,9 @@ function ScorecardBody({
                               }}
                             />
                           </div>
-                          <span className="w-10 shrink-0 text-right font-mono text-[12px] tabular-nums text-zinc-400">
+                          <span className="w-10 shrink-0 text-right font-mono text-[13px] tabular-nums text-zinc-400">
                             {score}
-                            <span className="text-zinc-600">/{factor.max}</span>
+                            <span className="text-zinc-400">/{factor.max}</span>
                           </span>
                         </div>
                       ))}
@@ -447,7 +453,7 @@ function ScorecardBody({
 
                     {call.objections.length > 0 && (
                       <div className="mt-4">
-                        <p className="mb-2 text-[10px] uppercase tracking-[0.1em] text-zinc-600">
+                        <p className="mb-2 text-[11px] uppercase tracking-[0.1em] text-zinc-400">
                           Objections raised
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -479,7 +485,7 @@ function ScorecardBody({
                       <button
                         onClick={() => setShowAllFactors((v) => !v)}
                         aria-expanded={showAllFactors}
-                        className="flex w-full items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 transition-colors hover:text-zinc-400"
+                        className="flex w-full items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 transition-colors hover:text-zinc-200"
                       >
                         <ChevronDown
                           className={`h-3 w-3 transition-transform ${
@@ -503,12 +509,12 @@ function ScorecardBody({
                                 return (
                                   <div key={factor.key} className="flex items-center gap-3">
                                     <span
-                                      className="w-[132px] shrink-0 truncate text-[12px] text-zinc-400"
+                                      className="w-[132px] shrink-0 truncate text-[13px] text-zinc-400"
                                       title={factor.question}
                                     >
                                       {factor.name}
                                       {factor.belief && (
-                                        <span className="text-zinc-600">
+                                        <span className="text-zinc-400">
                                           {" "}
                                           · {factor.belief}
                                         </span>
@@ -525,15 +531,15 @@ function ScorecardBody({
                                         />
                                       )}
                                     </div>
-                                    <span className="w-10 shrink-0 text-right font-mono text-[12px] tabular-nums text-zinc-400">
+                                    <span className="w-10 shrink-0 text-right font-mono text-[13px] tabular-nums text-zinc-400">
                                       {score ?? "—"}
-                                      <span className="text-zinc-600">/{factor.max}</span>
+                                      <span className="text-zinc-400">/{factor.max}</span>
                                     </span>
                                   </div>
                                 );
                               })}
                             </div>
-                            <p className="pt-2 text-[11px] text-zinc-600">
+                            <p className="pt-2 text-[11px] text-zinc-400">
                               A factor showing — never came up on the call, so it is
                               left out of the {LEAD_MAX} rather than counted as zero.
                             </p>
@@ -550,7 +556,7 @@ function ScorecardBody({
               <button
                 onClick={() => setShowAllScores((v) => !v)}
                 aria-expanded={showAllScores}
-                className="flex w-full items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.1em] text-zinc-600 transition-colors hover:text-zinc-400"
+                className="flex w-full items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 transition-colors hover:text-zinc-200"
               >
                 <ChevronDown
                   className={`h-3 w-3 transition-transform ${
@@ -577,7 +583,7 @@ function ScorecardBody({
                             className="flex items-center gap-3"
                           >
                             <span
-                              className="w-[150px] shrink-0 truncate text-[12px] text-zinc-400"
+                              className="w-[150px] shrink-0 truncate text-[13px] text-zinc-400"
                               title={dimension.plainQuestion}
                             >
                               {dimension.plainName}
@@ -594,7 +600,7 @@ function ScorecardBody({
                               )}
                             </div>
                             <span
-                              className="w-6 shrink-0 text-right font-mono text-[12px] tabular-nums"
+                              className="w-6 shrink-0 text-right font-mono text-[13px] tabular-nums"
                               style={{
                                 color:
                                   score == null ? "#52525b" : scoreHex(score),
@@ -629,7 +635,7 @@ function ScorecardBody({
               href={call.recording_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[12px] text-zinc-400 transition-colors hover:text-gold-400"
+              className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 transition-colors hover:text-gold-400"
             >
               <Video className="h-3.5 w-3.5" strokeWidth={1.5} />
               Watch the recording
@@ -639,7 +645,7 @@ function ScorecardBody({
             href={call.notion_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[12px] text-zinc-400 transition-colors hover:text-gold-400"
+            className="inline-flex items-center gap-1.5 text-[13px] text-zinc-400 transition-colors hover:text-gold-400"
           >
             <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
             Full written breakdown
@@ -704,7 +710,7 @@ function CallFacts({ call }: { call: CallRecord }) {
       <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
         {facts.map((f) => (
           <div key={f.label} className="min-w-0">
-            <dt className="text-[10px] uppercase tracking-[0.08em] text-zinc-600">
+            <dt className="text-[11px] uppercase tracking-[0.08em] text-zinc-400">
               {f.label}
             </dt>
             <dd

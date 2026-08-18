@@ -151,9 +151,15 @@ export function KPICards({
     if (bank === null || bank.missedCount === 0)
       return "closed price of every recorded win";
     const people = bank.missedCount === 1 ? "1 buyer" : `${bank.missedCount} buyers`;
+    // Names where the money DOES appear, because the two screens are read side
+    // by side and the gap between them is what prompts the question. This
+    // dashboard scores calls, so a sale with no call has nothing to score and
+    // is deliberately absent; the KPI dashboard counts the business, so it
+    // carries the same money under "revenue with no call". Saying so turns a
+    // discrepancy into two figures that explain each other.
     return `${people} first paid in this window with no call on the tracker — ${formatReporting(
       bank.missedWorth
-    )} so far, none of it counted here`;
+    )} so far, counted on the KPI dashboard as revenue with no call, not here`;
   })();
 
   // A deal in another currency with no FX rate is counted at 1:1, which
@@ -177,10 +183,15 @@ export function KPICards({
           is a plumbing metric. Cash is the hero, Revenue sits beside it, and
           the four that describe activity are a row of small tiles underneath.
           Read top-left to bottom-right, that is money, then how it was made. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-12 lg:gap-4">
+      {/* Three breakpoints, because two left the tablet ugly: at 834px the
+          hero and Revenue each took a full row and the four small tiles sat
+          two-up under them, which is the phone layout stretched. The middle
+          step puts the hero and Revenue side by side at 4:2 and pairs the
+          small tiles under them. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6 lg:grid-cols-12 lg:gap-4">
         <Tile
           order={0}
-          span="col-span-2 lg:col-span-8"
+          span="col-span-2 md:col-span-4 lg:col-span-8"
           label="Cash Collected"
           icon={Banknote}
           accent
@@ -197,7 +208,7 @@ export function KPICards({
 
         <Tile
           order={1}
-          span="col-span-2 lg:col-span-4"
+          span="col-span-2 md:col-span-2 lg:col-span-4"
           label="Revenue"
           icon={DollarSign}
           accent
@@ -231,7 +242,7 @@ export function KPICards({
 
         <Tile
           order={2}
-          span="lg:col-span-3"
+          span="md:col-span-3 lg:col-span-3"
           label="Recorded"
           icon={CalendarCheck}
           value={now.total}
@@ -243,7 +254,7 @@ export function KPICards({
         />
         <Tile
           order={3}
-          span="lg:col-span-3"
+          span="md:col-span-3 lg:col-span-3"
           label="Calls Taken"
           icon={PhoneCall}
           value={now.taken}
@@ -255,7 +266,7 @@ export function KPICards({
         />
         <Tile
           order={4}
-          span="lg:col-span-3"
+          span="md:col-span-3 lg:col-span-3"
           label="Close Rate"
           icon={Target}
           value={now.closeRate}
@@ -268,7 +279,7 @@ export function KPICards({
         />
         <Tile
           order={5}
-          span="lg:col-span-3"
+          span="md:col-span-3 lg:col-span-3"
           label="New Customers"
           icon={UserPlus}
           value={now.customers}
