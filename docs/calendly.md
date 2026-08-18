@@ -129,7 +129,7 @@ looked like, and that is what licenses the write.
 | --- | --- |
 | Confirmed | The booking and the recording hold the same calendar slot. Written |
 | Recovered | The matcher would not choose between two bookings; the recording's slot did, and the name agrees. Written |
-| Unconfirmed | Matched on the name, with no recording to check it against. Not written without `--unverified` |
+| Unconfirmed | Matched on the name, with nothing able to check it. Two causes: no Fathom key, or the call was **moved by hand** after booking, so the recording sits on a slot no booking holds and the clock cannot vouch for anything. Not written without `--unverified` |
 | Held back | The two records disagree — a different slot, a different person on the invite, or a different closer. Never written |
 | No booking | Nothing on this calendar matches — either never booked here, or booked here under a name the call row cannot be recognised by |
 
@@ -142,6 +142,26 @@ payments to another person's call.
 A slot on its own is never enough, which is why the name has to agree too: two
 closers take bookings at the same hour, so the booking sitting in a slot is not
 necessarily this call's.
+
+### When the call was moved after it was booked
+
+A call dragged to a different time in the calendar breaks the timestamp check
+outright — the recording's slot then matches no booking at all. Those fall back
+to a wider search on the name alone, three calendar days either side, and are
+written only on `--unverified`:
+
+```bash
+npm run backfill:emails -- --apply --unverified
+```
+
+It still refuses to guess between people. Every booking the name ties to across
+that window has to belong to **one person**, because the question is whose
+address this is, and two candidates with two addresses cannot answer it however
+close they sit. A prospect who booked, dropped out and rebooked twice is one
+person and fills fine; two people sharing a first name do not.
+
+Read these before writing them. They are the only rows here resting on a name,
+which is the thing the rest of this script exists to avoid trusting.
 
 The second opinion needs a Fathom key — `FATHOM_API_KEY`, or one
 `FATHOM_KEY_<name>` per closer in `.env.local`, since a key only reaches its own

@@ -310,6 +310,64 @@ function confirm(call, booking) {
 }
 
 /**
+ * How far from the call a booking may sit when the clock has already failed.
+ *
+ * Reached only on calls that were moved by hand after booking, where the
+ * recording's slot matches no booking at all and so cannot vouch for anything.
+ * Three days is wide enough to cover a call pushed across a weekend and narrow
+ * enough that a name still means something inside it.
+ */
+const WIDE_SEARCH_DAYS = 3;
+
+/** Midday on the call's date, so "before" and "after" read the way a person means them. */
+const middleOf = (call) => Date.parse(`${String(call.call_date).slice(0, 10)}T12:00:00Z`);
+
+/**
+ * The last resort: a name, over a wider window, with nothing to confirm it.
+ *
+ * Everything stronger has already failed by the time this runs — no email, no
+ * booking the matcher would accept, and a recording sitting on a slot no
+ * booking holds. What is left is the name, and a name on its own is what the
+ * rest of this script exists to avoid trusting. So it is reported and written
+ * only on `--unverified`.
+ *
+ * Two conditions keep it honest. The name must actually tie, and every booking
+ * it ties to across the window must belong to **one person** — the question
+ * being answered is "whose address is this", and several candidates with
+ * several addresses cannot answer it however close they sit.
+ */
+function widenByName(call, claimed) {
+  if (!call.call_date) return null;
+  const middle = Date.parse(`${call.call_date.slice(0, 10)}T12:00:00Z`);
+  if (!Number.isFinite(middle)) return null;
+
+  const near = read.bookings.filter(
+    (b) =>
+      !claimed.has(b.id) &&
+      b.email &&
+      sharesName(call.name, b.name) &&
+      // Counted in calendar days, the way a person says "three days apart".
+      // Measured in hours instead, a call moved from a Thursday night to the
+      // following Sunday morning reads as 3.5 and falls out of a window it
+      // plainly belongs in.
+      Math.abs(Math.floor(Date.parse(b.scheduled_at) / 864e5) - Math.floor(middle / 864e5)) <=
+        WIDE_SEARCH_DAYS
+  );
+  if (near.length === 0) return null;
+
+  const people = new Set(near.map((b) => b.email));
+  if (people.size > 1) return null;
+
+  // Nearest to the call, so the row names the booking a person would check.
+  const booking = near.sort(
+    (a, b) =>
+      Math.abs(Date.parse(a.scheduled_at) - middle) - Math.abs(Date.parse(b.scheduled_at) - middle)
+  )[0];
+  const days = Math.round(Math.abs(Date.parse(booking.scheduled_at) - middle) / 864e5);
+  return { booking, days };
+}
+
+/**
  * The address for a call the matcher declined to match.
  *
  * Only the recording's own scheduled slot can reopen one of these, and only
@@ -379,9 +437,22 @@ for (const call of blank) {
         booking: second.booking,
         tie: second.count > 1 ? "same slot, one person" : "same slot, name agrees",
       });
-    } else {
-      noBooking.push({ call, blocked: second?.blocked, other: second?.other });
+      continue;
     }
+
+    const wide = widenByName(call, claimed);
+    if (wide) {
+      claimed.add(wide.booking.id);
+      unconfirmed.push({
+        call,
+        booking: wide.booking,
+        tie: `name only, booked ${wide.days === 0 ? "the same day" : `${wide.days} day${wide.days === 1 ? "" : "s"} ${Date.parse(wide.booking.scheduled_at) < middleOf(call) ? "before" : "after"}`}`,
+        why: "moved-by-hand",
+      });
+      continue;
+    }
+
+    noBooking.push({ call, blocked: second?.blocked, other: second?.other });
     continue;
   }
 
@@ -507,6 +578,7 @@ if (unconfirmed.length) {
     "no-fathom": "no Fathom key",
     "no-recording": "no recording found for this row",
     "no-slot": "the recording has no scheduled time",
+    "moved-by-hand": "the recording sits on a slot no booking holds",
   };
   for (const f of unconfirmed) {
     console.log(
