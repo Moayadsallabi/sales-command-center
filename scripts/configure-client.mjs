@@ -245,10 +245,18 @@ if (!channel && alert.parameters.channelId?.value === TEMPLATE_CHANNEL) {
   );
 }
 if (channel) {
+  // An ID is stored as an ID, because the two are not interchangeable. Slack
+  // resolves a NAME through a lookup that needs its own scope, and refuses with
+  // the same `channel_not_found` whether the channel is missing, the app is not
+  // in it, or the app simply cannot list channels. An ID skips the lookup, so a
+  // failure with an ID means one of the other two — which is worth knowing when
+  // the only symptom you get is that one message.
+  const raw = channel.replace(/^#/, "").trim();
+  const looksLikeId = /^[CGD][A-Z0-9]{6,}$/.test(raw);
   alert.parameters.channelId = {
     __rl: true,
-    value: channel.replace(/^#/, ""),
-    mode: "name",
+    value: raw,
+    mode: looksLikeId ? "id" : "name",
   };
 }
 

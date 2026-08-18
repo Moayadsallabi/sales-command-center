@@ -90,6 +90,15 @@ function buildSystemPrompt(r) {
     "",
     "For any commercial field the transcript does not establish, return null rather than guessing. `lead_source` cannot be null: when the transcript never establishes where the prospect came from, answer Unknown rather than guessing.",
     "",
+    // THE TWO PRICE FIELDS WERE THE ONLY MONEY FIELDS NEVER DEFINED. Every
+    // other one below is spelled out, and these two were left to a pair of
+    // near-identical names. The model filled both with the number that was
+    // quoted, so calls recorded as "No deal" arrived carrying a closed price —
+    // 1,500 discussed, refused, and written down as 1,500 closed. It was not
+    // inventing a sale; nothing ever told it the second field means money the
+    // prospect agreed to hand over.
+    "`price_discussed` is the number quoted or negotiated on the call, whatever came of it. `price_closed` is ONLY what the prospect actually agreed to pay. If the call did not end in a sale, `price_closed` is null however long the price was discussed — a number that was named and refused belongs in `price_discussed` alone. Both are null on a call where no figure was ever said out loud.",
+    "",
     "`collected_on_call` is money that actually changed hands **during the call** — a card taken while the prospect was still on the line. A deal that was agreed on the call but paid afterwards collected nothing on the call, so it is 0, not the price. Payments that land later are recorded by hand afterwards and are not your job to predict.",
     "",
     `\`currency\` is the currency the price was quoted in, one of ${r.commercial.currencies.join(", ")}. Take it from how the caller said the number — "three thousand euros" or "€3,000" is EUR, "$6,000" is USD. When no currency is stated anywhere in the call, answer ${r.commercial.defaultCurrency}. Every money field you return must be in that one currency; never convert.`,

@@ -46,12 +46,33 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* THE WHOLE GOLD RAMP, 100 THROUGH 600.
+     It used to start at 300, and `text-gold-200/70` was in use on the bar
+     labels in dimension-impact. Tailwind emits nothing for a shade that does
+     not exist, so that label inherited the page's near-white foreground and
+     sat white-on-gold instead of the dark-on-gold it was written to be. A
+     missing shade fails silently, so the ramp is complete now. */
+  --color-gold-100: #faf3dc;
+  --color-gold-200: #f5e7b8;
   --color-gold-300: #f0d98a;
   --color-gold-400: #e5c158;
   --color-gold-500: #d4af37;
   --color-gold-600: #b8942c;
   --color-gold: #d4af37;
   --color-gold-dim: #d4af3733;
+  /* Text that sits ON a gold fill. Near-black rather than a dark gold, so a
+     10px label on a 70%-opacity bar still clears the contrast floor. */
+  --color-gold-ink: #17120a;
+
+  /* SEMANTIC PAIR — the only two colours on this page that mean good and bad.
+     Gold is the brand and carries no verdict; these do, so they are reserved
+     for deltas and threshold breaches and are never used as decoration.
+     Deliberately desaturated: a saturated green next to this gold reads as a
+     traffic light and drags the whole page towards dashboard-template. */
+  --color-positive: #6ee7a8;
+  --color-positive-dim: #6ee7a81f;
+  --color-negative: #f4776b;
+  --color-negative-dim: #f4776b1f;
 }
 
 /* Dark-first design — this IS the theme */
@@ -67,7 +88,10 @@
   --secondary: #1a1a1f;
   --secondary-foreground: #fafaf9;
   --muted: #1a1a1f;
-  --muted-foreground: #71717a;
+  /* Was #71717a (zinc-500), which measures 4.1:1 on this background — under
+     the 4.5:1 floor for text this size, and most of the explanatory notes on
+     the page were a step below it again at 2.6:1. zinc-400 clears it. */
+  --muted-foreground: #a1a1aa;
   --accent: #1a1a1f;
   --accent-foreground: #fafaf9;
   --destructive: #ef4444;
@@ -108,16 +132,33 @@
   background-size: 24px 24px;
 }
 
-/* Subtle noise grain overlay */
-.grain-overlay::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  pointer-events: none;
-  opacity: 0.015;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
+/* THE GRAIN OVERLAY IS GONE.
+   A fixed full-screen pseudo-element painting a turbulence SVG at 0.015
+   opacity — under 2% over a near-black page, which is below what a display
+   resolves. Three textures were stacked here (dot grid, grain, card blur) and
+   none of them was individually visible; together they only softened the
+   surfaces. The dot grid stays because it is the one you can actually see. */
+
+/* TYPE SCALE — three steps, and only three.
+   The page ran 9, 10, 11, 12, 13 and 14px. Five sizes inside a 5px range do
+   not read as hierarchy; they read as one size that is wrong on four of them.
+   Hierarchy is carried by weight and colour instead. */
+@layer components {
+  .t-label {
+    font-size: 11px;
+    line-height: 1.25;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .t-body {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .t-lead {
+    font-size: 15px;
+    line-height: 1.45;
+  }
 }
 
 /* Glow effect for key metrics */
@@ -125,11 +166,19 @@
   box-shadow: 0 0 20px #d4af3715, 0 0 40px #d4af3708;
 }
 
-/* Card glass effect */
+/* CARD SURFACE.
+   This was a "glass" card: a white gradient plus `backdrop-filter: blur(12px)`.
+   The page behind it is opaque #09090b, so the blur had nothing to blur — it
+   cost a compositing layer per card and changed no pixels. Stacked with the
+   dot grid and the grain overlay it left the surfaces looking slightly muddy
+   rather than clean.
+   One flat fill, one hairline, one soft shadow to lift it off the page. */
 .glass-card {
-  background: linear-gradient(135deg, #ffffff06 0%, #ffffff02 100%);
-  backdrop-filter: blur(12px);
-  border: 1px solid #ffffff0a;
+  background: #0f0f12;
+  border: 1px solid #ffffff0d;
+  box-shadow:
+    0 1px 2px #00000040,
+    0 12px 32px -16px #000000cc;
 }
 
 /* Animated number tabular alignment */
@@ -151,6 +200,40 @@
 
 .animate-fade-up {
   animation: fade-up 0.5s ease-out both;
+}
+
+/* MOTION.
+   Covers CSS animations and transitions. The panel entrances are driven by
+   framer-motion in JavaScript, which this cannot reach — those read
+   `useReducedMotion()` in components/dashboard/panel.tsx instead. Both are
+   needed; neither is sufficient alone. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* A TABLE THAT SCROLLS SIDEWAYS HAS TO LOOK LIKE ONE.
+   macOS hides overlay scrollbars until you scroll, so on a phone the closer
+   and call tables simply ended at the edge of the card with several columns
+   past it and nothing saying so. This keeps the bar drawn. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff26 transparent;
+}
+.scroll-x::-webkit-scrollbar {
+  height: 8px;
+}
+.scroll-x::-webkit-scrollbar-thumb {
+  background: #ffffff26;
+  border-radius: 4px;
 }
 
 /* Scrollbar styling */

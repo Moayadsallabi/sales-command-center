@@ -31,7 +31,7 @@ export default function RootLayout({
       lang="en"
       className={`${bricolage.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body suppressHydrationWarning className="min-h-full flex flex-col bg-dot-grid grain-overlay">
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-dot-grid">
         {children}
       </body>
     </html>
