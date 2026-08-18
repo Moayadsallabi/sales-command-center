@@ -21,11 +21,17 @@ import { AlertTriangle, Activity } from "lucide-react";
  * That failure has already happened here once and took five weeks to notice,
  * so it gets its own panel rather than the footnote it used to be.
  *
- * It sits directly BELOW the KPI cards, not above them (moved 2026-08-18). It
- * opened the page for a while, which put a caveat in front of the result it
- * qualifies and made every visit lead with a problem. Beneath the numbers it
- * still cannot be missed and it finally reads in the right order: here is the
- * close rate, and here is how much of the business it actually covers.
+ * WHERE IT LIVES: the data-health band at the BOTTOM of the page, after the
+ * call table (Moayad, 2026-08-18). It opened the page for a while, which put a
+ * caveat in front of the result it qualifies and made every visit lead with a
+ * problem. This panel does not describe the business; it describes how much of
+ * the business the page can see, which is what a reader goes looking for when a
+ * number surprises them.
+ *
+ * If a stoppage ever goes unnoticed again, the fix is a one-line strip in the
+ * page header while this panel is alarming — the slim treatment the FX-rate
+ * notice already uses — pointing down at it. Not moving the panel back to the
+ * top, which is the arrangement that was rejected.
  *
  * It reads the whole tracker, never the filtered window: the point is to
  * compare recent weeks against normal ones, and a seven-day view has no normal

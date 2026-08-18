@@ -386,35 +386,35 @@ export function Dashboard({
       {/* Content */}
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
         {/* THE ORDER OF THIS PAGE, AND WHY.
-            ANSWER -> ACT -> UNDERSTAND -> RAW.
+            ANSWER -> ACT -> UNDERSTAND -> RAW -> DATA HEALTH.
 
             The numbers come first. Nothing goes above them.
 
-            Until 2026-08-18 the coverage warning opened the page, so every
-            visit led with a problem before it showed a result. Two amber
-            panels bracketed the KPI cards and between them took the whole
-            first screen: you had to scroll past a caveat to reach the figure
-            it was cautioning you about. That is backwards. A person opens
-            this page to see how the business is doing; a warning is what
-            qualifies that answer, not a substitute for it.
+            Two amber panels used to bracket the KPI cards and between them
+            take the whole first screen, so every visit opened on a problem
+            before it showed a result, and you scrolled past a caveat to reach
+            the figure it was cautioning you about. Moayad moved them twice on
+            2026-08-18: out of the top, then to the very bottom.
 
-            Data-quality panels sit directly BENEATH the metrics they qualify,
-            which is also where they read correctly — "here is the close rate,
-            and here is how complete the data behind it is" — rather than as a
-            standalone alarm about nothing yet named. */}
+            They sit in a data-health band at the end now, after the raw call
+            table. That is the conventional home for reconciliation and
+            coverage: they describe how trustworthy the page is, not how the
+            business is doing, and a reader goes looking for them when a number
+            surprises them rather than being handed them first.
+
+            THE COST, WRITTEN DOWN SO IT IS NOT REDISCOVERED. The coverage
+            panel exists because a closer stopped delivering recordings and it
+            took five weeks to notice — and it was a footnote at the time. At
+            the bottom of a long page it is closer to a footnote again. If a
+            stoppage ever goes unspotted, the fix is a one-line strip in the
+            header when the panel is alarming, linking down to it — the same
+            slim treatment the FX-rate notice already uses — NOT moving the
+            panel back up. */}
         <KPICards calls={scoped} funnel={funnel} bank={bank} />
 
-        {/* Qualifies every figure above: they are all computed from
-            recordings, so they are wrong in exact proportion to the
-            recordings that never arrived. Reads the unfiltered list, because
-            a seven-day window has no normal week to compare against. */}
-        <CoverageAlarm calls={calls} today={today} booked={funnel?.booked ?? null} />
-
-        {/* ACT. The two worklists, above everything that only describes. Both
-            read the unfiltered call list: an unworked follow-up and an unruled
-            payment do not stop being owed when the date filter moves. */}
-        {reconciliation && <WhopGap reconciliation={reconciliation} />}
-
+        {/* ACT. The follow-up worklist, above everything that only describes.
+            Reads the unfiltered call list: an unworked follow-up does not stop
+            being owed when the date filter moves. */}
         <FollowUps calls={calls} today={today} />
 
         {calendly.link && (
@@ -450,6 +450,17 @@ export function Dashboard({
         <ObjectionPanel calls={scoped} />
 
         <CallTable calls={scoped} onSelect={setOpenCall} />
+
+        {/* DATA HEALTH. Everything above describes the business; these two
+            describe how much of it the page can actually see.
+
+            Both read the UNFILTERED call list on purpose. Coverage compares
+            recent weeks against normal ones, and a seven-day window has no
+            normal to compare against; an unruled payment does not stop being
+            owed when the date filter moves. */}
+        <CoverageAlarm calls={calls} today={today} booked={funnel?.booked ?? null} />
+
+        {reconciliation && <WhopGap reconciliation={reconciliation} />}
       </main>
 
       <ScorecardPanel
