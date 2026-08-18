@@ -115,6 +115,46 @@ count already on the panel.
 npm run check:calendly
 ```
 
+## Filling in the missing addresses
+
+`Prospect Email` is the key every join runs on — the booking behind a call, the
+payment that followed it, the ad that produced the lead. The workflow takes it
+from the calendar invite, and most invites do not carry the prospect as an
+addressable attendee, so on a live account the column arrives empty on more rows
+than not. Every join on those rows silently fails.
+
+Calendly already holds the address, because the prospect typed it to book.
+
+```bash
+npm run backfill:emails            # what it would write
+npm run backfill:emails -- --apply # write it
+```
+
+It runs the dashboard's own matcher — not a copy of it — and then asks a second
+source before writing anything. Those rows have no email precisely because the
+invite was thin, so the matcher had to fall back to the prospect's name and the
+day, and on a calendar taking twenty bookings a day a first name is not proof.
+Fathom settles it: the recording carries the scheduled start time of the
+calendar event it recorded, Calendly carries the scheduled start of the event it
+created, and if those are the same moment then the booking and the recording are
+the same appointment whatever the names looked like.
+
+That same timestamp does one more job. The matcher refuses to choose when two
+bookings fit one call, which is right for the funnel — a prospect who booked
+twice has one booking kept and one not, and guessing which invents a number. For
+an address it usually does not matter, because both bookings are the same
+person; where it does, the recording's slot says which booking was the one that
+happened.
+
+Anything the two sources disagree about is named and left alone rather than
+written and hoped about — a wrong address attaches somebody else's money to the
+call, which is worse than a blank. A row that already has an email is never
+touched. Notion's page history is the undo.
+
+Set `FATHOM_API_KEY`, or one `FATHOM_KEY_<name>` per closer in `.env.local`, to
+get the second opinion; without one the run says so and writes nothing unless
+`--unverified` is passed.
+
 ## Checking how right it is
 
 A closer's own tracking sheet is usually the most complete record of what

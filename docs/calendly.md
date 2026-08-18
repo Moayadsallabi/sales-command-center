@@ -100,11 +100,57 @@ you something (wrong address captured, or the prospect booked another way) and
 papering over it with a name would bury the signal.
 
 Filling in `Prospect Email` on a call upgrades it from the inference to the
-certainty.
+certainty — and `npm run backfill:emails` does that for you, copying the
+address off the booking Calendly already holds. See below.
 
 Matching nearest-first is what makes a repeat prospect come out right: someone
 who books, no-shows, rebooks and then buys has two bookings and one recording,
 and the recording attaches to the booking it actually belongs to.
+
+## Filling the address back onto the call
+
+```bash
+npm run backfill:emails            # what it would write
+npm run backfill:emails -- --apply # write it
+```
+
+Everything above describes how a call with no address is tied to a booking
+anyway. This writes that address onto the row, so the next join does not have to
+infer it again — and so the joins that cannot infer at all, chiefly the payment
+reconciliation, start working on those rows.
+
+Because those rows are exactly the ones the matcher had least to go on, nothing
+is written on the name alone. Fathom holds the scheduled start time of the
+calendar event it was recording; Calendly holds the scheduled start of the event
+it created. The same moment means the same appointment, whatever the names
+looked like, and that is what licenses the write.
+
+| Outcome | What it means |
+| --- | --- |
+| Confirmed | The booking and the recording hold the same calendar slot. Written |
+| Recovered | The matcher would not choose between two bookings; the recording's slot did, and the name agrees. Written |
+| Unconfirmed | Matched on the name, with no recording to check it against. Not written without `--unverified` |
+| Held back | The two records disagree — a different slot, a different person on the invite, or a different closer. Never written |
+| No booking | Nothing on this calendar matches. The ceiling, not a fault |
+
+Held-back rows are the point of the exercise as much as the written ones. On a
+first live run they caught a booking 22 hours from the recording it was matched
+to, a slot holding a booking under an entirely different name, and a slot whose
+only booking had been cancelled — each of which would have attached one person's
+payments to another person's call.
+
+A slot on its own is never enough, which is why the name has to agree too: two
+closers take bookings at the same hour, so the booking sitting in a slot is not
+necessarily this call's.
+
+The second opinion needs a Fathom key — `FATHOM_API_KEY`, or one
+`FATHOM_KEY_<name>` per closer in `.env.local`, since a key only reaches its own
+owner's recordings. Without one the run says so and writes nothing unless
+`--unverified` is passed.
+
+Rerunning is safe: a row that already has an email is never touched, whoever
+typed it, so a second run writes only what arrived since the first. Notion's
+page history is the undo.
 
 ## The five states a booking ends in
 
