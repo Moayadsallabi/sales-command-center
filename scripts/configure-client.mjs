@@ -222,13 +222,20 @@ const alert = nodeBy("Untracked — Alert");
 
 // THE ALERT MUST POINT AT A CHANNEL THAT EXISTS.
 //
-// Brey's ran for weeks posting to "sales-tracker", which no channel in the
-// workspace is called. Slack answered `channel_not_found` every time and n8n
-// recorded the run as a SUCCESS, so every rejected call went nowhere and
-// nothing said so. The queue looked empty because it was broken, not because
-// it was clear — and an empty queue is exactly what a working one looks like.
+// Brey's ran for weeks posting to "sales-tracker". Slack answered
+// `channel_not_found` every time and n8n recorded the run as a SUCCESS, so
+// every rejected call went nowhere and nothing said so. The queue looked empty
+// because it was broken, not because it was clear — and an empty queue is
+// exactly what a working one looks like.
 //
-// The template's value is therefore treated as a placeholder, not a default.
+// `channel_not_found` does NOT mean the channel is missing. Authentication had
+// already succeeded by the time Slack looked, so the credential is fine; the
+// cause is the channel being in another workspace, the app not being a member
+// of it, or the app lacking the scope to resolve a channel by NAME. The last
+// one is the trap, because the channel can exist and the app can be in it and
+// it still fails. Prefer the channel ID over its name.
+//
+// The template's value is treated as a placeholder, not a default.
 const TEMPLATE_CHANNEL = "sales-tracker";
 if (!channel && alert.parameters.channelId?.value === TEMPLATE_CHANNEL) {
   fail(
