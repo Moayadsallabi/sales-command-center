@@ -34,6 +34,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { decide, reasonLine, readState, writeState } from "./lib/report-state.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
@@ -41,6 +42,17 @@ const ROOT = join(HERE, "..");
 const TIMEOUT_MS = 6 * 60 * 1000;
 
 const CLIENT = process.env.WEEKLY_CHECK_CLIENT || process.env.NEXT_PUBLIC_BRAND_NAME || "the tracker";
+/**
+ * Where the last run's fingerprint is kept.
+ *
+ * Every scheduled run is a brand new container with a brand new filesystem, so
+ * this has to be a mounted volume to survive between runs. Without one the
+ * script still works and simply reports every time — noisy, but it can never
+ * silently swallow a finding, which is the failure that would matter.
+ */
+const STATE_DIR = process.env.STATE_DIR || "/data";
+/** Set to skip the "has anything changed" logic and always report. */
+const ALWAYS_REPORT = process.env.ALWAYS_REPORT === "1";
 
 /** Run one check and collect everything it printed. Never throws. */
 function runScript(file, args = []) {
@@ -116,20 +128,31 @@ function cap(lines, max = 6) {
   return lines.length <= max ? lines : lines.slice(0, max).concat(`…and ${lines.length - max} more`);
 }
 
+/**
+ * Returns the lines to print AND the must-fix list separately, because the
+ * must-fix list is what decides whether any of this gets sent at all.
+ *
+ * A run that could not read Whop reports a must-fix of its own: "the check did
+ * not happen" has to be able to break the silence, or a permanently broken
+ * check looks exactly like a permanently clean one.
+ */
 function paymentsSection({ code, output }) {
   if (code === 2) {
-    return [
-      "🚨 *Payments check could not run.*",
-      "```" + output.trim().split("\n").slice(-4).join("\n") + "```",
-      "The tracker's money was not checked against Whop this week.",
-    ];
+    return {
+      mustFix: ["the payments check could not run"],
+      lines: [
+        "🚨 *Payments check could not run.*",
+        "```" + output.trim().split("\n").slice(-4).join("\n") + "```",
+        "The tracker's money was not checked against Whop.",
+      ],
+    };
   }
 
   const mustFix = headlines(output, ["✗"]);
   const worthKnowing = headlines(output, ["⚠"]);
 
   if (!mustFix.length && !worthKnowing.length) {
-    return ["✅ *Payments* — the tracker and Whop agree on every row that can be matched."];
+    return { mustFix, lines: ["✅ *Payments* — the tracker and Whop agree on every row that can be matched."] };
   }
 
   const out = [];
@@ -146,7 +169,7 @@ function paymentsSection({ code, output }) {
     out.push("", "*Worth knowing, not errors:*");
     out.push(...cap(worthKnowing).map((l) => `  • ${l}`));
   }
-  return out;
+  return { mustFix, lines: out };
 }
 
 function accuracySection({ code, output }) {
@@ -196,20 +219,56 @@ async function postAlert(text) {
 }
 
 const payments = await runScript("check-payments.mjs");
-const accuracy = await runScript("check-accuracy.mjs");
+const pay = paymentsSection(payments);
 
+const previous = ALWAYS_REPORT ? null : readState(STATE_DIR);
+const verdict = decide({ mustFix: pay.mustFix, previous, now: Date.now() });
+
+// The coverage check is only run when something is going to be sent. It replays
+// the matcher over a fixed answer key and takes minutes; on the six days a week
+// that stay quiet there is nobody to read the result.
+const accuracy = verdict.post ? await runScript("check-accuracy.mjs") : null;
+
+const heading = verdict.reason === "heartbeat" ? "Weekly check" : "Payments check";
 const report = [
-  `*Weekly check — ${CLIENT}*`,
+  `*${heading} — ${CLIENT}*`,
   "",
-  ...paymentsSection(payments),
+  ...pay.lines,
+  ...(accuracy ? ["", ...accuracySection(accuracy)] : []),
   "",
-  ...accuracySection(accuracy),
+  reasonLine(verdict.reason, verdict.daysSince),
 ].join("\n");
+
+if (!verdict.post) {
+  console.log(
+    `Nothing to report — the same ${pay.mustFix.length} item(s) as the last run, ` +
+      `${Math.round(verdict.daysSince)} day(s) ago. Staying quiet.`
+  );
+  process.exit(0);
+}
 
 const result = await postAlert(report);
 if (result.error) {
+  // Deliberately NOT recording this run: an undelivered report must be re-sent
+  // next time, not treated as said. Remembering it here is how a finding gets
+  // swallowed by the very thing meant to surface it.
   console.error(`\nThe report was produced but not delivered — ${result.error}\n`);
   console.error(report);
   process.exit(1);
 }
-console.log(result.skipped ? "\nNot sent (no relay configured)." : "\nWeekly report sent to Slack.");
+
+if (!result.skipped) {
+  const remembered = writeState(STATE_DIR, {
+    fingerprint: verdict.fingerprint,
+    lastPostedAt: new Date().toISOString(),
+    lastReason: verdict.reason,
+  });
+  if (!remembered) {
+    console.warn(
+      `Could not write to ${STATE_DIR}, so the next run has no memory and will report again. ` +
+        "Attach a volume there to make the daily run quiet when nothing has changed."
+    );
+  }
+}
+
+console.log(result.skipped ? "\nNot sent (no relay configured)." : `\nReport sent to Slack (${verdict.reason}).`);

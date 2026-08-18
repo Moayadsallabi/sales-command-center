@@ -310,28 +310,58 @@ deployment or a password between clients.
 `.env.local` is gitignored and never leaves your machine. The Notion secret is
 only ever read server-side.
 
-### The weekly check
+### The scheduled check
 
-`npm run check:weekly` runs the payments reconciliation and the coverage check
-together and posts one plain-English summary to Slack. It is meant to run on a
-schedule, not by hand.
+`npm run check:scheduled` runs the payments reconciliation, and the coverage
+check when there is something to report, then posts one plain-English summary to
+Slack. It is meant to run on a schedule, not by hand.
 
-On Railway, add a **second service from this same repo** in the same project:
+**It runs daily and speaks conditionally.** Money moves daily: a payment landing
+on a Tuesday leaves the tracker wrong until the next run, so anyone reading
+revenue mid-week reads a stale number. But posting the same nine unfixed rows
+every morning is how a channel gets muted, and a muted alert is silence you have
+paid for. So:
+
+| Situation | What happens |
+|---|---|
+| Something new needs correcting | Posts |
+| The same things still need correcting | Silent |
+| Everything has been cleared | Posts once, then silent |
+| Nothing has changed for 7 days | Posts the weekly all-clear anyway |
+| The check itself could not run | Posts — a broken check must not look like a clean one |
+
+The last row is the point of the whole arrangement. A check that only speaks when
+it finds something is indistinguishable from a check that has stopped running.
+
+Only the `✗` lines — rows a person can correct — decide whether to post. The `⚠`
+lines (the coverage gap, buyers with no call) move whenever anything is sold, so
+counting them would make every day look like news and the daily post
+unconditional again. They still ride along in whatever gets sent.
+
+#### On Railway
+
+Add a **second service from this same repo** in the same project:
 
 | Setting | Value |
 |---|---|
 | Source | this repo |
-| Start command | `npm run check:weekly` |
-| Cron schedule | `0 10 * * 1` (Mondays 10:00 UTC) |
+| Start command | `npm run check:scheduled` |
+| Cron schedule | `0 10 * * *` (every day, 10:00 UTC) |
+| Volume | mount at `/data` — see below |
 | Variables | the same `NOTION_*`, `WHOP_API_KEY` and `CALENDLY_*` as the client's service, plus `OPS_ALERT_WEBHOOK` |
 
-A cron service runs the command and exits; Railway will not start a new run
-while the previous one is still going.
+**The volume is what makes it quiet.** Every scheduled run is a fresh container
+with a fresh filesystem, so without somewhere persistent to keep the last run's
+fingerprint there is no memory and every run reports. That is the old behaviour —
+noisy, but it never silently swallows a finding, which is why the missing volume
+degrades rather than breaks. The run says so in its log when it cannot write.
 
 | Variable | Purpose |
 |---|---|
 | `OPS_ALERT_WEBHOOK` | Where the summary is posted. Unset means it prints the report instead of sending it, which is what makes it runnable by hand |
 | `WEEKLY_CHECK_CLIENT` | Name in the message heading. Defaults to `NEXT_PUBLIC_BRAND_NAME` |
+| `STATE_DIR` | Where the fingerprint is kept. Defaults to `/data` |
+| `ALWAYS_REPORT` | Set to `1` to skip the change detection and post every run |
 
 **It never writes to Notion.** `check-payments` can apply its corrections with
 `--apply`, and that is deliberately not what the schedule runs. Its own header
@@ -340,8 +370,8 @@ is the deal closing, a deposit on a follow-up, or a second instalment on a deal
 already counted. The schedule finds the rows and names the command; the
 judgement stays with a person.
 
-It posts on a clean week too. A check that only speaks when it finds something
-is indistinguishable from a check that has stopped running — both are silence.
+`npm run check:weekly` still works and runs the same thing, so an existing
+schedule configured under the old name keeps working.
 
 ## Project layout
 
