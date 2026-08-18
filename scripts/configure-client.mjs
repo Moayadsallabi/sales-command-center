@@ -21,6 +21,7 @@
 //     --database 3baa6b94d53c809884c0ffa089665938 \
 //     --phrase "Strategy Call" --phrase "Discovery Call" --phrase "Sales Call" \
 //     --exclude "Onboarding" --exclude "Team Meeting" \
+//     --channel "brey-sales-alerts" \
 //     --offer rubric/clients/brey.local.md
 //
 // Import the written file into n8n, attach that client's Notion credential and
@@ -72,6 +73,7 @@ const excludes = argAll("exclude");
 const offerPath = arg("offer");
 const display = arg("name") ?? client;
 const currency = arg("currency");
+const channel = arg("channel");
 const tierCount = arg("tiers");
 
 if (!client || !database || !phrases.length || !offerPath) {
@@ -217,6 +219,32 @@ assign("output_schema", JSON.stringify(outputSchema));
 // 4. Every client's workflow alerts into the same Slack channel, so the message
 // has to say whose tracker it came from or you cannot act on it.
 const alert = nodeBy("Untracked — Alert");
+
+// THE ALERT MUST POINT AT A CHANNEL THAT EXISTS.
+//
+// Brey's ran for weeks posting to "sales-tracker", which no channel in the
+// workspace is called. Slack answered `channel_not_found` every time and n8n
+// recorded the run as a SUCCESS, so every rejected call went nowhere and
+// nothing said so. The queue looked empty because it was broken, not because
+// it was clear — and an empty queue is exactly what a working one looks like.
+//
+// The template's value is therefore treated as a placeholder, not a default.
+const TEMPLATE_CHANNEL = "sales-tracker";
+if (!channel && alert.parameters.channelId?.value === TEMPLATE_CHANNEL) {
+  fail(
+    `--channel is required: the template's "${TEMPLATE_CHANNEL}" is a placeholder, not a real channel.`,
+    "Pass the channel these alerts should land in, and invite the n8n Slack app to it.\n" +
+      "  A wrong name here fails silently — Slack refuses and n8n still calls the run a success."
+  );
+}
+if (channel) {
+  alert.parameters.channelId = {
+    __rl: true,
+    value: channel.replace(/^#/, ""),
+    mode: "name",
+  };
+}
+
 if (!JSON.stringify(alert.parameters).includes("__CLIENT_NAME__")) {
   fail(
     "The Untracked — Alert node has no __CLIENT_NAME__ placeholder.",
