@@ -15,7 +15,7 @@
     "When a NEW type appears: decide whether it is a sales call, change",
     "CALENDLY_EVENT_TYPES if that decision needs enforcing, then add it here."
   ],
-  "counting_rule_lives_in": "CALENDLY_EVENT_TYPES (env) - currently \"!onboarding\"",
+  "counting_rule_lives_in": "CALENDLY_EVENT_TYPES (env) - currently \"!onboarding,!30 minute meeting\"",
   "last_reviewed": "2026-08-18",
   "ruled_on": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "name": "30 Minute Meeting",
-      "verdict": "UNRULED",
-      "note": "Calendly's default name. Counted as a sales call today because the rule is a deny-list. 3 bookings. Probably not a sales call - needs Moayad."
+      "verdict": "not_sales",
+      "note": "Dash Kid's generic Calendly link. All 3 bookings are the same person (Kevon Hammond), 30 min, two cancelled and one rebooked. Dash Kid hosts no sales funnel - his only other bookings are Funded Blueprint Onboarding Calls, alongside Brey and Joshua Pettiford. Duration matches onboarding (30 min), not the sales calls (45/60). Excluded 2026-08-18."
     }
   ]
 }
