@@ -1,10 +1,10 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "_README": [
     "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
     "",
     "This file exists because the same question was being answered twice, in two",
-    "languages, in two repositories — and the two answers drifted apart four",
+    "languages, in two repositories \u2014 and the two answers drifted apart four",
     "separate times in a single evening (2026-08-18):",
     "",
     "  1. what counts as a sale       tracker said 'outcome typed on the day',",
@@ -27,7 +27,6 @@
     "Changing a rule means: edit here, copy to the other repo, bump `version`,",
     "run check:rules in both."
   ],
-
   "min_deposit": {
     "value": 100,
     "currency": "USD",
@@ -39,7 +38,6 @@
     "why_flat_not_percentage": "Under a percentage bar the same $500 deposit was a sale on a $2,000 deal and not one on a $4,000 deal, which judges the closer by the size of the offer rather than by what they actually banked.",
     "source": "[STATED - Moayad, chat 2026-08-18] 'even if a deposit doesnt pay the rest, its still technically a close unless its under $100 i think then that we shouldnt count as a close.'"
   },
-
   "what_a_payment_proves": {
     "statement": "A payment proves a SALE. It does not prove that a CALL HAPPENED.",
     "why": "Everyone who arrives by the payment route is by definition a buyer, so counting them as a call held puts them on both sides of the close rate and can only push it up. Measured 2026-08-18 on Brey's August: 59.0% against the tracker's 48.6%, and the spread was almost entirely this.",
@@ -52,24 +50,26 @@
       "a Calendly booking whose time has passed - Calendly is authoritative that a booking was MADE, but with no-shows going unmarked, counting those as held would assume a 100% show rate"
     ]
   },
-
   "outcomes": {
-    "winning": ["Customer"],
+    "winning": [
+      "Customer"
+    ],
     "refund": {
       "name": "REFUND",
       "carries_revenue": false,
       "carries_cash": false,
-      "statement": "A refunded deal closed and then came back. The money is removed from revenue and from cash, so a month containing a refund reads lower than the bank statement - deliberately: these dashboards show what the calls are worth, not the ledger.",
-      "NEEDS_A_RULING": "Whether a refunded deal still counts as a CLOSE for close-rate purposes is not settled. The Command Center excludes it from both revenue and close rate; the KPI dashboard has been counting it as a close. One row is affected today: Vellatino Crawford, 2026-07-27, $2,000."
+      "carries_close": false,
+      "statement": "A refunded deal is removed from revenue, from cash collected, and from the close rate \u2014 out of BOTH sides of it, not counted as a loss. The closer did close them; the customer later left, and scoring it as a failed call would make a different claim from the one the refund actually makes, on the closer's record.",
+      "source": "[STATED - Moayad, chat 2026-08-18] 'should be removed from revenue and cash collected, should also be removed from close rate.'",
+      "cash_needs_no_rule": "The processor reports a refund against the original payment, so refunded money nets to zero before it is ever read as cash. Verified against Whop on 2026-08-18: Vellatino Crawford, final_amount 2000, refunded_amount 2000, read as 0.",
+      "outranks_the_arithmetic": "Checked explicitly rather than left to fall out of a status list: a partly-refunded buyer would otherwise be put back by the paid-enough test. A REFUND on the tracker is a statement about the deal and beats what is left of their payments."
     }
   },
-
   "deal_value": {
     "statement": "A deal is worth its recorded price, and never less than the cash actually received.",
     "why": "A follow-up that later paid often carries no price at all, so reading the recorded price alone books a paid deal at zero. Where a price IS recorded and only part has been paid, the recorded price still wins - that is the deal value, and the remainder is what is outstanding.",
     "floor": "cash received"
   },
-
   "source_of_truth": {
     "bookings_and_cancellations": "Calendly",
     "money": "Whop",
