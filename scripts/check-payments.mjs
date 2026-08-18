@@ -22,12 +22,18 @@ import { readFileSync } from "node:fs";
 /** Below this, a difference is fees or rounding rather than a mistake. */
 const CASH_TOLERANCE = 50;
 /**
- * The share of the deal that must have landed before a call counts as a sale.
- * [STATED — Moayad, 2026-08-18] All money comes through Whop, and a deposit is
- * not a sale: "$50 against a $2,000 programme isn't considered a sale until at
- * least 25% of the payment lands." Set to 0 to switch this check off.
+ * What a deposit has to reach before the call counts as a sale.
+ *
+ * [STATED — Moayad, 2026-08-18] "even if a deposit doesnt pay the rest, its
+ * still technically a close unless its under $100 i think then that we
+ * shouldnt count as a close." A flat floor, not a share of the deal: a closer
+ * who banks a real deposit has closed, whether or not the balance ever
+ * arrives. This replaced a 25% bar, which had the perverse effect of making
+ * the same $500 deposit a sale on a $2,000 deal and not one on a $4,000 deal.
+ *
+ * Set to 0 to switch this check off.
  */
-const SALE_THRESHOLD = 0.25;
+const MIN_DEPOSIT = 100;
 /** Short names collide. A fallback match needs a token at least this long. */
 const MIN_NAME_TOKEN = 3;
 /** Below this a token only counts as a whole word, never buried in another. */
@@ -359,18 +365,12 @@ for (const row of tracker) {
     // cannot be applied either way. That is the normal state for an open call —
     // the scorer only records a closed price when the call closed — so it
     // belongs with the deposits, not asserted as a missed sale.
-    if (SALE_THRESHOLD > 0 && row.priceClosed > 0) {
-      if (match.buyer.paid >= row.priceClosed * SALE_THRESHOLD) missedCloses.push({ row, ...match });
-      else deposits.push({ row, ...match });
-    } else if (SALE_THRESHOLD > 0) {
-      deposits.push({ row, ...match });
-    } else {
-      missedCloses.push({ row, ...match });
-    }
+    if (MIN_DEPOSIT > 0 && match.buyer.paid < MIN_DEPOSIT) deposits.push({ row, ...match });
+    else missedCloses.push({ row, ...match });
   } else if (row.outcome === "Customer") {
     // A customer whose deal value is recorded but whose payments have not
     // reached the bar is a deposit filed as a sale.
-    if (SALE_THRESHOLD > 0 && row.priceClosed > 0 && match.buyer.paid < row.priceClosed * SALE_THRESHOLD) {
+    if (MIN_DEPOSIT > 0 && match.buyer.paid > 0 && match.buyer.paid < MIN_DEPOSIT) {
       belowBar.push({ row, ...match });
     }
     if (Math.abs(row.cash - match.buyer.paid) >= CASH_TOLERANCE) cashOff.push({ row, ...match });
@@ -413,16 +413,14 @@ if (missedCloses.length) {
 }
 
 if (belowBar.length) {
-  const pct = Math.round(SALE_THRESHOLD * 100);
   console.log(
-    `✗ ${belowBar.length} row${belowBar.length === 1 ? "" : "s"} marked Customer on less than ` +
-      `${pct}% of the deal — a deposit filed as a sale:\n`
+    `✗ ${belowBar.length} row${belowBar.length === 1 ? "" : "s"} marked Customer on a deposit under ` +
+      `${money(MIN_DEPOSIT)} — a token filed as a sale:\n`
   );
   for (const m of belowBar) {
-    const share = Math.round((m.buyer.paid / m.row.priceClosed) * 100);
     console.log(
       `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} deal ${money(m.row.priceClosed)}, ` +
-        `banked ${money(m.buyer.paid)} (${share}%)${guess(m)}`
+        `banked ${money(m.buyer.paid)}${guess(m)}`
     );
     console.log(`      ${m.row.url}`);
   }
@@ -488,7 +486,7 @@ if (deposits.length) {
   const held = deposits.reduce((sum, m) => sum + m.buyer.paid, 0);
   console.log(
     `· ${deposits.length} open call${deposits.length === 1 ? " has" : "s have"} taken a deposit ` +
-      `below the ${Math.round(SALE_THRESHOLD * 100)}% bar — ${money(held)} banked, correctly not ` +
+      `under ${money(MIN_DEPOSIT)} — ${money(held)} banked, correctly not ` +
       `counted as sales:\n`
   );
   for (const m of deposits) {

@@ -417,14 +417,16 @@ if (notionBody) {
   else pass("no block exceeds Notion's 2000-character limit");
 }
 
-/* ------------------------------------- 4a. The deposit-filed-as-a-sale bar */
+/* ----------------------------------------- 4a. The token-deposit floor */
 
 // A closer takes a token payment, the prospect says yes, and the call is
-// written up as a sale. [STATED — Moayad, 2026-08-18] A deposit is not a sale
-// until at least 25% of the deal lands, so the outcome is decided here by
-// arithmetic rather than left to the scorer's reading of the conversation.
+// written up as a sale. [STATED — Moayad, 2026-08-18] "even if a deposit doesnt
+// pay the rest, its still technically a close unless its under $100 i think
+// then that we shouldnt count as a close." A flat floor, not a share of the
+// deal — so the outcome is decided here by arithmetic rather than left to the
+// scorer's reading of the conversation.
 //
-// The bar is only applied where a deposit was actually recorded. Nought in
+// The floor is only applied where a deposit was actually recorded. Nought in
 // `Collected On Call` means nobody wrote down what was taken, which is the
 // normal state on this tracker — reading that as "no money" would demote every
 // genuine sale on the board.
@@ -440,31 +442,42 @@ function bodyFor(overrides) {
 const outcomeOf = (body) => body.properties.Outcome?.select?.name ?? null;
 const closedOf = (body) => body.properties["Price Closed"]?.number ?? null;
 
-// 4,500 of 9,000 is half the deal — a real sale, and it must stay one.
 if (outcomeOf(bodyFor({})) !== "Customer" || closedOf(bodyFor({})) !== 9000)
-  fail("a deal paid above the bar was demoted — the guard is too aggressive");
-else pass("a deposit at or above 25% is left as Customer");
+  fail("a real deposit was demoted — the floor is too aggressive");
+else pass("a deposit well above the floor is left as Customer");
 
-const tokenDeposit = bodyFor({ price_discussed: 2000, price_closed: 2000, collected_on_call: 100 });
-if (outcomeOf(tokenDeposit) !== "BAMFAM")
-  fail(`100 taken on a 2,000 deal should not be written as Customer (got ${outcomeOf(tokenDeposit)})`);
-else if (closedOf(tokenDeposit) !== null)
+// The case that killed the percentage rule this replaced: under a 25% bar the
+// same $500 was a sale on a $2,000 deal and not one on a $4,000 deal. The size
+// of the deal must not enter into it.
+const bigDealSmallDeposit = bodyFor({ price_discussed: 9000, price_closed: 9000, collected_on_call: 500 });
+if (outcomeOf(bigDealSmallDeposit) !== "Customer" || closedOf(bigDealSmallDeposit) !== 9000)
+  fail("a deposit above the floor was demoted because the deal was large — the floor is flat, not a share");
+else pass("the floor does not scale with the deal size");
+
+const token = bodyFor({ price_discussed: 2000, price_closed: 2000, collected_on_call: 50 });
+if (outcomeOf(token) !== "BAMFAM")
+  fail(`50 taken on a 2,000 deal is under the floor and should not be Customer (got ${outcomeOf(token)})`);
+else if (closedOf(token) !== null)
   fail("a demoted call kept its Price Closed — the deal value would reach the KPI dashboard as revenue");
-else if (tokenDeposit.properties["Price Discussed"]?.number !== 2000)
+else if (token.properties["Price Discussed"]?.number !== 2000)
   fail("a demoted call lost its Price Discussed — the pipeline value has to survive");
 else if (
-  !tokenDeposit.children.some((b) =>
-    /below the 25%/.test(b[b.type]?.rich_text?.[0]?.text?.content ?? "")
+  !token.children.some((b) =>
+    /under the 100/.test(b[b.type]?.rich_text?.[0]?.text?.content ?? "")
   )
 )
   fail("a demoted call does not say on the page why it was demoted");
 else pass("a token deposit is written as BAMFAM, with the deal value kept on Price Discussed");
 
-// Exactly on the bar is a sale. Written as its own case because an off-by-one
-// here silently reclassifies every deal that pays precisely a quarter up front.
-if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 500 })) !== "Customer")
-  fail("a deposit landing exactly on the 25% bar was demoted");
-else pass("a deposit exactly on the bar counts as a sale");
+// Both sides of the line, written out, because an off-by-one here silently
+// reclassifies every call that banks exactly the minimum.
+if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 100 })) !== "Customer")
+  fail("a deposit landing exactly on the floor was demoted");
+else pass("a deposit exactly on the floor counts as a close");
+
+if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 99 })) !== "BAMFAM")
+  fail("a deposit one unit under the floor was counted as a close");
+else pass("a deposit just under the floor does not");
 
 if (outcomeOf(bodyFor({ price_closed: 2000, collected_on_call: 0 })) !== "Customer")
   fail("a Customer row with no recorded deposit was demoted — absence of a figure is not absence of money");

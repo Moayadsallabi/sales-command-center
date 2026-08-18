@@ -23,6 +23,13 @@ import { WhopBuyer } from "./whop";
 import { collectedToDate } from "./money";
 
 /** Below this, a difference is fees or rounding rather than a mistake. */
+/**
+ * What a deposit has to reach before a payment settles an open call as won.
+ * Shared with `scripts/check-payments.mjs`, which applies the same floor when
+ * it reconciles the tracker by hand.
+ */
+export const MIN_DEPOSIT = 100;
+
 const CASH_TOLERANCE = 50;
 /** Short names collide. A fallback match needs a token at least this long. */
 const MIN_NAME_TOKEN = 3;
@@ -173,7 +180,13 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     };
 
     if (call.outcome !== "Customer" && call.outcome !== "REFUND") {
-      missedCloses.push(found);
+      // A token payment does not turn an open call into a won one.
+      // [STATED — Moayad, 2026-08-18] "even if a deposit doesnt pay the rest,
+      // its still technically a close unless its under $100 i think then that
+      // we shouldnt count as a close." Above the floor the size of the deposit
+      // stops mattering — a closer who banked a real one has closed, whether or
+      // not the balance ever lands.
+      if (match.buyer.paid >= MIN_DEPOSIT) missedCloses.push(found);
     } else if (
       call.outcome === "Customer" &&
       Math.abs((collectedToDate(call) ?? 0) - match.buyer.paid) >= CASH_TOLERANCE
