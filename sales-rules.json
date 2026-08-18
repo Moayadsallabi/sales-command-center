@@ -1,0 +1,79 @@
+{
+  "version": "1.0.0",
+  "_README": [
+    "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
+    "",
+    "This file exists because the same question was being answered twice, in two",
+    "languages, in two repositories — and the two answers drifted apart four",
+    "separate times in a single evening (2026-08-18):",
+    "",
+    "  1. what counts as a sale       tracker said 'outcome typed on the day',",
+    "                                 dashboard said 'money in Whop'",
+    "  2. the deposit floor           tracker had $100, dashboard had $0",
+    "  3. the same floor again        applied to Whop payments but not to money",
+    "                                 typed into Collected On Call",
+    "  4. what a payment proves       a payment was being read as proof that a",
+    "                                 CALL HAD HAPPENED, not just that someone paid",
+    "",
+    "Every one was found by a human noticing two screens disagreeing. That is not",
+    "a detection mechanism, it is luck.",
+    "",
+    "TWO COPIES, ONE FILE. The Sales Command Center and the KPI dashboard deploy",
+    "independently, so each repository carries its own copy and neither can reach",
+    "the other at runtime. Copy this file WHOLE; never edit one side. Both repos",
+    "run `npm run check:rules`, which compares the two copies when they sit side",
+    "by side on a laptop and fails when they differ.",
+    "",
+    "Changing a rule means: edit here, copy to the other repo, bump `version`,",
+    "run check:rules in both."
+  ],
+
+  "min_deposit": {
+    "value": 100,
+    "currency": "USD",
+    "statement": "A payment proves a sale once it reaches $100. Below that it is a token, and the deal stays whatever the closer recorded.",
+    "applies_to": [
+      "money received through the payment processor",
+      "money taken during the call and typed into Collected On Call"
+    ],
+    "why_flat_not_percentage": "Under a percentage bar the same $500 deposit was a sale on a $2,000 deal and not one on a $4,000 deal, which judges the closer by the size of the offer rather than by what they actually banked.",
+    "source": "[STATED - Moayad, chat 2026-08-18] 'even if a deposit doesnt pay the rest, its still technically a close unless its under $100 i think then that we shouldnt count as a close.'"
+  },
+
+  "what_a_payment_proves": {
+    "statement": "A payment proves a SALE. It does not prove that a CALL HAPPENED.",
+    "why": "Everyone who arrives by the payment route is by definition a buyer, so counting them as a call held puts them on both sides of the close rate and can only push it up. Measured 2026-08-18 on Brey's August: 59.0% against the tracker's 48.6%, and the spread was almost entirely this.",
+    "a_call_happened_when": [
+      "someone recorded an outcome for it (closed, deposit, or no_close)",
+      "a call for that person exists on the tracker AND its own outcome is not 'no show'"
+    ],
+    "not_evidence_a_call_happened": [
+      "a payment",
+      "a Calendly booking whose time has passed - Calendly is authoritative that a booking was MADE, but with no-shows going unmarked, counting those as held would assume a 100% show rate"
+    ]
+  },
+
+  "outcomes": {
+    "winning": ["Customer"],
+    "refund": {
+      "name": "REFUND",
+      "carries_revenue": false,
+      "carries_cash": false,
+      "statement": "A refunded deal closed and then came back. The money is removed from revenue and from cash, so a month containing a refund reads lower than the bank statement - deliberately: these dashboards show what the calls are worth, not the ledger.",
+      "NEEDS_A_RULING": "Whether a refunded deal still counts as a CLOSE for close-rate purposes is not settled. The Command Center excludes it from both revenue and close rate; the KPI dashboard has been counting it as a close. One row is affected today: Vellatino Crawford, 2026-07-27, $2,000."
+    }
+  },
+
+  "deal_value": {
+    "statement": "A deal is worth its recorded price, and never less than the cash actually received.",
+    "why": "A follow-up that later paid often carries no price at all, so reading the recorded price alone books a paid deal at zero. Where a price IS recorded and only part has been paid, the recorded price still wins - that is the deal value, and the remainder is what is outstanding.",
+    "floor": "cash received"
+  },
+
+  "source_of_truth": {
+    "bookings_and_cancellations": "Calendly",
+    "money": "Whop",
+    "how_a_call_went": "the Notion tracker",
+    "statement": "Each fact comes from whoever owns it. Secondary sources fill a gap only when the answer is unambiguous."
+  }
+}

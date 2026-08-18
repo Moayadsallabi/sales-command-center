@@ -21,6 +21,7 @@
 import { CallRecord } from "./types";
 import { WhopBuyer } from "./whop";
 import { collectedToDate } from "./money";
+import { MIN_DEPOSIT } from "./sales-rules";
 
 /** Below this, a difference is fees or rounding rather than a mistake. */
 /**
@@ -28,7 +29,7 @@ import { collectedToDate } from "./money";
  * Shared with `scripts/check-payments.mjs`, which applies the same floor when
  * it reconciles the tracker by hand.
  */
-export const MIN_DEPOSIT = 100;
+export { MIN_DEPOSIT };
 
 const CASH_TOLERANCE = 50;
 /** Short names collide. A fallback match needs a token at least this long. */
