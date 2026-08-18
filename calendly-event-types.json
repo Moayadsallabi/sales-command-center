@@ -81,7 +81,8 @@
     {
       "name": "30 Minute Meeting",
       "verdict": "not_sales",
-      "note": "Dash Kid's generic Calendly link. All 3 bookings are the same person (Kevon Hammond), 30 min, two cancelled and one rebooked. Dash Kid hosts no sales funnel - his only other bookings are Funded Blueprint Onboarding Calls, alongside Brey and Joshua Pettiford. Duration matches onboarding (30 min), not the sales calls (45/60). Excluded 2026-08-18."
+      "note": "POST-SALE. All 3 bookings are Kevon Hammond, who was already a customer: 73-min sales call with Tpan 2026-07-27, closed $5,000, paid $4,000 in Whop 2026-07-28. These bookings are 2026-08-12 and 2026-08-18 - two and three weeks AFTER he bought - hosted by Dash Kid, who runs Funded Blueprint Onboarding. 30 min matches onboarding, not the 45/60-min sales calls. Verified against the tracker and Whop directly, 2026-08-18.",
+      "caution": "Host role alone does NOT settle these questions: the tracker holds only Tpan and Christian because they are the only closers with call recording connected, so every other sales host is absent from it too. Check the prospect against the tracker and the processor instead."
     }
   ]
 }
