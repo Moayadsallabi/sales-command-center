@@ -5,7 +5,11 @@
 // account that answers, and an event-type filter that matches nothing — which
 // looks identical to "nobody booked anything" on the dashboard.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const API = "https://api.calendly.com";
 
@@ -183,10 +187,75 @@ for (const event of all) {
   seen.set(name, (seen.get(name) ?? 0) + 1);
 }
 
+/**
+ * Event types a human has already ruled on.
+ *
+ * SEPARATE FROM THE COUNTING RULE, ON PURPOSE.
+ *
+ * CALENDLY_EVENT_TYPES decides what counts. Whichever shape it takes, it
+ * decides SILENTLY for anything new: a deny-list ("!onboarding") counts every
+ * new event type by default, an allow-list drops every new one by default.
+ * Both have already cost real numbers here — an allow-list once dropped the
+ * Enrollment Call's 42 bookings, and the deny-list today counts "30 Minute
+ * Meeting" as a sales call.
+ *
+ * This ledger is the second question: has anyone LOOKED at this type. It stays
+ * quiet while the calendar holds what it held last time, and speaks the moment
+ * Brey's team invents an event type nobody has ruled on — which is the only
+ * moment worth interrupting for.
+ */
+const LEDGER = "calendly-event-types.json";
+const ledgerPath = join(root, LEDGER);
+const ledger = existsSync(ledgerPath)
+  ? JSON.parse(readFileSync(ledgerPath, "utf8"))
+  : null;
+
+const acknowledged = new Set(
+  (ledger?.ruled_on ?? []).map((e) => String(e.name).toLowerCase())
+);
+
+const unrecognised = [];
+
 console.log("\n  Event types booked in this window:");
 for (const [name, count] of [...seen.entries()].sort((a, b) => b[1] - a[1])) {
   const counted = wanted.length === 0 || countsAsSales(name);
-  console.log(`    ${counted ? "counted " : "ignored "} ${String(count).padStart(4)}  ${name}`);
+  const isNew = ledger !== null && !acknowledged.has(name.toLowerCase());
+  if (isNew) unrecognised.push({ name, count, counted });
+  console.log(
+    `    ${counted ? "counted " : "ignored "} ${String(count).padStart(4)}  ${name}${
+      isNew ? "   ← NEW" : ""
+    }`
+  );
+}
+
+if (ledger === null) {
+  console.log(
+    `\n⚠ No ${LEDGER} in this repo, so a new event type cannot be spotted.` +
+      `\n  Write one listing the types above and this check will speak up when the` +
+      `\n  team invents another.`
+  );
+} else if (unrecognised.length > 0) {
+  const bookings = unrecognised.reduce((sum, u) => sum + u.count, 0);
+  console.log(
+    `\n⚠ ${unrecognised.length} event type${unrecognised.length === 1 ? "" : "s"} ` +
+      `on the calendar that nobody has ruled on (${bookings} booking${
+        bookings === 1 ? "" : "s"
+      }):`
+  );
+  for (const u of unrecognised) {
+    console.log(
+      `    ${String(u.count).padStart(4)}  ${u.name}` +
+        `   → being counted as ${u.counted ? "A SALES CALL" : "not a sales call"} by default`
+    );
+  }
+  console.log(
+    `\n  A type counted by mistake sits in the booking funnel's denominator and` +
+      `\n  drags the held rate and coverage down; one dropped by mistake takes its` +
+      `\n  bookings off the page entirely. Rule on each, then add it to ${LEDGER}` +
+      `\n  so this stays quiet until the next new one.`
+  );
+} else {
+  console.log(`\n✓ Every event type on the calendar has been ruled on (${LEDGER})`);
 }
 
 if (wanted.length === 0) {

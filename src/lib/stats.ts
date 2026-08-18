@@ -9,6 +9,9 @@ import { OBJECTION_TYPES, LEAD_MAX } from "./lead-quality";
 import {
   carriesCash,
   carriesRevenue,
+  closeRateOf,
+  heldCalls,
+  isWin,
   reportingCollected,
   reportingRevenue,
 } from "./money";
@@ -37,10 +40,14 @@ function scoredCalls(calls: CallRecord[]): CallRecord[] {
   return calls.filter((c) => overallScore(c) != null);
 }
 
-function closeRate(calls: CallRecord[]): number | null {
-  if (calls.length === 0) return null;
-  return (calls.filter((c) => c.outcome === "Customer").length / calls.length) * 100;
-}
+/**
+ * Close rate over whatever set a panel hands in.
+ *
+ * The rule for which calls count lives in `money.ts` and is shared with the
+ * KPI cards, so no panel can quietly answer this differently — no-shows and
+ * refunds are dropped here rather than by each caller remembering to.
+ */
+const closeRate = closeRateOf;
 
 /* ------------------------------------------------------------- per closer */
 
@@ -104,8 +111,8 @@ function statsFor(
   calls: CallRecord[],
   previous: CallRecord[]
 ): CloserStats {
-  const taken = calls.filter((c) => c.outcome !== "No show");
-  const customers = calls.filter((c) => c.outcome === "Customer");
+  const taken = heldCalls(calls);
+  const customers = calls.filter(isWin);
   const paying = calls.filter(carriesCash);
   const averages = dimensionAverages(calls);
 
@@ -214,7 +221,9 @@ export interface ImpactResult {
  * shows a score is worth money rather than asserting it.
  */
 export function dimensionImpact(calls: CallRecord[]): ImpactResult {
-  const scored = scoredCalls(calls);
+  // heldCalls first: this panel used to measure close rate over every scored
+  // call, no-shows and refunds included, while three panels beside it did not.
+  const scored = scoredCalls(heldCalls(calls));
   const impacts: DimensionImpact[] = [];
 
   for (const dimension of DIMENSIONS) {
@@ -236,10 +245,10 @@ export function dimensionImpact(calls: CallRecord[]): ImpactResult {
       dimension,
       goodCloseRate: goodRate,
       goodCalls: good.length,
-      goodCloses: good.filter((c) => c.outcome === "Customer").length,
+      goodCloses: good.filter(isWin).length,
       poorCloseRate: poorRate,
       poorCalls: poor.length,
-      poorCloses: poor.filter((c) => c.outcome === "Customer").length,
+      poorCloses: poor.filter(isWin).length,
       gap,
       swing,
       conclusive: gap >= swing,
@@ -261,8 +270,8 @@ export function dimensionImpact(calls: CallRecord[]): ImpactResult {
 
 /** Calls whose lead was assessed and turned up. No-shows have no lead score. */
 function leadAssessed(calls: CallRecord[]): CallRecord[] {
-  return calls.filter(
-    (c) => c.outcome !== "No show" && hasLeadAssessment(c) && leadQualityScore(c) != null
+  return heldCalls(calls).filter(
+    (c) => hasLeadAssessment(c) && leadQualityScore(c) != null
   );
 }
 
@@ -321,7 +330,7 @@ export function leadImpact(calls: CallRecord[]): LeadImpactResult {
 
   const bucket = (list: CallRecord[]): LeadBucket => ({
     calls: list.length,
-    closes: list.filter((c) => c.outcome === "Customer").length,
+    closes: list.filter(isWin).length,
     closeRate: closeRate(list) ?? 0,
     avgScore: mean(list.map((c) => leadQualityScore(c) as number)) ?? 0,
   });
@@ -393,7 +402,7 @@ export interface ObjectionResult {
 export function objectionStats(calls: CallRecord[]): ObjectionResult {
   // Only calls a v1.5+ review looked at. Older rows have an empty objection
   // list because nothing asked, not because nothing was raised.
-  const assessed = calls.filter((c) => c.outcome !== "No show" && hasLeadAssessment(c));
+  const assessed = heldCalls(calls).filter(hasLeadAssessment);
   const base = closeRate(assessed) ?? 0;
 
   const stats: ObjectionStat[] = OBJECTION_TYPES.filter((t) => t.belief !== null)
@@ -404,7 +413,7 @@ export function objectionStats(calls: CallRecord[]): ObjectionResult {
         belief: type.belief,
         calls: raised.length,
         frequency: assessed.length === 0 ? 0 : (raised.length / assessed.length) * 100,
-        closes: raised.filter((c) => c.outcome === "Customer").length,
+        closes: raised.filter(isWin).length,
         closeRate: closeRate(raised) ?? 0,
         decided: assessed.filter((c) => c.primary_objection === type.name).length,
       };
@@ -449,11 +458,11 @@ export function biggestCosts(
   previousCalls: CallRecord[] = [],
   limit = 2
 ): Cost[] {
-  const scored = scoredCalls(calls);
+  const scored = scoredCalls(heldCalls(calls));
   if (scored.length === 0) return [];
 
   const averages = dimensionAverages(scored);
-  const previousAverages = dimensionAverages(scoredCalls(previousCalls));
+  const previousAverages = dimensionAverages(scoredCalls(heldCalls(previousCalls)));
   const impacts = dimensionImpact(calls);
   // Only a gap that survived its own noise gets quoted as a cost — this panel
   // states it as a flat fact, with none of the impact panel's hedging.

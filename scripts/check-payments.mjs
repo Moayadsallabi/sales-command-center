@@ -324,7 +324,26 @@ const haystacks = [...buyers.values()].map((buyer) => ({
   text: normalise(`${buyer.billing} ${buyer.name} ${buyer.email.split("@")[0]}`),
 }));
 
-const matches = matchAll(tracker, buyers, haystacks);
+/**
+ * A NO-SHOW THAT LATER PAID IS NOT A CALL THAT HAPPENED.
+ *
+ * [sales-rules.json] "A payment proves a SALE. It does not prove that a CALL
+ * HAPPENED." This script can WRITE its corrections back into Notion with
+ * --apply, so promoting a no-show here does not just misreport a close rate
+ * for one render — it edits the client's tracker, and the row then reads as a
+ * held call to everyone and everything downstream for good.
+ *
+ * Dropped BEFORE matching, so their buyer stays unclaimed and lands in the
+ * untracked list — the money is still reported, as a payment no call explains.
+ * It also frees a buyer who no-showed once and then turned up to match the
+ * call they actually attended.
+ *
+ * The same rule, for the same reason, is in src/lib/reconcile.ts. These two
+ * matchers are deliberately kept in step; a test covers the library side.
+ */
+const considered = tracker.filter((row) => row.outcome !== "No show");
+
+const matches = matchAll(considered, buyers, haystacks);
 const claimed = new Set([...matches.values()].map((m) => m.buyer.email));
 
 const missedCloses = [];
@@ -347,9 +366,16 @@ const deposits = [];
 for (const row of tracker) {
   const match = matches.get(row);
 
+  // Runs over EVERY row, no-shows included: a claim of money taken on a call
+  // nobody attended is exactly the kind of thing worth naming, and this check
+  // is about the claim rather than about the outcome.
   if (row.onCall > 0 && (match?.buyer.paid ?? 0) + CASH_TOLERANCE < row.onCall) {
     unbanked.push({ row, ...(match ?? {}) });
   }
+
+  // Everything below decides what a payment PROVES, and a no-show was held out
+  // of matching above, so there is nothing here for it.
+  if (row.outcome === "No show") continue;
 
   if (!match) {
     if (row.outcome === "Customer") noPayment.push(row);

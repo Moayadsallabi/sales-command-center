@@ -16,6 +16,7 @@
 // workflow template) and re-run this script.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -721,6 +722,32 @@ const schema = buildOutputSchema(rubric);
 
 write("rubric/system-prompt.txt", systemPrompt);
 write("rubric/output-schema.json", JSON.stringify(schema, null, 2) + "\n");
+/**
+ * THE BUILD DOES NOT FINISH IF THE SCHEMA IS TOO BIG.
+ *
+ * Structured output compiles this schema into a grammar with a hard size
+ * ceiling. Cross it and the API refuses EVERY call — Brey's tracker stops
+ * receiving anything, and the only signal is a Slack alert at 10pm. That has
+ * happened three times in three days, each time immediately after a rubric
+ * edit, which is exactly this step.
+ *
+ * Gated here rather than left as a separate command, because a check someone
+ * has to remember is a check that gets skipped on the night it matters. It
+ * runs BEFORE the workflow is written, so a refused schema never reaches the
+ * file n8n imports.
+ */
+const guard = spawnSync(process.execPath, [join(root, "scripts/check-schema.mjs")], {
+  stdio: "inherit",
+});
+if (guard.status !== 0) {
+  console.error(
+    "\nBuild stopped: the generated schema would be refused by the API.\n" +
+      "The workflow was NOT rewritten, so the live one still works. Shrink the\n" +
+      "rubric and re-run.\n"
+  );
+  process.exit(1);
+}
+
 write("rubric/scorecard-rubric.md", buildMarkdown(rubric));
 write("rubric/skill.md", buildSkill(rubric, rubric.offerContextPlaceholder));
 

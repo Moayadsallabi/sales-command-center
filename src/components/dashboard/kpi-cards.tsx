@@ -7,7 +7,10 @@ import { FunnelStats } from "@/lib/bookings";
 import {
   carriesCash,
   carriesRevenue,
+  closeRateOf,
   formatReporting,
+  heldCalls,
+  isWin,
   reportingCollected,
   reportingRevenue,
 } from "@/lib/money";
@@ -22,6 +25,8 @@ import {
 
 interface KPICardsProps {
   calls: CallRecord[];
+  /** True when a payment feed is connected at all, filtered or not. */
+  payments?: boolean;
   /** Present only when Calendly is connected. Null falls back to recordings. */
   funnel?: FunnelStats | null;
   /**
@@ -40,11 +45,14 @@ interface KPICardsProps {
   } | null;
 }
 
-export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
+export function KPICards({ calls, funnel = null, bank = null, payments = false }: KPICardsProps) {
   const total = calls.length;
-  const showed = calls.filter((c) => c.outcome !== "No show");
-  const customers = calls.filter((c) => c.outcome === "Customer");
-  const closeRate = showed.length > 0 ? Math.round((customers.length / showed.length) * 100) : 0;
+  // Which calls count towards a close rate is one rule, shared with every
+  // panel below — see carriesClose in lib/money. This card used to spell it
+  // out itself, which is how the page ended up with two answers.
+  const showed = heldCalls(calls);
+  const customers = calls.filter(isWin);
+  const closeRate = Math.round(closeRateOf(calls) ?? 0);
   // Every total below is converted into the reporting currency first, so a
   // euro retainer and a dollar sprint can sit in the same number honestly.
   //
@@ -82,7 +90,22 @@ export function KPICards({ calls, funnel = null, bank = null }: KPICardsProps) {
    * are not a discrepancy anyone should be sent to chase.
    */
   const cashNote = (() => {
-    if (bank === null) return null;
+    // WHICH SOURCE THIS NUMBER CAME FROM, ALWAYS SAID.
+    //
+    // With Whop connected and nothing filtered, this tile shows what the
+    // processor banked. The moment any filter narrows the view the processor's
+    // figure cannot follow it — Whop knows nothing about closers or outcomes —
+    // so the tile falls back to what the closers logged. That is the right
+    // fallback and the wrong silence: the number changed source, and for a
+    // while it said so only in the case where it did not change.
+    //
+    // Naming the source in both states means the figure can never move
+    // underneath someone for a reason the tile did not state.
+    if (bank === null) {
+      return payments
+        ? "logged by closers — Whop's figure covers the whole business, so it cannot follow a filter"
+        : "logged by closers";
+    }
     const gap = bank.collected - bank.trackerLogged;
     if (Math.abs(gap) < 50) return "from Whop — matches what closers logged";
     return gap > 0

@@ -22,6 +22,15 @@ export const WINNING_OUTCOMES: readonly string[] = rules.outcomes.winning;
 export const REFUND_OUTCOME: string = rules.outcomes.refund.name;
 export const REFUND_CARRIES_REVENUE: boolean = rules.outcomes.refund.carries_revenue;
 export const REFUND_CARRIES_CASH: boolean = rules.outcomes.refund.carries_cash;
+/**
+ * Whether a refunded deal still counts in the close rate.
+ *
+ * [STATED - Moayad, 2026-08-18] "should be removed from revenue and cash
+ * collected, should also be removed from close rate." Out of BOTH sides of it:
+ * the closer did close them and the customer later left, so scoring it as a
+ * failed call makes a different claim from the one the refund actually makes.
+ */
+export const REFUND_CARRIES_CLOSE: boolean = rules.outcomes.refund.carries_close;
 
 export const RULES_VERSION: string = rules.version;
 export { rules };

@@ -1,0 +1,87 @@
+{
+  "_README": [
+    "EVENT TYPES A HUMAN HAS RULED ON.",
+    "",
+    "This is NOT the counting rule - that is CALENDLY_EVENT_TYPES in the env, and",
+    "it stays exactly as Moayad set it (2026-08-17: everything except onboarding).",
+    "",
+    "This file answers a different question: has anyone LOOKED at this event type.",
+    "Whatever shape the counting rule takes, it decides silently for anything new -",
+    "a deny-list counts every new type, an allow-list drops every new type. Both",
+    "have already cost real numbers here. `npm run check:calendly` compares the",
+    "calendar against this list and speaks up only when something is missing from",
+    "it, so it stays quiet until Brey's team invents an event type.",
+    "",
+    "When a NEW type appears: decide whether it is a sales call, change",
+    "CALENDLY_EVENT_TYPES if that decision needs enforcing, then add it here."
+  ],
+  "counting_rule_lives_in": "CALENDLY_EVENT_TYPES (env) - currently \"!onboarding\"",
+  "last_reviewed": "2026-08-18",
+  "ruled_on": [
+    {
+      "name": "Profitability Game Plan Call",
+      "verdict": "sales",
+      "note": "the main Game Plan funnel"
+    },
+    {
+      "name": "Profitability Game Plan Call Team",
+      "verdict": "sales",
+      "note": "same funnel, team pod"
+    },
+    {
+      "name": "Profitability Game Plan Call Team.",
+      "verdict": "sales",
+      "note": "duplicate of the above with a trailing dot"
+    },
+    {
+      "name": "The Funded Blueprint Enrollment Call",
+      "verdict": "sales",
+      "note": "IS a sales call - 47 bookings, same length, different pod (Junior Ankomah, Sebastian), zero invitee overlap with Game Plan [audit 2026-08-17]"
+    },
+    {
+      "name": "Profitability Game Plan Call Chris",
+      "verdict": "sales",
+      "note": "same funnel, Chris's calendar"
+    },
+    {
+      "name": "Profitability Game Plan Call Tpan",
+      "verdict": "sales",
+      "note": "same funnel, Tpan's calendar"
+    },
+    {
+      "name": "Profitability Game Plan Call.",
+      "verdict": "sales",
+      "note": "duplicate with a trailing dot"
+    },
+    {
+      "name": "THE FUNDED BLUEPRINT",
+      "verdict": "sales",
+      "note": "Funded Blueprint funnel"
+    },
+    {
+      "name": "THE FUNDED BLUEPRINT (STRATEGY SESSION)",
+      "verdict": "sales",
+      "note": "Funded Blueprint strategy session"
+    },
+    {
+      "name": " The Funded Blueprint — Strategy Call",
+      "verdict": "sales",
+      "note": "same funnel; leading space and an em dash in the real name"
+    },
+    {
+      "name": "Profitability Game Plan Session",
+      "verdict": "sales",
+      "note": "same funnel, named session"
+    },
+    {
+      "name": "Funded Blueprint Onboarding Call",
+      "verdict": "not_sales",
+      "note": "post-sale, hosted by the delivery team - the one genuine exclusion"
+    },
+    {
+      "name": "30 Minute Meeting",
+      "verdict": "UNRULED",
+      "note": "Calendly's default name. Counted as a sales call today because the rule is a deny-list. 3 bookings. Probably not a sales call - needs Moayad."
+    }
+  ]
+}

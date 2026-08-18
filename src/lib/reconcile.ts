@@ -21,7 +21,7 @@
 import { CallRecord } from "./types";
 import { WhopBuyer } from "./whop";
 import { collectedToDate } from "./money";
-import { MIN_DEPOSIT } from "./sales-rules";
+import { MIN_DEPOSIT, REFUND_OUTCOME } from "./sales-rules";
 
 /** Below this, a difference is fees or rounding rather than a mistake. */
 /**
@@ -163,13 +163,29 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     text: normalise(`${buyer.name} ${buyer.email.split("@")[0]}`),
   }));
 
-  const matches = matchAll(calls, byEmail, haystacks);
+  // A NO-SHOW THAT LATER PAID IS NOT A CALL THAT HAPPENED.
+  //
+  // [sales-rules.json] "A payment proves a SALE. It does not prove that a
+  // CALL HAPPENED." Matching a payment to a no-show and promoting it put the
+  // same person on BOTH sides of the close rate, and flipped their booking
+  // from no_show to kept in the funnel underneath. Whatever they bought, they
+  // did not buy it on a call they never attended.
+  //
+  // Dropped BEFORE matching rather than after, for two reasons. Their buyer
+  // stays unclaimed and falls through to `untracked` below — the panel whose
+  // whole job is "this was paid and no call explains it" — so the money is
+  // still on the page. And a buyer who no-showed once and then turned up is
+  // now free to match the call they actually attended, instead of having their
+  // payment held by the empty one.
+  const considered = calls.filter((c) => c.outcome !== "No show");
+
+  const matches = matchAll(considered, byEmail, haystacks);
   const claimed = new Set([...matches.values()].map((m) => m.buyer.email));
 
   const missedCloses: Disagreement[] = [];
   const cashOff: Disagreement[] = [];
 
-  for (const call of calls) {
+  for (const call of considered) {
     const match = matches.get(call);
     if (!match) continue;
 
@@ -180,7 +196,7 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
       certain: match.certain,
     };
 
-    if (call.outcome !== "Customer" && call.outcome !== "REFUND") {
+    if (call.outcome !== "Customer" && call.outcome !== REFUND_OUTCOME) {
       // A token payment does not turn an open call into a won one.
       // [STATED — Moayad, 2026-08-18] "even if a deposit doesnt pay the rest,
       // its still technically a close unless its under $100 i think then that

@@ -571,7 +571,7 @@ export function Dashboard({
             header when the panel is alarming, linking down to it — the same
             slim treatment the FX-rate notice already uses — NOT moving the
             panel back up. */}
-        <KPICards calls={scoped} funnel={funnel} bank={bank} />
+        <KPICards calls={scoped} funnel={funnel} bank={bank} payments={payments !== null} />
 
         {/* ACT. The follow-up worklist, above everything that only describes.
             Reads the unfiltered call list: an unworked follow-up does not stop

@@ -1,4 +1,9 @@
 import { CallRecord } from "./types";
+import {
+  WINNING_OUTCOMES,
+  REFUND_OUTCOME,
+  REFUND_CARRIES_CLOSE,
+} from "./sales-rules";
 
 /**
  * Every money column in Notion holds the deal's own currency: a €3,000
@@ -119,12 +124,64 @@ export function reportingDiscussed(call: CallRecord): number {
  * A REFUND is the one outcome that carries neither — the money went back.
  */
 export function carriesCash(call: CallRecord): boolean {
-  return call.outcome !== "REFUND";
+  return call.outcome !== REFUND_OUTCOME;
 }
 
 /** Whether this call's closed price counts as revenue. */
 export function carriesRevenue(call: CallRecord): boolean {
-  return call.outcome === "Customer";
+  return isWin(call);
+}
+
+/**
+ * Whether this call is a win — the numerator of every close rate.
+ *
+ * Reads the shared rules file rather than comparing to a literal, so the two
+ * dashboards cannot drift about what "won" means.
+ */
+export function isWin(call: CallRecord): boolean {
+  return call.outcome != null && WINNING_OUTCOMES.includes(call.outcome);
+}
+
+/**
+ * Whether this call belongs in the close-rate DENOMINATOR.
+ *
+ * ---------------------------------------------------------------------------
+ * ONE DEFINITION, BECAUSE THERE USED TO BE TWO.
+ *
+ * The leaderboard, lead impact and objection panels each wrote out
+ * `outcome !== "No show"` by hand; the dimension-impact and costing panels
+ * wrote nothing at all and counted no-shows in with the rest. Same metric,
+ * same screen, two denominators. Every panel now asks this function instead.
+ *
+ * Two outcomes are excluded, for opposite reasons:
+ *
+ *   No show — the call never happened, so it cannot be a win or a loss.
+ *   REFUND  — [STATED - Moayad, 2026-08-18] the deal DID close and the
+ *             customer later left. Counting it as a loss would put a failed
+ *             call on the closer's record, which is a different claim from the
+ *             one the refund makes. It comes out of both sides, not just the
+ *             winning one.
+ */
+export function carriesClose(call: CallRecord): boolean {
+  if (call.outcome === "No show") return false;
+  if (call.outcome === REFUND_OUTCOME) return REFUND_CARRIES_CLOSE;
+  return true;
+}
+
+/** The calls a close rate is measured over. */
+export function heldCalls(calls: CallRecord[]): CallRecord[] {
+  return calls.filter(carriesClose);
+}
+
+/**
+ * Close rate over a set of calls, as a percentage, or null when the set holds
+ * nothing to measure. The single implementation — panels differ in WHICH calls
+ * they hand in, never in how the rate is worked out.
+ */
+export function closeRateOf(calls: CallRecord[]): number | null {
+  const held = heldCalls(calls);
+  if (held.length === 0) return null;
+  return (held.filter(isWin).length / held.length) * 100;
 }
 
 /* -------------------------------------------------------------- data health */
