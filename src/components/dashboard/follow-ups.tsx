@@ -2,16 +2,20 @@
 
 import { motion } from "framer-motion";
 import { CallRecord } from "@/lib/types";
-import {
-  followUps,
-  FOLLOW_UP_COLD_DAYS,
-  FOLLOW_UP_STALE_DAYS,
-} from "@/lib/follow-ups";
+import { followUps, FOLLOW_UP_COLD_DAYS, FOLLOW_UP_STALE_DAYS } from "@/lib/follow-ups";
 import { formatMoney, formatReporting } from "@/lib/money";
 import { PhoneForwarded, ExternalLink } from "lucide-react";
 
 /** How many rows before the list stops being a list and becomes a wall. */
 const SHOWN = 15;
+
+/** "August" from a YYYY-MM-DD. Parsed as UTC so it cannot slip a month. */
+function monthName(today: string): string {
+  return new Date(`${today}T12:00:00Z`).toLocaleDateString("en-GB", {
+    month: "long",
+    timeZone: "UTC",
+  });
+}
 
 /**
  * The deals still open, oldest first.
@@ -44,14 +48,24 @@ export function FollowUps({
       <div className="mb-1 flex items-center gap-2">
         <PhoneForwarded className="h-3.5 w-3.5 text-gold-500" strokeWidth={1.5} />
         <h3 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
-          Follow-ups owed
+          Follow-ups owed — {monthName(today)}
         </h3>
       </div>
 
       {result.items.length === 0 ? (
-        <p className="mt-3 text-[13px] text-zinc-400">
-          No calls are sitting on a follow-up. Every prospect who was going to be
-          spoken to again has already been marked something else.
+        <p className="mt-3 max-w-[75ch] text-[13px] leading-relaxed text-zinc-400">
+          Nothing owed from {monthName(today)}&apos;s calls.
+          {result.lapsed > 0 && (
+            <>
+              {" "}
+              <span className="text-zinc-500">
+                {result.lapsed} {result.lapsed === 1 ? "is" : "are"} still open
+                from last month
+              </span>
+              , worth {formatReporting(result.lapsedWorth)}. Those do not carry
+              over — the list starts clean each month.
+            </>
+          )}
         </p>
       ) : (
         <>
@@ -59,14 +73,20 @@ export function FollowUps({
             <span className="font-medium text-zinc-400">
               {result.items.length} calls
             </span>{" "}
-            ended on &quot;speak again&quot; and have not been marked anything
-            since, with{" "}
+            from {monthName(today)} ended on &quot;speak again&quot; and have
+            not been marked anything since, with{" "}
             <span className="font-medium text-gold-300">
               {formatReporting(result.worth)}
             </span>{" "}
-            discussed across them. An outcome is written when the call ends and
-            never rewritten, so nothing here ages out on its own — these are the
-            calls to make.
+            quoted across them.{" "}
+            {result.cold > 0 && (
+              <>
+                <span className="font-medium text-zinc-400">
+                  {result.cold} have been waiting over a fortnight.
+                </span>{" "}
+              </>
+            )}
+            These are this month&apos;s calls to make.
           </p>
 
           {/* Named columns. The right-hand figure was reading as revenue when
@@ -124,21 +144,13 @@ export function FollowUps({
           )}
 
           <p className="mt-3 max-w-[75ch] text-[11px] leading-relaxed text-zinc-600">
-            {result.cold > 0 && (
-              <>
-                <span className="text-zinc-500">
-                  {result.cold} of these are over {FOLLOW_UP_COLD_DAYS} days old
-                </span>{" "}
-                and are realistically gone — worth one message rather than a
-                place in the pipeline.{" "}
-              </>
-            )}
             <span className="text-zinc-500">
-              A prospect leaves this list when a later call with them reaches the
-              tracker
+              This is {monthName(today)}&apos;s list, and it does not carry into
+              next month
             </span>
-            , because nothing ever edits the original row — the follow-up arrives
-            as its own recording a few days later.
+            . A prospect also leaves it the moment a later call with them reaches
+            the tracker, because nothing ever edits the original row — the
+            follow-up arrives as its own recording a few days later.
             {result.spokenAgain > 0 && (
               <>
                 {" "}
@@ -146,11 +158,21 @@ export function FollowUps({
                 {result.spokenAgain === 1 ? "prospect has" : "prospects have"}{" "}
                 dropped off that way. A follow-up that happens without being
                 recorded cannot be told apart from one that never happened, so it
-                stays here.
+                stays until the month turns over.
+              </>
+            )}
+            {result.lapsed > 0 && (
+              <>
+                {" "}
+                <span className="text-zinc-500">
+                  {result.lapsed} older {result.lapsed === 1 ? "one is" : "ones are"}{" "}
+                  not shown
+                </span>{" "}
+                — {formatReporting(result.lapsedWorth)} quoted, still open on the
+                tracker, but last month&apos;s list rather than this one.
               </>
             )}{" "}
-            The date range at the top of the page does not apply: a follow-up owed
-            since July is exactly the one a thirty-day view would hide.
+            The date range at the top of the page does not apply here.
           </p>
         </>
       )}

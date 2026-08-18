@@ -8,9 +8,15 @@
  * dashboard could show a close rate all day without ever mentioning that a
  * five-figure pipeline was quietly ageing out underneath it.
  *
- * So this is not a metric. It is a worklist, and it is deliberately not
- * narrowed by the date filter above it: a follow-up owed since July is exactly
- * the one a thirty-day view would hide.
+ * So this is not a metric, it is a worklist — and it holds **the current
+ * calendar month's calls only**. Moayad's rule, 2026-08-18: you work this
+ * month's follow-ups, and on the first of next month they do not carry over.
+ * Without an expiry the list only ever grows, because a follow-up that happened
+ * without being recorded stays on it for ever (see below) and there is no month
+ * in which anyone goes back to clear it.
+ *
+ * It still ignores the date filter at the top of the page. That filter is for
+ * reading performance over a window; this is a job list with its own clock.
  *
  * **How a row leaves the list.** Nothing ever edits the BAMFAM row itself, so
  * "done" cannot be read off it. What happens instead is that the follow-up call
@@ -32,10 +38,15 @@ import { reportingDiscussed } from "./money";
 /** The outcome that means the deal is still open and someone owes a call back. */
 const OPEN_OUTCOME = "BAMFAM";
 
-/** Past this many days a follow-up has stopped being a follow-up. */
-export const FOLLOW_UP_COLD_DAYS = 30;
-/** Past this many days it needs chasing today rather than this week. */
-export const FOLLOW_UP_STALE_DAYS = 14;
+/**
+ * The two waiting marks, in days, scaled to the window the list now covers.
+ *
+ * They were 14 and 30 when the list ran back for ever. Inside a calendar month
+ * a 30-day mark can only be reached on the 31st, so it was a tier that never
+ * fired — a week and a fortnight are the real shape of urgency here.
+ */
+export const FOLLOW_UP_COLD_DAYS = 14;
+export const FOLLOW_UP_STALE_DAYS = 7;
 
 export interface FollowUp {
   call: CallRecord;
@@ -55,6 +66,9 @@ export interface FollowUpResult {
   cold: number;
   /** Dropped because a later call exists for the same person. Never silent. */
   spokenAgain: number;
+  /** Still open, but from a previous month, so no longer on this month's list. */
+  lapsed: number;
+  lapsedWorth: number;
 }
 
 /**
@@ -99,6 +113,11 @@ function spokeAgain(call: CallRecord, calls: CallRecord[]): boolean {
   });
 }
 
+/** Whether a YYYY-MM-DD falls in the same calendar month as another. */
+function sameMonth(date: string, today: string): boolean {
+  return date.slice(0, 7) === today.slice(0, 7);
+}
+
 /** Whole days from `date` to `today`, both YYYY-MM-DD. Negative clamps to 0. */
 function daysBetween(date: string, today: string): number {
   const from = Date.parse(`${date}T00:00:00Z`);
@@ -108,19 +127,26 @@ function daysBetween(date: string, today: string): number {
 }
 
 /**
- * Every open follow-up across the whole tracker, oldest first.
+ * This month's open follow-ups, oldest first.
  *
- * Takes the unfiltered call list on purpose. Everything else on the page
- * answers "how did the last thirty days go"; this one answers "who has not
- * been called back", and the answer to that does not expire when the window
- * scrolls past it.
+ * Takes the unfiltered call list and applies its own window — the calendar
+ * month — rather than the page's date filter. Two things fall out of the list,
+ * and both are counted rather than dropped quietly: prospects who were spoken
+ * to again, and last month's calls, which no longer carry over.
  */
 export function followUps(calls: CallRecord[], today: string): FollowUpResult {
   const open = calls.filter((c) => c.outcome === OPEN_OUTCOME && c.call_date);
   const answered = open.filter((c) => spokeAgain(c, calls));
   const outstanding = open.filter((c) => !answered.includes(c));
 
-  const items = outstanding
+  const thisMonth = outstanding.filter((c) =>
+    sameMonth(c.call_date as string, today)
+  );
+  const earlier = outstanding.filter(
+    (c) => !sameMonth(c.call_date as string, today)
+  );
+
+  const items = thisMonth
     .map((call) => ({
       call,
       age: daysBetween(call.call_date as string, today),
@@ -134,6 +160,8 @@ export function followUps(calls: CallRecord[], today: string): FollowUpResult {
     stale: items.filter((i) => i.age >= FOLLOW_UP_STALE_DAYS).length,
     cold: items.filter((i) => i.age >= FOLLOW_UP_COLD_DAYS).length,
     spokenAgain: answered.length,
+    lapsed: earlier.length,
+    lapsedWorth: earlier.reduce((sum, c) => sum + reportingDiscussed(c), 0),
   };
 }
 
