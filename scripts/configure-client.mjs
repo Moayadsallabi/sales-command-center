@@ -9,11 +9,18 @@
 // meeting as a sales call, and capitals are ignored, so an invite typed in a
 // hurry still gets tracked.
 //
+// Pass --exclude for anything that must NEVER be scored however it is named —
+// onboarding, team meetings, internal syncs. EXCLUSIONS WIN over phrases, which
+// matters more than it sounds: "Funded Blueprint Onboarding Call" contains
+// "Funded Blueprint", so without a hard block the onboarding call is scored as
+// a sale. Name the sales calls, then block the rest.
+//
 //   npm run configure:client -- \
 //     --client brey \
 //     --name "Brey" \
 //     --database 3baa6b94d53c809884c0ffa089665938 \
 //     --phrase "Strategy Call" --phrase "Discovery Call" --phrase "Sales Call" \
+//     --exclude "Onboarding" --exclude "Team Meeting" \
 //     --offer rubric/clients/brey.local.md
 //
 // Import the written file into n8n, attach that client's Notion credential and
@@ -61,6 +68,7 @@ function argAll(name) {
 const client = arg("client");
 const database = arg("database");
 const phrases = argAll("phrase");
+const excludes = argAll("exclude");
 const offerPath = arg("offer");
 const display = arg("name") ?? client;
 const currency = arg("currency");
@@ -146,15 +154,38 @@ nodeBy("Fathom Webhook").parameters.path = `fathom-webhook-${client}`;
 // 2. The phrases that decide whether a meeting is a sales call at all. Any one
 // of them is enough, and capitals are ignored — a client who types "strategy
 // call" in an invite should not silently lose the call.
+//
+// ONE EXPRESSION RATHER THAN A LIST OF "contains" ROWS.
+//
+// n8n applies a single and/or across a condition list, so a list cannot say
+// "any of these phrases, BUT never any of those". It has to be one test.
+// Without the block half, a partial match is enough to score the wrong call:
+// "Funded Blueprint Onboarding Call" contains "Funded Blueprint".
+//
+// A title matching nothing at all — Google Meet names an ad-hoc call
+// "Impromptu Google Meet Meeting" — is NOT scored and NOT silently dropped.
+// It takes the false branch into the Slack alert, where a person decides. That
+// is deliberate: a generic title carries no evidence of what kind of call it
+// was, and guessing would file onboarding calls as sales.
 const filter = nodeBy("Is Sales Call?").parameters.conditions;
 filter.options.caseSensitive = false;
-filter.combinator = "or";
-filter.conditions = phrases.map((text, i) => ({
-  id: i === 0 ? "meeting-title-filter" : `meeting-title-filter-${i + 1}`,
-  leftValue: "={{ $json.body.meeting_title }}",
-  rightValue: text,
-  operator: { type: "string", operation: "contains" },
-}));
+filter.combinator = "and";
+const literal = (list) => JSON.stringify(list.map((t) => t.toLowerCase()));
+filter.conditions = [
+  {
+    id: "meeting-title-filter",
+    leftValue:
+      "={{ (() => {" +
+      ' const title = String($json.body.meeting_title || "").toLowerCase();' +
+      ` const blocked = ${literal(excludes)};` +
+      " if (blocked.some((b) => title.includes(b))) return false;" +
+      ` const sales = ${literal(phrases)};` +
+      " return sales.some((s) => title.includes(s));" +
+      " })() }}",
+    rightValue: "",
+    operator: { type: "boolean", operation: "true", singleValue: true },
+  },
+];
 
 // 3. The prompt and the schema, rebuilt for this client's money shape, with
 //    the offer paragraph the scorer judges "was this pitch on-message?" against.
@@ -213,13 +244,30 @@ if (finalText.includes("__CLIENT_NAME__")) fail("The client-name placeholder sur
 if (configured.nodes.find((n) => n.name === "Fathom Webhook").parameters.path !== `fathom-webhook-${client}`) {
   fail("The webhook path did not take.");
 }
+// The filter is one expression, so it is checked by RUNNING it rather than by
+// reading it back. Three cases, because each has cost a real call: a named
+// sales call must pass; an excluded one must fail EVEN THOUGH it contains a
+// sales phrase, which is the case a plain include-list gets wrong; and a
+// generic ad-hoc title must fail, so it lands in the Slack queue for a person
+// rather than being scored as a sale on no evidence.
 const liveFilter = configured.nodes.find((n) => n.name === "Is Sales Call?").parameters.conditions;
-if (liveFilter.conditions.map((c) => c.rightValue).join(" ") !== phrases.join(" ")) {
-  fail("The call phrases did not take.");
+const decide = (title) => {
+  const inner = liveFilter.conditions[0].leftValue
+    .replace(/^=\{\{/, "")
+    .replace(/\}\}$/, "");
+  return new Function("$json", `return (${inner});`)({ body: { meeting_title: title } });
+};
+for (const phrase of phrases) {
+  if (!decide(`${phrase} with a prospect`)) {
+    fail(`"${phrase}" is not recognised as a sales call.`);
+  }
 }
-// AND would require a title to contain every phrase at once, so nothing would
-// ever match — worth asserting rather than trusting.
-if (liveFilter.combinator !== "or") fail("The phrase conditions are not joined with OR.");
+for (const blocked of excludes) {
+  if (decide(`${phrases[0]} ${blocked}`)) fail(`"${blocked}" is not being blocked.`);
+}
+if (decide("Impromptu Google Meet Meeting")) {
+  fail("An untitled ad-hoc meeting is being scored instead of raised for review.");
+}
 if (liveFilter.options.caseSensitive !== false) fail("Case sensitivity is still on.");
 
 // The money shape actually took. A silent miss here is the expensive kind:
@@ -238,9 +286,18 @@ if (String(liveSchema.properties.currency.enum[0]) !== rubric.commercial.default
 if (!livePrompt.includes(`answer ${rubric.commercial.defaultCurrency}`)) {
   fail("The currency default did not take in the prompt.");
 }
-const liveTiers = liveSchema.properties.tier.anyOf.find((s) => s.enum)?.enum ?? [];
-if (liveTiers.join(",") !== rubric.commercial.tiers.join(",")) {
-  fail(`The tiers did not take — schema has ${liveTiers.join(", ") || "none"}.`);
+// `tier` is only in the schema for a client whose offers actually come in
+// bands — Brey's were removed on 2026-08-18, and the generator drops the field
+// entirely when `commercial.tiers` is empty. This assertion used to read
+// `.tier.anyOf` unconditionally and crashed for every tier-less client, which
+// made configure:client unusable rather than reporting anything.
+if (rubric.commercial.tiers.length) {
+  const liveTiers = liveSchema.properties.tier?.anyOf?.find((s) => s.enum)?.enum ?? [];
+  if (liveTiers.join(",") !== rubric.commercial.tiers.join(",")) {
+    fail(`The tiers did not take — schema has ${liveTiers.join(", ") || "none"}.`);
+  }
+} else if (liveSchema.properties.tier) {
+  fail("This client has no price bands, but the schema still asks the scorer for a tier.");
 }
 
 const outPath = arg("out")

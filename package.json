@@ -22,6 +22,7 @@
     "build:rubric": "node scripts/build-rubric.mjs",
     "check:workflow": "node scripts/check-workflow.mjs",
     "check:schema": "node scripts/check-schema.mjs",
+    "check:delivery": "node scripts/check-delivery.mjs",
     "backfill:fathom": "node scripts/backfill-fathom.mjs",
     "backfill:emails": "node scripts/backfill-emails.mjs",
     "check:rules": "node scripts/check-rules.mjs"
