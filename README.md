@@ -310,6 +310,39 @@ deployment or a password between clients.
 `.env.local` is gitignored and never leaves your machine. The Notion secret is
 only ever read server-side.
 
+### The weekly check
+
+`npm run check:weekly` runs the payments reconciliation and the coverage check
+together and posts one plain-English summary to Slack. It is meant to run on a
+schedule, not by hand.
+
+On Railway, add a **second service from this same repo** in the same project:
+
+| Setting | Value |
+|---|---|
+| Source | this repo |
+| Start command | `npm run check:weekly` |
+| Cron schedule | `0 10 * * 1` (Mondays 10:00 UTC) |
+| Variables | the same `NOTION_*`, `WHOP_API_KEY` and `CALENDLY_*` as the client's service, plus `OPS_ALERT_WEBHOOK` |
+
+A cron service runs the command and exits; Railway will not start a new run
+while the previous one is still going.
+
+| Variable | Purpose |
+|---|---|
+| `OPS_ALERT_WEBHOOK` | Where the summary is posted. Unset means it prints the report instead of sending it, which is what makes it runnable by hand |
+| `WEEKLY_CHECK_CLIENT` | Name in the message heading. Defaults to `NEXT_PUBLIC_BRAND_NAME` |
+
+**It never writes to Notion.** `check-payments` can apply its corrections with
+`--apply`, and that is deliberately not what the schedule runs. Its own header
+says the correction cannot be automated: only a person knows whether a payment
+is the deal closing, a deposit on a follow-up, or a second instalment on a deal
+already counted. The schedule finds the rows and names the command; the
+judgement stays with a person.
+
+It posts on a clean week too. A check that only speaks when it finds something
+is indistinguishable from a check that has stopped running — both are silence.
+
 ## Project layout
 
 ```

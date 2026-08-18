@@ -25,7 +25,8 @@
     "check:delivery": "node scripts/check-delivery.mjs",
     "backfill:fathom": "node scripts/backfill-fathom.mjs",
     "backfill:emails": "node scripts/backfill-emails.mjs",
-    "check:rules": "node scripts/check-rules.mjs"
+    "check:rules": "node scripts/check-rules.mjs",
+    "check:weekly": "node scripts/weekly-checks.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

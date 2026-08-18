@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  RETIRED 2026-08-18. Do not load this.
+
+  This ran the payments reconciliation on one MacBook, Mondays at 10:00, with
+  --apply — it corrected the client's Notion tracker unattended. Two problems:
+  a Mac that is shut down on a Monday morning skips the week silently, and an
+  unattended --apply puts its best guess into a client's tracker before anyone
+  has seen it.
+
+  Replaced by `npm run check:weekly` on a Railway cron service, which reads and
+  reports and never writes. See "The weekly check" in README.md.
+
+  Kept as a record of what used to run. It executed zero times.
+-->
 <plist version="1.0">
 <dict>
   <key>Label</key>
