@@ -6,6 +6,7 @@ import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
 import { callsMissingFxRate, carriesCash, reportingCollected } from "@/lib/money";
 import { PaymentDay } from "@/lib/whop";
+import { Reconciliation } from "@/lib/reconcile";
 import {
   CalendlyState,
   LinkedBooking,
@@ -13,6 +14,9 @@ import {
   funnelStats,
 } from "@/lib/bookings";
 import { KPICards } from "./kpi-cards";
+import { CoverageAlarm } from "./coverage-alarm";
+import { WhopGap } from "./whop-gap";
+import { FollowUps } from "./follow-ups";
 import { FunnelPanel } from "./funnel-panel";
 import { CallTable } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
@@ -53,6 +57,7 @@ export function Dashboard({
   today,
   calendly,
   payments = null,
+  reconciliation = null,
   demo = false,
 }: {
   calls: CallRecord[];
@@ -60,6 +65,8 @@ export function Dashboard({
   calendly: CalendlyState;
   /** Present only when Whop is connected. Null keeps the tracker's figure. */
   payments?: PaymentDay[] | null;
+  /** Rows where the processor and the tracker disagree. Null without Whop. */
+  reconciliation?: Reconciliation | null;
   demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("30d");
@@ -378,7 +385,19 @@ export function Dashboard({
 
       {/* Content */}
       <main className="max-w-[1400px] mx-auto px-6 py-6 space-y-6">
+        {/* Whether the numbers below are built on all of the calls or some of
+            them. It reads the unfiltered list, because a seven-day window has
+            no normal week to compare this week against. */}
+        <CoverageAlarm calls={calls} today={today} booked={funnel?.booked ?? null} />
+
         <KPICards calls={scoped} funnel={funnel} bank={bank} />
+
+        {/* The two worklists, above everything that only describes. Both read
+            the unfiltered call list: an unworked follow-up and an unruled
+            payment do not stop being owed when the date filter moves. */}
+        {reconciliation && <WhopGap reconciliation={reconciliation} />}
+
+        <FollowUps calls={calls} today={today} />
 
         {calendly.link && (
           <FunnelPanel

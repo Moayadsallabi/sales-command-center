@@ -180,13 +180,23 @@ async function readPayments() {
       const stamp = p.paid_at ?? p.created_at;
       const day = typeof stamp === "number" ? new Date(stamp * 1000).toISOString().slice(0, 10) : null;
 
+      // Two names come back and they are not equally useful. `user.name` is the
+      // Whop display name and is usually a handle — "stonyartisan82",
+      // "jackdadawg", "CeeLo Tunes" — which matches nothing on a call row. The
+      // billing name is the real person ("Luke Mcdougall", "Nicole Olvera",
+      // "Carlos Lassalle") and is present on every payment. Matching on the
+      // handle alone is why rows carrying a perfectly good name still came back
+      // unmatched, and it is the single cheapest fix to coverage here.
+      const billing = [p.billing_first_name, p.billing_last_name].filter(Boolean).join(" ");
       const buyer = buyers.get(email) ?? {
         email,
         name: user.name || user.username || "",
+        billing: "",
         paid: 0,
         payments: 0,
         first: day,
       };
+      if (billing && !buyer.billing) buyer.billing = billing;
       buyer.paid += net;
       buyer.payments += 1;
       if (day && (!buyer.first || day < buyer.first)) buyer.first = day;
@@ -288,7 +298,7 @@ console.log(`Whop:    ${buyers.size} buyers, ${money(banked)} collected\n`);
 
 const haystacks = [...buyers.values()].map((buyer) => ({
   buyer,
-  text: normalise(`${buyer.name} ${buyer.email.split("@")[0]}`),
+  text: normalise(`${buyer.billing} ${buyer.name} ${buyer.email.split("@")[0]}`),
 }));
 
 const matches = matchAll(tracker, buyers, haystacks);
@@ -444,7 +454,7 @@ if (untracked.length) {
       `  recorded, never reached the automation, or the customer never had a call.\n`
   );
   for (const b of untracked.slice(0, 10)) {
-    console.log(`  ${b.first ?? "?"}  ${(b.name || b.email).padEnd(28)} ${money(b.paid)}`);
+    console.log(`  ${b.first ?? "?"}  ${(b.billing || b.name || b.email).padEnd(28)} ${money(b.paid)}`);
   }
   if (untracked.length > 10) console.log(`  … and ${untracked.length - 10} more`);
   console.log();

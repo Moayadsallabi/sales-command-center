@@ -1,8 +1,9 @@
 import { queryAllCalls, NotionError, NotionFailure } from "@/lib/notion";
 import { queryBookings, isCalendlyConfigured, CalendlyError } from "@/lib/calendly";
-import { queryPayments, isWhopConfigured, PaymentDay } from "@/lib/whop";
+import { queryPayments, isWhopConfigured, WhopRead } from "@/lib/whop";
 import { linkBookings, CalendlyState } from "@/lib/bookings";
 import { CallRecord } from "@/lib/types";
+import { reconcile } from "@/lib/reconcile";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
 
@@ -67,7 +68,7 @@ async function loadBookings(calls: CallRecord[]): Promise<CalendlyState> {
  * a refused Whop route downgrades the Cash Collected tile to the tracker's
  * own figure, it does not take the dashboard down.
  */
-async function loadPayments(): Promise<PaymentDay[] | null> {
+async function loadPayments(): Promise<WhopRead | null> {
   if (!isWhopConfigured()) return null;
   try {
     return await queryPayments();
@@ -124,7 +125,10 @@ export default async function Home() {
       calls={result.calls}
       today={today}
       calendly={calendly}
-      payments={payments}
+      payments={payments?.days ?? null}
+      // Matched on the server: the buyer list holds addresses the client has
+      // no reason to receive, and only the disagreements need to travel.
+      reconciliation={payments ? reconcile(result.calls, payments.buyers) : null}
     />
   );
 }

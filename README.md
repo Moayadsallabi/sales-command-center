@@ -3,8 +3,8 @@
 A live dashboard for sales calls, covering both halves of the job: what the numbers
 say, and why the calls went that way.
 
-- **Commercial** — close rate, cash collected, revenue, show rate, and breakdowns by
-  outcome, offer tier and lead source.
+- **Commercial** — close rate, cash collected, revenue, and what was booked against
+  what was recorded.
 - **Per closer** — a leaderboard of every closer's calls, close rate, cash, average
   call score and average lead quality, plus the dimension each one is weakest on.
 - **Per call** — an eight-dimension scorecard with the pivotal moment of the call and
@@ -100,13 +100,16 @@ recordings and reads higher than the real one by however many of those there
 were.
 
 Connecting Calendly supplies the denominator. It adds what was booked against
-what was held, cancellations with how much notice they gave, show rate against
-how far ahead the call was booked, the utm source on the booking link, and the
-prospect's booking-form answers on each call's scorecard.
+what was held, how many cancellations came from your own side rather than the
+prospect, how many landed inside the last day, the utm source on the booking
+link, and the prospect's booking-form answers on each call's scorecard.
 
 A booking with no recording is never called a no-show. It is counted in the open
-as unaccounted for, and the show rate is quoted as a range until it is resolved —
-because "nobody turned up" and "nobody recorded it" need opposite fixes.
+as unaccounted for — "nobody turned up" and "nobody recorded it" need opposite
+fixes. There is deliberately no show-rate figure anywhere: while most of the
+calendar produces neither a recording nor a cancellation, the honest answer is a
+range tens of points wide, and the width of that range is the unaccounted-for
+count already on the panel.
 
 ```bash
 npm run check:calendly

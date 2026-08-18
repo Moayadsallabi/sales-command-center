@@ -1,4 +1,30 @@
-# Strip-down plan — RULED ON, mostly REJECTED. Do not execute as written.
+# Strip-down plan — superseded. See the 2026-08-18 ruling below before reading.
+
+## What actually happened, 2026-08-18
+
+Moayad re-opened the question a day later, from the other end: not "should this
+be a revenue dashboard" but **"does this section help us take an action that
+scales the business"**. Against that test the four charts went and the money
+stayed, so both rulings hold — the 2026-08-17 one below saved the money view,
+and this one removed the decoration around it.
+
+**Cut:** the Outcomes bar chart, Revenue Over Time, Lead Source Performance and
+Tier Distribution. The Show Rate tile, the funnel's show-rate stat and its
+lead-time buckets, the leaderboard's `On call` column, and the call table's
+`Niche` column. Measured against Brey's live tracker: `Collected On Call` was
+filled on 1 row of 84, `Niche` held 78 distinct free-text values across 84 rows,
+`Lead Source` was Unknown or blank on 33, and every show-rate figure on the page
+was a dash.
+
+**Added:** three things the page had no answer for — whether the tracker is
+still being fed, where Whop disagrees with the tracker, and who is owed a call
+back. The last of those found 31 open follow-ups worth $85,000, three of them
+over a month old, none of which the page had ever mentioned.
+
+The Notion column deletions proposed below still have not happened, and the
+money view still stays.
+
+---
 
 Written 2026-08-17 after measuring the dashboard against a real fortnight of
 Brey's calls. **Moayad ruled the same day and the central proposal did not

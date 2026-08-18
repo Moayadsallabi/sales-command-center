@@ -82,6 +82,15 @@ export function reportingRevenue(call: CallRecord): number {
   return toReporting(call.price_closed, call);
 }
 
+/**
+ * The price talked about on a call that did not close. Not revenue and not
+ * cash — it is what is still on the table on a follow-up, which is the only
+ * figure that can size an unworked pipeline.
+ */
+export function reportingDiscussed(call: CallRecord): number {
+  return toReporting(call.price_discussed, call);
+}
+
 /* ------------------------------------------------- which calls carry money */
 
 /**
