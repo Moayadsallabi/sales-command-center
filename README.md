@@ -312,9 +312,13 @@ only ever read server-side.
 
 ### The scheduled check
 
-`npm run check:scheduled` runs the payments reconciliation, and the coverage
-check when there is something to report, then posts one plain-English summary to
-Slack. It is meant to run on a schedule, not by hand.
+`npm run check:scheduled` runs the payments reconciliation and posts one
+plain-English summary to Slack. It is meant to run on a schedule, not by hand.
+
+It does **not** run `check:accuracy`. That one grades the matcher against a
+closer's tracking sheet the repo cannot ship — and against a frozen answer key,
+so it measures a code change rather than a week. [docs/accuracy.md](docs/accuracy.md)
+says when to run it.
 
 **It runs daily and speaks conditionally.** Money moves daily: a payment landing
 on a Tuesday leaves the tracker wrong until the next run, so anyone reading

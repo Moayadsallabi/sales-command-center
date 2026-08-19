@@ -5,10 +5,14 @@
  * ---------------------------------------------------------------------------
  * WHY THIS EXISTS
  *
- * check-payments and check-accuracy were both written to be run weekly and
- * neither had a schedule. Until today the payments one lived in a Mac calendar
- * entry that had never fired once — if that laptop was shut on a Monday
- * morning, the week was simply skipped, and nothing anywhere said so.
+ * check-payments was written to be run weekly and had no schedule. Until this
+ * was built it lived in a Mac calendar entry that had never fired once — if
+ * that laptop was shut on a Monday morning, the week was simply skipped, and
+ * nothing anywhere said so.
+ *
+ * check-accuracy started out in here too and was taken out on 2026-08-19; the
+ * long comment further down says why, and it is worth reading before putting it
+ * back.
  *
  * ---------------------------------------------------------------------------
  * WHY IT DOES NOT CORRECT ANYTHING
@@ -172,30 +176,6 @@ function paymentsSection({ code, output }) {
   return { mustFix, lines: out };
 }
 
-function accuracySection({ code, output }) {
-  if (code === 2 || code === 1) {
-    return [
-      "🚨 *Coverage check could not run.*",
-      "```" + output.trim().split("\n").slice(-4).join("\n") + "```",
-    ];
-  }
-
-  // The tally block the script prints: how many calls it found and got right.
-  const tally = output
-    .split("\n")
-    .filter((l) => /^\s{2}(on the calendar|in the tracker|answered|unsure|no booking)/.test(l))
-    .map((l) => "  " + l.trim());
-
-  const missing = output.includes("Recorded by the closer but missing from the tracker");
-
-  const out = ["*Coverage* — how much of what happened the system can see:"];
-  out.push(...(tally.length ? tally : ["  (the check printed no tally — see the run's log)"]));
-  if (missing) {
-    out.push("", "  ⚠️ Some calls the closer recorded are missing from the tracker entirely — those are absent from every figure on the dashboard, not just this one.");
-  }
-  return out;
-}
-
 /** Post to the alert relay, and treat anything but "ok" as an undelivered alert. */
 async function postAlert(text) {
   const url = process.env.OPS_ALERT_WEBHOOK;
@@ -224,17 +204,27 @@ const pay = paymentsSection(payments);
 const previous = ALWAYS_REPORT ? null : readState(STATE_DIR);
 const verdict = decide({ mustFix: pay.mustFix, previous, now: Date.now() });
 
-// The coverage check is only run when something is going to be sent. It replays
-// the matcher over a fixed answer key and takes minutes; on the six days a week
-// that stay quiet there is nobody to read the result.
-const accuracy = verdict.post ? await runScript("check-accuracy.mjs") : null;
+// The coverage check (check-accuracy) is deliberately NOT run here.
+//
+// It grades the matcher against a closer's own tracking sheet — a frozen record
+// of 48 calls from one fortnight in August. The answer key holds prospect names,
+// so .gitignore keeps it out of this repo and out of every image built from it;
+// a scheduled container therefore cannot ever have the file, and from the day
+// this moved off the laptop it reported "Coverage check could not run" every
+// week, in a message whose whole purpose is that silence means broken.
+//
+// Adding the file back would not fix the mismatch, only hide it. The answer key
+// does not change, so re-grading it weekly asks the same question of the same
+// data and can only produce a different answer when the matching CODE changes.
+// That makes it a check on a change, not a check on the week. It belongs beside
+// the change — `npm run check:accuracy`, before and after touching how bookings
+// are matched to calls — which is what docs/accuracy.md now says.
 
 const heading = verdict.reason === "heartbeat" ? "Weekly check" : "Payments check";
 const report = [
   `*${heading} — ${CLIENT}*`,
   "",
   ...pay.lines,
-  ...(accuracy ? ["", ...accuracySection(accuracy)] : []),
   "",
   reasonLine(verdict.reason, verdict.daysSince),
 ].join("\n");

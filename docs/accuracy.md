@@ -39,6 +39,27 @@ sheet, which is usually the most complete record that exists.
 repo ships to other clients — `.gitignore` excludes it and lets only the example
 through. Pass a different path as an argument to grade another closer or period.
 
+## When to run it
+
+**Before and after any change to how bookings are matched to calls.** That is
+the whole job: the number moves, or the change did nothing.
+
+**Not on a schedule, and it is deliberately absent from `npm run check:scheduled`.**
+Two reasons, and the second is the real one:
+
+1. The answer key cannot reach a deployed container. It is gitignored, so it is
+   in no image built from this repo. Between 17 and 19 August the scheduled run
+   called it anyway and posted "Coverage check could not run" into Slack every
+   week — noise inside the one message whose value depends on being trusted.
+2. Even with the file, a schedule would be asking the same question of the same
+   data. The answer key is frozen — 48 calls from one fortnight — so the number
+   can only move when the matching code moves. It measures a change, not a week.
+
+The live equivalent, the one that genuinely changes week to week, is
+`npm run check:payments`: buyers with money on the processor and no call on the
+tracker at all. That one *is* on the schedule, and its finding rides in the
+weekly Slack message.
+
 ## Reading the result
 
 ```
