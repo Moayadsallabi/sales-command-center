@@ -35,6 +35,28 @@ const GENERATED_BY =
 
 /* ------------------------------------------------------------------ prompt */
 
+/* QUOTING THE PROSPECT IS WHAT BROKE THE TRACKER ON 2026-08-19.
+
+   Every reasoning field asks the model to quote the transcript, and a quoted
+   phrase inside a JSON string value needs escaped double quotes. On Mason's
+   call the model got stuck emitting that escape sequence: 26,626 characters of
+   the same two bytes, 73% of the whole response, running straight into the
+   token ceiling. The scorecard was never closed, and the first 9,950
+   characters \u2014 a complete, correct scoring of the call \u2014 were thrown away.
+
+   THE SCHEMA CANNOT PREVENT THIS. The obvious fix is a maxLength on the free
+   text fields, and it is not available: Anthropic's structured-output JSON
+   Schema subset does not support maxLength or minLength, and this workflow
+   posts raw JSON rather than going through an SDK that would quietly strip an
+   unsupported keyword. Checked against the API reference before writing a cap
+   that would have been rejected on every call.
+
+   So prompting is the lever. The rule does NOT live in this generated prompt,
+   though: each client's live prompt is produced once by configure-client.mjs
+   with their own offer context and then edited in n8n, so a rule added here
+   reaches new clients only. It goes in the request body in the workflow
+   template instead, where it is appended to whatever system prompt that client
+   is running. Client-agnostic craft guidance, one home, every client. */
 function buildSystemPrompt(r) {
   const out = [];
 

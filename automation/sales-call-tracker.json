@@ -303,7 +303,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; return JSON.stringify({ model: 'claude-opus-5', max_tokens: 32000, thinking: { type: 'adaptive' }, output_config: { effort: 'high', format: { type: 'json_schema', schema: JSON.parse($json.output_schema) } }, system: $json.system_prompt, messages: [{ role: 'user', content: 'Review this sales call.\\n\\nTHE CALLER (the person selling, the one you are scoring): ' + d.closer + '\\nPROSPECT: ' + d.prospect_name + '\\nALL ATTENDEES: ' + d.attendees + '\\nCALL DATE: ' + d.call_date + '\\nDURATION: ' + d.duration_minutes + ' minutes\\n\\n--- TRANSCRIPT ---\\n\\n' + d.transcript }] }); })() }}",
+        "jsonBody": "={{ (() => { const d = $('Extract Direct Fields').item.json; return JSON.stringify({ model: 'claude-opus-5', max_tokens: 16000, thinking: { type: 'adaptive' }, output_config: { effort: 'high', format: { type: 'json_schema', schema: JSON.parse($json.output_schema) } }, system: $json.system_prompt + '\\n\\n## Writing the quotes\\n\\nWhen you quote the transcript inside any field, wrap the quoted words in SINGLE quotes. Never use double quotes inside a field \\u2014 they have to be escaped, and a long run of escapes is the one thing that can break this scorecard.\\n\\nKeep every written field to the length it asks for. A reasoning field is two to four sentences, not a transcript.', messages: [{ role: 'user', content: 'Review this sales call.\\n\\nTHE CALLER (the person selling, the one you are scoring): ' + d.closer + '\\nPROSPECT: ' + d.prospect_name + '\\nALL ATTENDEES: ' + d.attendees + '\\nCALL DATE: ' + d.call_date + '\\nDURATION: ' + d.duration_minutes + ' minutes\\n\\n--- TRANSCRIPT ---\\n\\n' + d.transcript }] }); })() }}",
         "options": {
           "timeout": 300000
         }
@@ -328,7 +328,7 @@
             {
               "id": "parse-ai",
               "name": "ai",
-              "value": "={{ (() => { if ($json.stop_reason === 'refusal') { throw new Error('Claude declined to score this call. stop_reason: refusal.'); } const block = ($json.content ?? []).find(b => b.type === 'text'); if (!block) { throw new Error('No text block in the Claude response. stop_reason: ' + $json.stop_reason); } return JSON.parse(block.text); })() }}",
+              "value": "={{ (() => { if ($json.stop_reason === 'refusal') { throw new Error('Claude declined to score this call. stop_reason: refusal.'); } if ($json.stop_reason === 'max_tokens') { throw new Error('Claude ran out of output budget before finishing the scorecard (stop_reason: max_tokens, ' + ($json.usage ? $json.usage.output_tokens : '?') + ' output tokens). The JSON is truncated, so nothing was written. Re-run this execution; if it repeats, the model is looping on one field.'); } const block = ($json.content ?? []).find(b => b.type === 'text'); if (!block) { throw new Error('No text block in the Claude response. stop_reason: ' + $json.stop_reason); } const raw = block.text; try { return JSON.parse(raw); } catch (e) { throw new Error('Claude returned text that is not valid JSON (' + raw.length + ' chars, stop_reason: ' + $json.stop_reason + '): ' + e.message); } })() }}",
               "type": "object"
             }
           ]
