@@ -119,7 +119,14 @@ function buildSystemPrompt(r) {
     // 1,500 discussed, refused, and written down as 1,500 closed. It was not
     // inventing a sale; nothing ever told it the second field means money the
     // prospect agreed to hand over.
-    "`price_discussed` is the number quoted or negotiated on the call, whatever came of it. `price_closed` is ONLY what the prospect actually agreed to pay. If the call did not end in a sale, `price_closed` is null however long the price was discussed — a number that was named and refused belongs in `price_discussed` alone. Both are null on a call where no figure was ever said out loud.",
+    /* THE PRICE RULE MOVED TO THE REQUEST BODY (2026-08-19).
+       A rule written here reaches only clients configured AFTER it lands: a
+       client's prompt is generated once with their own offer context and then
+       lives in n8n, where this file cannot touch it. Brey's live prompt was
+       built before this paragraph existed and never got it, so his scorecards
+       have been recording a price that was named and refused as a price
+       closed. Rules that must reach already-deployed clients ride the request
+       body in the workflow template instead — see 'Writing the quotes'. */
     "",
     "`collected_on_call` is money that actually changed hands **during the call** — a card taken while the prospect was still on the line. A deal that was agreed on the call but paid afterwards collected nothing on the call, so it is 0, not the price. Payments that land later are recorded by hand afterwards and are not your job to predict.",
     "",
