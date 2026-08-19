@@ -11,7 +11,15 @@ function scoreHex(score: number): string {
   return "#ef4444";
 }
 
-function Trend({ value }: { value: number }) {
+/**
+ * The change since the comparison period, named rather than called "prev".
+ *
+ * This read "vs last period" until 2026-08-19, which is the one phrasing the
+ * rest of the dashboard is written to avoid: with six presets and a custom
+ * range on the page there is no way to work out which period that was, and a
+ * comparison you cannot name is one you cannot act on.
+ */
+function Trend({ value, comparisonLabel }: { value: number; comparisonLabel: string }) {
   // Below this it is measurement wobble, not movement.
   if (Math.abs(value) < 0.3) {
     return <span className="text-[11px] text-zinc-400">no change</span>;
@@ -28,7 +36,7 @@ function Trend({ value }: { value: number }) {
     >
       <Icon className="h-3 w-3" strokeWidth={2} />
       {better ? "+" : ""}
-      {value.toFixed(1)} vs last period
+      {value.toFixed(1)} {comparisonLabel}
     </span>
   );
 }
@@ -41,11 +49,14 @@ function Trend({ value }: { value: number }) {
 export function WhatsCostingYou({
   calls,
   previousCalls,
+  comparisonLabel,
   closer,
   order = 0,
 }: {
   calls: CallRecord[];
   previousCalls: CallRecord[];
+  /** What the comparison is against, e.g. "vs 1–19 Jul". */
+  comparisonLabel: string;
   closer: string | null;
   order?: number;
 }) {
@@ -138,7 +149,9 @@ export function WhatsCostingYou({
                   >
                     {cost.average.toFixed(1)}
                   </div>
-                  {cost.trend != null && <Trend value={cost.trend} />}
+                  {cost.trend != null && (
+                    <Trend value={cost.trend} comparisonLabel={comparisonLabel} />
+                  )}
                 </div>
               </div>
 

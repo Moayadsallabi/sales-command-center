@@ -29,10 +29,10 @@ export function Delta({
   className,
 }: {
   current: number;
-  /** Null when there is no previous period — "All time" has none. */
+  /** Null when the window has no previous period to compare against. */
   previous: number | null;
   unit?: "ratio" | "points";
-  /** What the comparison is against, e.g. "vs prev 30 days". */
+  /** What the comparison is against, e.g. "vs 1–19 Jul". */
   label: string;
   className?: string;
 }) {

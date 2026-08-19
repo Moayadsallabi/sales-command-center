@@ -32,9 +32,9 @@ function span(from: string, to: string): number {
  * scattered payments into a rising line with no gaps in it, which is the exact
  * opposite of what happened. A day with nothing in it is drawn at zero.
  *
- * Long windows are BUCKETED, never sampled: "All time" over two years is
- * summed into equal blocks of days so every pound is still on the chart. A
- * sampled series would drop whole payments and quietly redraw the shape.
+ * Long windows are BUCKETED, never sampled: a year-to-date line is summed
+ * into equal blocks of days so every pound is still on the chart. A sampled
+ * series would drop whole payments and quietly redraw the shape.
  */
 export function dailyTotals(
   from: string,
@@ -60,9 +60,9 @@ export function dailyTotals(
 }
 
 /**
- * Bounds for a series when the window has none — "All time" has no first or
- * last day of its own, so it borrows the data's. Null when there is no dated
- * row to borrow from, which is the empty dashboard.
+ * Bounds for a series when the window has none — an open-ended window has no
+ * first or last day of its own, so it borrows the data's. Null when there is
+ * no dated row to borrow from, which is the empty dashboard.
  */
 function boundsOf(days: string[]): { from: string; to: string } | null {
   if (days.length === 0) return null;

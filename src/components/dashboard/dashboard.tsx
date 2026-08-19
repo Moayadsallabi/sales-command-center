@@ -14,6 +14,17 @@ import {
   funnelStats,
 } from "@/lib/bookings";
 import { cashSeries } from "@/lib/series";
+import {
+  DATE_RANGES,
+  DateRange,
+  DateWindow,
+  daysBetween,
+  monthEnd,
+  monthStart,
+  presetWindow,
+  previousWindow,
+  withinWindow,
+} from "@/lib/periods";
 import { Panel, usePanelMotion } from "./panel";
 import { KPICards } from "./kpi-cards";
 import { CoverageAlarm } from "./coverage-alarm";
@@ -29,83 +40,6 @@ import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
 import { SalesCommandMark } from "@/components/brand/logo";
 import { AlertTriangle, X } from "lucide-react";
-
-type DateRange = "30d" | "7d" | "90d" | "all" | "custom";
-
-const DATE_RANGES: { value: DateRange; label: string }[] = [
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
-  { value: "all", label: "All time" },
-  { value: "custom", label: "Custom" },
-];
-
-const RANGE_DAYS: Record<DateRange, number | null> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-  all: null,
-  // Custom carries its dates in state, not in a length.
-  custom: null,
-};
-
-/**
- * Both ends of the period on screen, inclusive, as YYYY-MM-DD. A `null` end is
- * unbounded — "All time" has neither.
- *
- * Every date filter on this page reads one of these rather than working out
- * its own cutoff. When each panel did its own arithmetic they could disagree
- * about what "this week" meant and nothing on screen would say so.
- */
-type DateWindow = { from: string | null; to: string | null };
-
-/** `isoDate` minus `days`, as YYYY-MM-DD. Pure — no clock reading. */
-function daysBefore(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().split("T")[0];
-}
-
-/** Whole days from `from` to `to` inclusive — the 9th to the 9th is one day. */
-function daysBetween(from: string, to: string): number {
-  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
-  return Math.round(ms / 86_400_000) + 1;
-}
-
-/**
- * A PRESET COUNTS ITS OWN LAST DAY. Seven days ending today is today plus the
- * six before it, so the first day is today minus SIX.
- *
- * It was today minus SEVEN until 2026-08-18, which made every preset one day
- * longer than its label. The seven-day cash tile showed eight days of money —
- * $10,175 for a week that took $8,175 — and because the comparison period
- * underneath was a true seven days, every window was measured against a
- * shorter one and each trend arrow leaned positive.
- */
-function presetWindow(today: string, days: number | null): DateWindow {
-  if (days === null) return { from: null, to: null };
-  return { from: daysBefore(today, days - 1), to: today };
-}
-
-/** Inclusive at both ends, and false for a record with no date to test. */
-function withinWindow(date: string | null | undefined, window: DateWindow): boolean {
-  if (window.from === null && window.to === null) return true;
-  if (!date) return false;
-  if (window.from !== null && date < window.from) return false;
-  if (window.to !== null && date > window.to) return false;
-  return true;
-}
-
-/**
- * The window of the same length ending the day before this one starts, which
- * is what every "vs last period" figure is measured against. An unbounded
- * window has no previous — there is nothing before all time.
- */
-function previousWindow(window: DateWindow): DateWindow | null {
-  if (window.from === null || window.to === null) return null;
-  const length = daysBetween(window.from, window.to);
-  return { from: daysBefore(window.from, length), to: daysBefore(window.from, 1) };
-}
 
 /** `2026-08-12` -> `12 Aug`, for the line under the range buttons. */
 function shortDate(iso: string): string {
@@ -133,11 +67,11 @@ export function Dashboard({
   reconciliation?: Reconciliation | null;
   demo?: boolean;
 }) {
-  const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const [dateRange, setDateRange] = useState<DateRange>("month");
   // Seeded with the opening preset's own dates, so the fields are never empty
   // when Custom is first picked. An empty end date reads as "no upper bound",
   // which would quietly show everything since the start date.
-  const [customFrom, setCustomFrom] = useState<string>(() => daysBefore(today, 29));
+  const [customFrom, setCustomFrom] = useState<string>(() => monthStart(today));
   const [customTo, setCustomTo] = useState<string>(today);
   const [selectedOutcomes, setSelectedOutcomes] = useState<Set<string>>(
     new Set()
@@ -162,13 +96,23 @@ export function Dashboard({
    * date change cannot move one number on the page and leave another behind.
    */
   const visibleWindow = useMemo<DateWindow>(() => {
-    if (dateRange !== "custom") return presetWindow(today, RANGE_DAYS[dateRange]);
+    if (dateRange !== "custom") return presetWindow(today, dateRange);
     // Picking an end date before the start date is a slip, not a request for
     // an empty page, so the pair is read in whichever order makes a range.
     const [from, to] =
       customFrom <= customTo ? [customFrom, customTo] : [customTo, customFrom];
     return { from, to };
   }, [dateRange, customFrom, customTo, today]);
+
+  /**
+   * THE COMPARISON PERIOD, WORKED OUT ONCE. The KPI deltas, the cash tile and
+   * the label under them all read this, so "vs last month" cannot mean July
+   * in one place and mid-July in another.
+   */
+  const priorWindow = useMemo(
+    () => previousWindow(visibleWindow, dateRange),
+    [visibleWindow, dateRange]
+  );
 
   const filtered = useMemo(() => {
     return calls.filter((c) => {
@@ -192,7 +136,7 @@ export function Dashboard({
   // the same outcome and source filters as the visible window — otherwise a
   // filtered view would be compared against an unfiltered past.
   const previous = useMemo(() => {
-    const prior = previousWindow(visibleWindow);
+    const prior = priorWindow;
     if (prior === null) return [];
     return calls.filter((c) => {
       if (!withinWindow(c.call_date, prior)) return false;
@@ -205,7 +149,7 @@ export function Dashboard({
         return false;
       return true;
     });
-  }, [calls, visibleWindow, selectedOutcomes, selectedSources]);
+  }, [calls, priorWindow, selectedOutcomes, selectedSources]);
 
   // The leaderboard always shows every closer — picking one narrows everything
   // below it, but never hides the people you are being compared against.
@@ -264,10 +208,10 @@ export function Dashboard({
     // A DATE IS ONLY REQUIRED WHEN THERE IS A WINDOW TO TEST IT AGAINST.
     //
     // Written the other way round first — `b.first && (!cutoff || ...)` — which
-    // silently dropped undated buyers even on "All time", so this line and the
-    // panel at the bottom of the page reported different counts for the same
-    // set. Two numbers for one thing is the fault this dashboard has spent the
-    // day removing; it is not worth reintroducing for an edge case.
+    // silently dropped undated buyers whenever the window was open at both
+    // ends, so this line and the panel at the bottom of the page reported
+    // different counts for the same set. Two numbers for one thing is the
+    // fault this dashboard has spent the day removing.
     const newUntracked = reconciliation
       ? reconciliation.untrackedBuyers.filter(
           (b) =>
@@ -280,7 +224,7 @@ export function Dashboard({
     // the cash tile has to compare like with like: the processor's figure
     // against the processor's figure, never against what closers logged. An
     // unbounded window has no previous period, so it has no baseline either.
-    const prior = previousWindow(visibleWindow);
+    const prior = priorWindow;
     const previousCollected =
       prior === null
         ? null
@@ -295,7 +239,7 @@ export function Dashboard({
       missedCount: newUntracked.length,
       missedWorth: newUntracked.reduce((sum, b) => sum + b.paid, 0),
     };
-  }, [payments, calls, reconciliation, visibleWindow, selectedOutcomes, selectedSources, selectedCloser]);
+  }, [payments, calls, reconciliation, visibleWindow, priorWindow, selectedOutcomes, selectedSources, selectedCloser]);
 
   /**
    * The cash line drawn under the cash total, built from whichever source that
@@ -309,12 +253,47 @@ export function Dashboard({
     [visibleWindow, bank, payments, scoped]
   );
 
-  /** What every delta on the page is measured against, spelled out. */
-  const comparisonLabel = useMemo(() => {
-    const prior = previousWindow(visibleWindow);
-    if (prior === null) return "";
-    return `vs prev ${daysBetween(prior.from!, prior.to!)} days`;
+  /**
+   * THE DATES THE PAGE IS ACTUALLY SHOWING, SPELLED OUT. A button reading
+   * "This month" cannot show an off-by-one; two real dates can, which is how
+   * the eight-day week was caught.
+   *
+   * A one-day window says the day once. "19 Aug – 19 Aug · 1 days" was what
+   * the Today button produced on the day it was added: a range whose two ends
+   * are the same date reads as a rendering fault, and "1 days" reads as one
+   * too — twice over, on the smallest window, where there is least else on
+   * screen to reassure you.
+   */
+  const windowLabel = useMemo(() => {
+    const { from, to } = visibleWindow;
+    if (!from || !to) return "Every call on record";
+    if (from === to) return `${shortDate(from)} · 1 day`;
+    return `${shortDate(from)} – ${shortDate(to)} · ${daysBetween(from, to)} days`;
   }, [visibleWindow]);
+
+  /**
+   * What every delta on the page is measured against, NAMED RATHER THAN
+   * COUNTED. "vs prev 19 days" is true and unusable: with calendar presets the
+   * reader cannot tell which 19 days, and a comparison you cannot name is one
+   * you cannot act on. Custom keeps the count, because a hand-picked range has
+   * no name to give.
+   */
+  const comparisonLabel = useMemo(() => {
+    const prior = priorWindow;
+    if (prior === null) return "";
+    if (dateRange === "custom") return `vs prev ${daysBetween(prior.from!, prior.to!)} days`;
+    if (dateRange === "today") return `vs ${shortDate(prior.from!)}`;
+    if (dateRange === "week") return `vs ${shortDate(prior.from!)} – ${shortDate(prior.to!)}`;
+    if (dateRange === "year") return `vs ${shortDate(prior.from!)} – ${shortDate(prior.to!)} ${prior.from!.slice(0, 4)}`;
+    // A whole month is named; a part-month says which part, so "vs Jul" can
+    // never claim all of July while holding its first nineteen days.
+    const full = prior.to === monthEnd(prior.to!);
+    const name = new Date(`${prior.to}T00:00:00Z`).toLocaleDateString("en-GB", {
+      month: "short",
+      timeZone: "UTC",
+    });
+    return full ? `vs ${name}` : `vs 1–${Number(prior.to!.slice(8, 10))} ${name}`;
+  }, [priorWindow, dateRange]);
 
   /**
    * Bookings narrowed the same way the calls above them are, so the funnel and
@@ -564,16 +543,8 @@ export function Dashboard({
                 </div>
               </div>
 
-              {/* THE DATES THE PAGE IS ACTUALLY SHOWING, SPELLED OUT. A button
-                  reading "7 days" cannot show an off-by-one; two real dates
-                  can, which is how the eight-day week was caught. */}
               <p className="truncate text-[11px] tabular-nums text-zinc-400">
-                {visibleWindow.from && visibleWindow.to
-                  ? `${shortDate(visibleWindow.from)} – ${shortDate(visibleWindow.to)} · ${daysBetween(
-                      visibleWindow.from,
-                      visibleWindow.to
-                    )} days`
-                  : "Every call on record"}
+                {windowLabel}
               </p>
             </div>
 
@@ -695,6 +666,7 @@ export function Dashboard({
           order={4}
           calls={scoped}
           previousCalls={previousScoped}
+          comparisonLabel={comparisonLabel}
           closer={selectedCloser}
         />
 

@@ -32,11 +32,11 @@ interface KPICardsProps {
   calls: CallRecord[];
   /**
    * The same window one period earlier, filtered the same way. Empty for
-   * "All time", which has no previous period — every delta hides there rather
+   * a window with no previous period — every delta hides there rather
    * than comparing against nothing.
    */
   previousCalls: CallRecord[];
-  /** What the comparison is against, e.g. "vs prev 30 days". */
+  /** What the comparison is against, e.g. "vs 1–19 Jul". */
   comparisonLabel: string;
   /** True when a payment feed is connected at all, filtered or not. */
   payments?: boolean;
@@ -51,7 +51,7 @@ interface KPICardsProps {
   bank?: {
     collected: number;
     trackerLogged: number;
-    /** The processor's total for the previous window. Null for "All time". */
+    /** The processor's total for the previous window. Null without one. */
     previousCollected: number | null;
     /** Buyers who first paid inside this window with no call anywhere. */
     missedCount: number;
@@ -424,9 +424,12 @@ function Tile({
           points={series}
           height={64}
           className="mt-4"
+          // The label now names a real period ("vs 1–19 Jul"), so the swap is
+          // on the leading "vs " rather than on the old "vs prev" wording,
+          // which stopped matching and left "…window, vs 1–19 Jul".
           label={`Cash collected per day across the window, ${comparisonLabel.replace(
-            "vs prev",
-            "compared with the previous"
+            /^vs (prev )?/,
+            (_m, prev) => (prev ? "compared with the previous " : "compared with ")
           )}`}
         />
       )}
