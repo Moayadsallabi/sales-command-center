@@ -75,6 +75,10 @@ const display = arg("name") ?? client;
 const currency = arg("currency");
 const channel = arg("channel");
 const tierCount = arg("tiers");
+// Every client's workflow lives on Moayad's n8n, not their own, so this is a
+// default rather than a required option — but it is overridable, because the
+// day it moves the alert links would otherwise all point at nothing.
+const n8nBase = arg("n8n") ?? process.env.N8N_BASE_URL ?? "https://moayad.app.n8n.cloud";
 
 if (!client || !database || !phrases.length || !offerPath) {
   fail(
@@ -169,6 +173,15 @@ nodeBy("Fathom Webhook").parameters.path = `fathom-webhook-${client}`;
 // It takes the false branch into the Slack alert, where a person decides. That
 // is deliberate: a generic title carries no evidence of what kind of call it
 // was, and guessing would file onboarding calls as sales.
+//
+// AND A PERSON CAN OVERRULE THE TITLE, BUT ONLY IN ONE DIRECTION.
+//
+// `force_score` is how the "Score this call" form gets an impromptu recording
+// scored: a human reads the Slack alert, decides it was a sales call, and the
+// form re-posts the same meeting with that flag set. It is checked AFTER the
+// blocks and never before them — vouching for a call is not a reason to file a
+// post-sale onboarding call as a sale, and the flag arrives on a webhook body
+// that anyone holding the URL can post.
 const filter = nodeBy("Is Sales Call?").parameters.conditions;
 filter.options.caseSensitive = false;
 filter.combinator = "and";
@@ -181,6 +194,7 @@ filter.conditions = [
       ' const title = String($json.body.meeting_title || "").toLowerCase();' +
       ` const blocked = ${literal(excludes)};` +
       " if (blocked.some((b) => title.includes(b))) return false;" +
+      " if ($json.body.force_score === true) return true;" +
       ` const sales = ${literal(phrases)};` +
       " return sales.some((s) => title.includes(s));" +
       " })() }}",
@@ -272,6 +286,21 @@ if (!JSON.stringify(alert.parameters).includes("__CLIENT_NAME__")) {
 }
 alert.parameters.text = alert.parameters.text.split("__CLIENT_NAME__").join(display);
 
+// AN ALERT THAT NAMES A PROBLEM AND NO ACTION GETS READ AND LEFT.
+//
+// The message used to end with "log it by hand" — a job with no tool, on a
+// call nobody could find again without going back through Fathom. It now
+// carries the one-field form that re-posts the recording for scoring, with the
+// recording id already in the link, so acting on the alert is a click.
+const scoreForm = `${n8nBase.replace(/\/+$/, "")}/form/score-call-${client}`;
+if (!JSON.stringify(alert.parameters).includes("__SCORE_FORM_URL__")) {
+  fail(
+    "The Untracked — Alert node has no __SCORE_FORM_URL__ placeholder.",
+    "An alert about an untracked call has to say how to get it tracked — check the template.",
+  );
+}
+alert.parameters.text = alert.parameters.text.split("__SCORE_FORM_URL__").join(scoreForm);
+
 // 5. The database id, in all three Notion nodes at once.
 const serialised = JSON.stringify(workflow);
 const occurrences = serialised.split(DB_PLACEHOLDER).length - 1;
@@ -288,6 +317,7 @@ const finalText = JSON.stringify(configured);
 if (finalText.includes(DB_PLACEHOLDER)) fail("A database-id placeholder survived.");
 if (finalText.includes("[OFFER CONTEXT")) fail("The offer placeholder survived.");
 if (finalText.includes("__CLIENT_NAME__")) fail("The client-name placeholder survived.");
+if (finalText.includes("__SCORE_FORM_URL__")) fail("The score-form placeholder survived.");
 if (configured.nodes.find((n) => n.name === "Fathom Webhook").parameters.path !== `fathom-webhook-${client}`) {
   fail("The webhook path did not take.");
 }
@@ -298,11 +328,13 @@ if (configured.nodes.find((n) => n.name === "Fathom Webhook").parameters.path !=
 // generic ad-hoc title must fail, so it lands in the Slack queue for a person
 // rather than being scored as a sale on no evidence.
 const liveFilter = configured.nodes.find((n) => n.name === "Is Sales Call?").parameters.conditions;
-const decide = (title) => {
+const decide = (title, extra = {}) => {
   const inner = liveFilter.conditions[0].leftValue
     .replace(/^=\{\{/, "")
     .replace(/\}\}$/, "");
-  return new Function("$json", `return (${inner});`)({ body: { meeting_title: title } });
+  return new Function("$json", `return (${inner});`)({
+    body: { ...extra, meeting_title: title },
+  });
 };
 for (const phrase of phrases) {
   if (!decide(`${phrase} with a prospect`)) {
@@ -314,6 +346,13 @@ for (const blocked of excludes) {
 }
 if (decide("Impromptu Google Meet Meeting")) {
   fail("An untitled ad-hoc meeting is being scored instead of raised for review.");
+}
+// The form's whole purpose is this branch, and the blocks still have to beat it.
+if (!decide("Impromptu Google Meet Meeting", { force_score: true })) {
+  fail("A call forced through the score form is still being turned away — the form does nothing.");
+}
+if (decide(`${phrases[0]} ${excludes[0] ?? "Onboarding"}`, { force_score: true })) {
+  fail("An excluded call can be forced through the score form.");
 }
 if (liveFilter.options.caseSensitive !== false) fail("Case sensitivity is still on.");
 
@@ -358,6 +397,7 @@ console.log(`  workflow name:  ${configured.name}`);
 console.log(`  webhook path:   fathom-webhook-${client}`);
 console.log(`  call phrases:   ${phrases.map((p) => `"${p}"`).join(", ")} (any, capitals ignored)`);
 console.log(`  database id:    ${databaseId} (3 nodes)`);
+console.log(`  score form:     ${scoreForm}  (linked from the untracked-call alert)`);
 console.log(`  offer context:  ${offer.length} characters`);
 console.log(
   `  currency:       ${rubric.commercial.defaultCurrency} when the call does not say` +

@@ -74,7 +74,7 @@
           "value": "sales-tracker",
           "mode": "name"
         },
-        "text": "={{ '👀 *__CLIENT_NAME__* — a Fathom recording was NOT tracked. Its title matched none of the sales-call phrases.\\n\\nTitle: ' + ($('Fathom Webhook').item.json.body.meeting_title ?? 'untitled') + '\\nRecorded by: ' + ($('Fathom Webhook').item.json.body.recorded_by?.name ?? 'unknown') + '\\nRecording: ' + ($('Fathom Webhook').item.json.body.share_url ?? $('Fathom Webhook').item.json.body.url ?? 'no link') + '\\n\\nIf that was a sales call, the invite was titled wrong — or it was impromptu and has no invite at all. Log it by hand, and remind the closer of the title rule.' }}",
+        "text": "={{ '👀 *__CLIENT_NAME__* — a Fathom recording was NOT tracked. Its title matched none of the sales-call phrases.\\n\\nTitle: ' + ($('Fathom Webhook').item.json.body.meeting_title ?? 'untitled') + '\\nRecorded by: ' + ($('Fathom Webhook').item.json.body.recorded_by?.name ?? 'unknown') + '\\nRecording ID: ' + ($('Fathom Webhook').item.json.body.recording_id ?? 'unknown') + '\\nRecording: ' + ($('Fathom Webhook').item.json.body.share_url ?? $('Fathom Webhook').item.json.body.url ?? 'no link') + '\\n\\nIf that was a sales call, score it here: __SCORE_FORM_URL__?recording=' + ($('Fathom Webhook').item.json.body.recording_id ?? '') + '\\n\\nIf it was not a sales call — a supplier, a candidate, an internal chat — ignore this and nothing happens. Impromptu calls have no invite for Fathom to name them from, so they can never match the title rule on their own.' }}",
         "otherOptions": {}
       },
       "id": "a1000000-0000-4000-8000-000000000004",

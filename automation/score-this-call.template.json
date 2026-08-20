@@ -1,0 +1,181 @@
+{
+  "name": "Score This Call \u2014 __CLIENT_NAME__",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Score a call that was not tracked",
+        "formDescription": "For a call Fathom recorded but the tracker skipped, usually because it was never booked through the calendar and so has no title to match. Paste the recording ID or the Fathom share link from the Slack alert. Covers the last __WINDOW_DAYS__ days.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Fathom recording ID or share link",
+              "fieldName": "recording",
+              "placeholder": "e.g. 175005047",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Prospect name (optional)",
+              "fieldName": "prospect_name",
+              "placeholder": "Leave blank if the call title already starts with their name"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Score it",
+          "path": "score-call-__CLIENT_SLUG__"
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "name": "Score a call",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.fathom.ai/external/v1/meetings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "include_transcript",
+              "value": "true"
+            },
+            {
+              "name": "include_summary",
+              "value": "true"
+            },
+            {
+              "name": "created_after",
+              "value": "={{ new Date(Date.now() - __WINDOW_DAYS__ * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "b1000000-0000-4000-8000-00000000000f",
+      "name": "Ask Fathom - __CLOSER__",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput",
+      "notes": "Needs __CLOSER__'s own Fathom API key attached as an HTTP Header Auth credential (X-Api-Key). Continues on error on purpose: a key that is missing or expired must not take the form away from every other closer. If nothing is found, the Find the call node names how many recordings each account returned, so an empty account reads as an empty account rather than as a bad recording ID."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick out the recording the form asked for and hand the tracker the same\n// shape Fathom's webhook sends, plus force_score.\n//\n// A Fathom key only ever reaches its OWN owner's recordings, so every closer's\n// account has to be asked separately and the answers pooled. Reading each\n// source defensively matters: a key that is missing or broken must not hide\n// the accounts that do work, and the not-found message names what came back\n// from each one so a missing key looks like a missing key rather than a bad ID.\n//\n// This is a Code node, not an expression on the HTTP body, deliberately: a\n// throw inside an n8n expression is swallowed and the body becomes the string\n// \"undefined\", so the only error names the wrong node and the wrong problem.\nconst form = $('Score a call').first().json;\nconst raw = String(form.recording || '').trim();\nif (!raw) { throw new Error('No recording was given.'); }\nconst idM = raw.match(/[0-9]{6,}/);\nconst id = idM ? idM[0] : null;\nconst tail = raw.indexOf('/') > -1 ? raw.split('/').pop().split('?')[0] : null;\n\nconst sources = __FATHOM_SOURCES__;\nlet list = [];\nconst seen = [];\nfor (const s of sources) {\n  let items = [];\n  try {\n    items = ($(s).all() || []).reduce(function (acc, i) { return acc.concat(i.json.items || i.json.data || []); }, []);\n  } catch (e) { items = []; }\n  list = list.concat(items);\n  const owners = items.map(function (i) { return (i.recorded_by || {}).name; }).filter(Boolean);\n  const who = owners.length ? ' (' + owners.filter(function (v, n, a) { return a.indexOf(v) === n; }).join(', ') + ')' : '';\n  seen.push(s.replace('Ask Fathom - ', '') + ': ' + items.length + who);\n}\n\nconst m = list.find(function (x) { return (id && String(x.recording_id) === id) || (tail && String(x.share_url || '').endsWith(tail)); });\nif (!m) { throw new Error('Could not find that recording. Searched ' + list.length + ' recordings from the last __WINDOW_DAYS__ days - ' + seen.join('; ') + '. A Fathom key only sees its own owner calls, so if the closer who recorded it is not listed above, their key is not attached to this workflow.'); }\n\n// The same floor the tracker's \"Has Transcript?\" gate uses. Caught here rather\n// than downstream so the person at the form is told why, instead of the call\n// silently becoming a No show row they have to go and find.\nconst words = (m.transcript || []).map(function (t) { return t.text || ''; }).join(' ').split(/\\s+/).filter(Boolean).length;\nif (words < __MIN_TRANSCRIPT_WORDS__) { throw new Error('That recording has only ' + words + ' words of transcript, so there is nothing to score. It is almost certainly a no-show.'); }\n\nconst body = Object.assign({}, m, { force_score: true });\nconst name = String(form.prospect_name || '').trim();\nif (name) { const t = String(m.meeting_title || m.title || ''); const after = t.indexOf(':') > 0 ? t.slice(t.indexOf(':') + 1).trim() : t; body.meeting_title = name + ': ' + after; }\nreturn [{ json: body }];"
+      },
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "Find the call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "__TRACKER_WEBHOOK__",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b1000000-0000-4000-8000-000000000003",
+      "name": "Send it to the tracker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "notes": "Posts to the tracker's own webhook rather than doing any scoring here, so a call rescued by hand goes through exactly the same dedupe, scoring and Notion write as one that arrived on its own."
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Sent for scoring",
+        "completionMessage": "The call is being scored now. It takes a couple of minutes to appear on the tracker. If anything goes wrong you will get the usual alert in the sales-tracker channel.",
+        "options": {}
+      },
+      "id": "b1000000-0000-4000-8000-000000000004",
+      "name": "Confirm",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        672,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Score a call": {
+      "main": [
+        [
+          {
+            "node": "Ask Fathom - __CLOSER__",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Fathom - __CLOSER__": {
+      "main": [
+        [
+          {
+            "node": "Find the call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the call": {
+      "main": [
+        [
+          {
+            "node": "Send it to the tracker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send it to the tracker": {
+      "main": [
+        [
+          {
+            "node": "Confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {}
+}

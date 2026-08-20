@@ -32,6 +32,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
+import { readSalesCallFilter, SalesCallFilterError } from "./lib/sales-call-filter.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -54,19 +55,16 @@ const since = new Date(Date.now() - days * 864e5);
 
 /* ------------------------------------- the workflow's own sales-call rule */
 
-const workflowPath = join(root, "automation/generated", `sales-call-tracker-${client}.json`);
-if (!existsSync(workflowPath)) {
-  console.error(`\n✗ No generated workflow for "${client}" at ${workflowPath}`);
-  console.error("  Run configure:client first, so this check can read its filter.\n");
+let isSalesCall;
+try {
+  ({ isSalesCall } = readSalesCallFilter(client, { root }));
+} catch (err) {
+  if (!(err instanceof SalesCallFilterError)) throw err;
+  console.error(`\n✗ ${err.message}`);
+  if (err.hint) console.error(`  ${err.hint}`);
+  console.error("");
   process.exit(1);
 }
-const workflow = JSON.parse(readFileSync(workflowPath, "utf8"));
-const node = workflow.nodes.find((n) => n.name === "Is Sales Call?");
-const expr = node.parameters.conditions.conditions[0].leftValue
-  .replace(/^=\{\{/, "")
-  .replace(/\}\}$/, "");
-const isSalesCall = (title) =>
-  new Function("$json", `return (${expr});`)({ body: { meeting_title: title } });
 
 /* ------------------------------------------------------------ the tracker */
 

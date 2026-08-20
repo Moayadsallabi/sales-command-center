@@ -263,14 +263,55 @@ expression fails on your machine rather than on a real sales call.
 
 Fathom fires the webhook when a transcript is ready. The workflow then:
 
-1. **Checks the meeting title** contains the sales-call keyword (default "Strategy
-   Call") — anything else is ignored.
+1. **Checks the meeting title** against the client's sales-call rule: blocked
+   phrases first, then the sales phrases. Blocks win, because "Funded Blueprint
+   Onboarding Call" contains "Funded Blueprint" and a post-sale call scored as a
+   sale inflates the close rate. A title matching neither is not guessed at — it
+   goes to Slack for a person, with a link to the form below.
 2. **Checks for a duplicate** by looking the recording's `Recording ID` up in
    Notion, so a webhook redelivery or manual re-run never writes a second row.
 3. **Checks there is a transcript.** Under 50 words, the call is logged as a
    `No show` with no scorecard instead of being scored on nothing.
 4. **Scores the call** against the rubric and writes the full row, including the
    rubric version that produced the scores.
+
+Anything that reads that first rule — `check:delivery`, `backfill:fathom`, the
+tests — reads it out of the client's generated workflow through
+`scripts/lib/sales-call-filter.mjs`. Nothing restates it. A second copy agrees
+until the day it does not: when the rule became one expression on 18 August 2026,
+`backfill:fathom` was still reading the old shape and refused to run at all.
+
+## Rescuing a call the tracker refused
+
+Google names an ad-hoc call "Impromptu Google Meet Meeting". It carries no
+evidence of what kind of call it was, so the tracker will not score it — and an
+alert with no action next to it gets read and left. The form is that action:
+
+```bash
+npm run configure:score-form -- --client brey --name "Brey" \
+  --closer Christian --closer Tpan
+```
+
+writes `automation/generated/score-this-call-<client>.json`. Import it, attach
+**one Fathom credential per "Ask Fathom - …" node** (HTTP Header Auth,
+`X-Api-Key`), and switch it on. It lives at `/form/score-call-<client>`, which
+is the link the untracked-call alert already carries.
+
+Paste a recording id or a Fathom share link, and the same meeting is re-posted
+to the tracker's own webhook with `force_score` set — so it goes through the
+identical dedupe, scoring and Notion write as a call that arrived on its own.
+Nothing is scored twice, and nothing is scored here.
+
+Two things worth knowing:
+
+- **One node per closer is not padding.** A Fathom key reaches its owner's
+  recordings and nothing else. A closer with no node is a closer whose calls the
+  form can never find, and it will say "could not find that recording" about a
+  call sitting in plain sight. The not-found message names how many recordings
+  each account returned, so an empty account reads as an empty account.
+- **`force_score` never beats an exclusion.** A person vouching for a call is
+  not a reason to file an onboarding call as a sale, so the blocks are checked
+  first. `configure:client` asserts both halves by running them.
 
 The Claude and Notion calls retry three times on transient failures. For anything
 that still fails, import [`automation/error-alert.json`](automation/error-alert.json)
@@ -383,7 +424,10 @@ schedule configured under the old name keeps working.
 rubric/rubric.json                        the scoring rubric — the one file to edit
 automation/*.template.json                n8n workflow wiring
 automation/sales-call-tracker.json        generated; import this into n8n
+automation/score-this-call.template.json  the form that rescues an untracked call
+automation/generated/                     per-client workflows — import these
 automation/error-alert.json               error workflow — alerts when a run fails
+scripts/lib/sales-call-filter.mjs         the one reader of the sales-call rule
 docs/notion-schema.md                     the columns your Notion database needs
 
 src/app/page.tsx                          server component, fetches from Notion

@@ -11,10 +11,9 @@
 // Two things stop a replay doing damage. The workflow queries Notion for the
 // Recording ID before it reaches the scoring step, so a call already on the
 // tracker costs one lookup and stops — re-running is free and creates no
-// duplicates. And this script filters on the same call-title phrases the
-// workflow does, read out of that client's generated workflow rather than
-// retyped here, so meetings it would reject never get sent and never trip the
-// untracked-call alert.
+// duplicates. And this script asks the client's own workflow whether a meeting
+// is a sales call, by running that workflow's filter expression, so meetings it
+// would reject never get sent and never trip the untracked-call alert.
 //
 // The key is read from the environment and never from an argument, so it stays
 // out of shell history and out of the process list.
@@ -28,11 +27,12 @@
 //
 // That prints what it would send and stops. Add --apply to send it.
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import {
+  readSalesCallFilter,
+  phraseListsIn,
+  SalesCallFilterError,
+} from "./lib/sales-call-filter.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const API = "https://api.fathom.ai/external/v1/meetings";
 
 /** The workflow logs a call as a no-show below this, rather than scoring it. */
@@ -82,41 +82,51 @@ if (!key) {
 if (!webhook) fail("--webhook needs the client's production webhook URL.");
 if (!client && phraseOverrides.length === 0) {
   fail(
-    "--client needs the client handle, so the call phrases can be read from their workflow.",
+    "--client needs the client handle, so the sales-call rule can be read from their workflow.",
     "Or pass --phrase once per phrase to filter on instead.",
   );
 }
 if (!Number.isFinite(days) || days <= 0) fail("--days must be a positive number.");
 
 /**
- * The phrases the client's workflow accepts, read from the workflow itself so
- * this can never filter on a list that has drifted from what n8n will take.
+ * The rule the client's workflow runs, or a hand-typed phrase list.
+ *
+ * The workflow's own filter is the default and should stay the default. It
+ * blocks before it matches — "Funded Blueprint Onboarding Call" contains
+ * "Funded Blueprint" — and a phrase list cannot express that, so --phrase is
+ * an escape hatch for a client who has no generated workflow yet, not a
+ * shortcut.
  */
-function phrasesFor(handle) {
-  const path = join(ROOT, "automation", "generated", `sales-call-tracker-${handle}.json`);
-  let workflow;
-  try {
-    workflow = JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    fail(
-      `No generated workflow for "${handle}" at ${path}.`,
-      "Run configure:client for them first, or pass --phrase to filter by hand.",
-    );
+function filterFor(handle, overrides) {
+  if (overrides.length > 0) {
+    const lower = overrides.map((p) => p.toLowerCase());
+    return {
+      source: `--phrase: ${overrides.map((p) => `"${p}"`).join(", ")}`,
+      handTyped: true,
+      isSalesCall: (title) => lower.some((p) => String(title ?? "").toLowerCase().includes(p)),
+    };
   }
-  const node = workflow.nodes.find((n) => n.name === "Is Sales Call?");
-  const conditions = node?.parameters?.conditions?.conditions ?? [];
-  const phrases = conditions.map((c) => c.rightValue).filter(Boolean);
-  if (phrases.length === 0) fail(`Found no call phrases in ${path}.`);
-  return phrases;
+  try {
+    const live = readSalesCallFilter(handle);
+    const lists = phraseListsIn(live.expression);
+    return {
+      source: lists
+        ? `${lists.sales.map((p) => `"${p}"`).join(", ")}` +
+          (lists.blocked.length
+            ? `\n              never: ${lists.blocked.map((b) => `"${b}"`).join(", ")}`
+            : "")
+        : live.expression,
+      handTyped: false,
+      isSalesCall: (title) => live.isSalesCall(title),
+    };
+  } catch (err) {
+    if (err instanceof SalesCallFilterError) fail(err.message, err.hint);
+    throw err;
+  }
 }
 
-const phrases = phraseOverrides.length > 0 ? phraseOverrides : phrasesFor(client);
-
-/** The same test the workflow's Is Sales Call? node makes: contains, any, case-insensitive. */
-function isSalesCall(title) {
-  const t = String(title ?? "").toLowerCase();
-  return phrases.some((p) => t.includes(p.toLowerCase()));
-}
+const filter = filterFor(client, phraseOverrides);
+const isSalesCall = (title) => filter.isSalesCall(title);
 
 function titleOf(meeting) {
   return meeting.meeting_title ?? meeting.title ?? "";
@@ -193,12 +203,20 @@ async function fetchAll() {
 }
 
 console.log(`\nFathom backfill — last ${days} days`);
-console.log(`Call phrases: ${phrases.map((p) => `"${p}"`).join(", ")}`);
+console.log(`Sales calls: ${filter.source}`);
 console.log(
   recordedBy.length > 0
     ? `Recorded by: ${recordedBy.join(", ")}`
     : "Recorded by: anyone this key can see",
 );
+if (filter.handTyped) {
+  console.log(
+    "  ⚠ --phrase replaces the workflow's rule with a plain contains-any list, so\n" +
+      "    nothing is excluded. An onboarding call whose title carries a sales phrase\n" +
+      "    will be sent and scored as a sale. Drop --phrase once the client has a\n" +
+      "    generated workflow.",
+  );
+}
 if (recordedBy.length === 0) {
   console.log(
     "  ⚠ Without --recorded-by this pulls every call the key can see, including\n" +
@@ -212,11 +230,11 @@ const sales = all
   .filter((m) => isSalesCall(titleOf(m)))
   .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-console.log(`\n${all.length} meetings in the window, ${sales.length} match the call phrases.\n`);
+console.log(`\n${all.length} meetings in the window, ${sales.length} match the sales-call rule.\n`);
 
 if (sales.length === 0) {
   console.log("Nothing to send. If that is wrong, check how the invites were titled —");
-  console.log(`the phrase has to appear in the title: ${phrases.map((p) => `"${p}"`).join(", ")}`);
+  console.log(`the rule reads the title and nothing else: ${filter.source}`);
   process.exit(0);
 }
 
