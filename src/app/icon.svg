@@ -1,16 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <!--
-    Browser-tab cut of the Sales Command Center mark. Same drawing as
-    components/brand/logo.tsx, but the lens is inset, its stroke thickened and
-    the bars widened so the shape survives being drawn at 16px. It carries its
-    own near-black tile because gold on its own washes out against light
-    browser chrome.
-  -->
-  <rect width="32" height="32" rx="7" fill="#09090b"/>
-  <path d="M5 16C9.2 9.4 22.8 9.4 27 16C22.8 22.6 9.2 22.6 5 16Z" fill="none" stroke="#d4af37" stroke-width="2.2"/>
-  <g fill="#d4af37">
-    <rect x="10.8" y="15.9" width="2.8" height="3.1" rx="1.2"/>
-    <rect x="14.6" y="14.7" width="2.8" height="4.3" rx="1.2"/>
-    <rect x="18.4" y="13.2" width="2.8" height="5.8" rx="1.2"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Perceptionism Lab">
+  <!-- Tab icon. Two differences from logo.svg, both because 16px is the size
+       that actually matters here:
+         · a dark plate, so the gold always sits on the background it was drawn
+           for instead of on whatever colour the browser paints its tab strip;
+         · no iris ring — three concentric strokes inside 16 pixels resolve as
+           one smudge, so the ring is dropped and the pupil carries the centre. -->
+  <defs>
+    <linearGradient id="pl-gold-fav" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b0882a"/>
+      <stop offset="0.42" stop-color="#f0d98a"/>
+      <stop offset="1" stop-color="#c99b32"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#09090b"/>
+  <path d="M6 32C17 15 47 15 58 32 47 49 17 49 6 32Z"
+        fill="none" stroke="url(#pl-gold-fav)" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="6.4" fill="url(#pl-gold-fav)"/>
 </svg>

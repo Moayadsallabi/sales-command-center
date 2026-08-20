@@ -62,7 +62,7 @@ cp .env.example .env.local
 | `NOTION_DATABASE_ID` | The 32-character id in the database URL. Dashes optional |
 | `CALENDLY_API_KEY` | Optional. Adds the booking side of the funnel. See [Bookings](#bookings) |
 | `CALENDLY_EVENT_TYPES` | Optional but strongly advised when Calendly is connected. Which event types are sales calls |
-| `NEXT_PUBLIC_BRAND_NAME` | Optional. Shown in the footer. Defaults to "Sales Analytics" |
+| `NEXT_PUBLIC_BRAND_NAME` | The client's business name. Titles the header and names the footer. Unset, the header falls back to "Sales Command Center" and the footer to "Sales Analytics" |
 | `DASHBOARD_PASSWORD` | Optional. See [Access control](#access-control) |
 | `DASHBOARD_USER` | Optional. Defaults to `admin` |
 | `DASHBOARD_DEMO_DATA` | Optional. Set to `1` to render invented sample calls instead of reading Notion, so you can see the dashboard before your first real call lands. Leave it unset in any real deployment |

@@ -415,6 +415,15 @@ export function Dashboard({
   const titleMotion = usePanelMotion(0);
   const controlsMotion = usePanelMotion(1);
 
+  /* WHOSE DASHBOARD THIS IS.
+     NEXT_PUBLIC_BRAND_NAME is the client's own business name, already set per
+     deployment and until now only spent on the footer. It belongs at the top:
+     the product name is the same on every client's copy, so it identifies
+     nothing, and a screenshot of this page arriving in a thread should say who
+     it is about without anyone captioning it. When the variable is unset the
+     header is exactly what it was — product name as the title, no eyebrow. */
+  const brandName = process.env.NEXT_PUBLIC_BRAND_NAME?.trim() || null;
+
   return (
     <div className="min-h-screen">
       {/* HEADER — ONE TITLE ROW, THEN ONE TOOLBAR.
@@ -428,15 +437,20 @@ export function Dashboard({
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
           <motion.div
             {...titleMotion}
-            className="flex min-w-0 flex-1 items-center gap-3"
+            className="flex min-w-[170px] flex-1 items-center gap-3"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gold-500/20 bg-gold-500/10">
-              <SalesCommandMark size={19} className="text-gold-500" />
+              <SalesCommandMark size={24} className="text-gold-500" />
             </div>
             <div className="min-w-0">
+              {brandName && (
+                <div className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-500">
+                  Sales Command Center
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-[15px] font-semibold tracking-tight text-zinc-100">
-                  Sales Command Center
+                  {brandName ?? "Sales Command Center"}
                 </h1>
                 {/* Invented data has to be unmistakable, and it used to say so
                     in a full-width amber band that pushed the numbers down the
