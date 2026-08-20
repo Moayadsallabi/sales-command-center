@@ -351,6 +351,32 @@ deployment or a password between clients.
 `.env.local` is gitignored and never leaves your machine. The Notion secret is
 only ever read server-side.
 
+### Addresses
+
+Because a deployment *is* a client, so is an address. Each client's service gets
+its own subdomain, named **`sales-<client>.perceptionismlab.com`** — product
+first so every Command Center sorts together in DNS and in Railway, beside
+`kpi.` (the KPI dashboard, which is genuinely multi-client and needs only one
+address) and `calendar.` (the Content OS).
+
+    sales-brey.perceptionismlab.com     →  Brey's service
+    sales-karan.perceptionismlab.com    →  Karan's service
+
+A bare `sales.` is the one name not to use. It reads as "the Command Center"
+when there is no such thing — there is one per client — so whoever opens it
+finds a login that will not accept the password they were given, with nothing on
+the page to explain why.
+
+Adding one: Railway → the client's service → Settings → Networking → Custom
+Domain, then a CNAME in Squarespace DNS with Host `sales-<client>` and the target
+Railway gives back. Railway issues the certificate itself. A service can hold
+several domains at once, so an address can be moved by adding the new one,
+checking it, and then removing the old — no downtime and no window where neither
+works.
+
+Nothing in the app reads its own hostname, so there is nothing to change in the
+code or the variables when an address is added or moved.
+
 ### The scheduled check
 
 `npm run check:scheduled` runs the payments reconciliation and posts one
