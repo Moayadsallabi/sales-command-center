@@ -25,12 +25,12 @@
     "Sales Command Center says on the page how many rows it left out, so the list",
     "cannot rot silently.",
     "",
-    "MATCHED ON notion_page_id WHEN THE ENTRY CARRIES ONE, and otherwise on",
-    "call_date + prospect_name together. The page id is the tracker row's own",
-    "identifier and is exact; the name is a fallback for entries written before",
-    "the id was recorded. The fallback is not safe on its own: the 2026-08-22 row",
-    "below is named literally 'Unknown', and two Unknown rows on one date would be",
-    "indistinguishable, so excluding one would exclude both. Give every new entry",
+    "MATCHED ON recording_share_id FIRST, then notion_page_id, then call_date +",
+    "prospect_name. Prefer the recording: it identifies the CALL, and survives the",
+    "row being deleted and re-created by the automation. A page id identifies one",
+    "ROW and dies with it. The name is the weakest of the three — the row below is",
+    "named literally 'Unknown', and two Unknown rows on one date would be",
+    "indistinguishable, so excluding one would exclude both.",
     "a notion_page_id.",
     "",
     "BEFORE YOU ADD A ROW, ASK WHOP WHETHER THE MONEY ARRIVED. A tracker row with",
@@ -63,13 +63,15 @@
     {
       "call_date": "2026-08-22",
       "prospect_name": "Ludgero Teixeira",
+      "recording_share_id": "JarxFotD6Gc7kq4PPPGrroyNLxYqEumk",
       "notion_page_id": "3c4a6b94-d53c-815b-9501-fbbde6ffbee8",
       "price_closed": 4000,
       "reason": "Not Brey's business, on three independent signals. (1) The prospect is Ludgero Teixeira of Lisbon; the Notion row is nameless, but Tpan's Fathom recording names him. (2) The call is an Amazon FBA mentorship at $4,000 for six months plus $200/month, and on it Tpan introduces himself as part of KEVIN'S team - Funded Blueprint is a trading offer. (3) No payment from Ludgero Teixeira has ever entered Brey's Whop account, checked across all 475 payments on 2026-08-24, unlike Jonathan Laguna whose money is there.",
       "not_to_be_confused_with": "Antonio Cepeda (acepeda1776@gmail.com), who paid Brey $4,000 on 2026-08-24 and IS a real Funded Blueprint buyer. Tpan's own sheet dates Antonio 8/22 and gives his row Jonathan's recording link, which is what made three separate people look like two. Antonio Cepeda has no call in Tpan's Fathom and no row on the tracker at all.",
       "ruled_by": "Moayad, chat 2026-08-24",
       "also_named_on_the_tracker_as": "Unknown — the row carried no name until 2026-08-24",
-      "row_archived_in_notion": "2026-08-24. The row itself was removed from Brey's tracker, so this entry is now a backstop: it holds if the row is ever restored from Notion's trash, or if the same call is recorded again."
+      "row_archived_in_notion": "2026-08-24. The row itself was removed from Brey's tracker, so this entry is now a backstop: it holds if the row is ever restored from Notion's trash, or if the same call is recorded again.",
+      "why_the_recording_id_is_the_key": "The Notion row was archived on 2026-08-24, and the automation is being widened to accept impromptu recordings — which would re-import this exact call as a NEW row with a new page id, silently escaping a page-id-only entry. The Fathom share id identifies the call itself and survives that."
     }
   ]
 }

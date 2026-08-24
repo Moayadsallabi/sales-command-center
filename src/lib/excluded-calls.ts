@@ -32,6 +32,13 @@ import { CallRecord } from "./types";
 export interface Exclusion {
   call_date?: string;
   prospect_name?: string;
+  /**
+   * The Fathom share id — the strongest key there is, because it identifies
+   * the CALL rather than the row. A Notion page id identifies one row, and a
+   * row can be deleted and re-created by the automation, at which point a
+   * page-id entry silently stops matching the very call it was written for.
+   */
+  recording_share_id?: string;
   notion_page_id?: string;
   price_closed?: number;
   reason?: string;
@@ -87,15 +94,32 @@ export function loadExclusions(file: string = FILE): Exclusion[] {
  * both must match — a first name like "Liam" on its own would sweep up every
  * other Liam who ever books.
  */
+/** The `xyz` out of `https://fathom.video/share/xyz`. */
+function shareId(url: string | null | undefined): string {
+  return String(url ?? "").split("/share/")[1]?.trim().toLowerCase() ?? "";
+}
+
 export function isExcluded(
   call: CallRecord,
   entries: Exclusion[]
 ): Exclusion | null {
   for (const entry of entries) {
+    // Recording first. It survives the row being deleted and re-created, which
+    // is exactly what happens when the automation is widened and re-imports a
+    // call somebody had already taken out by hand.
+    if (entry.recording_share_id) {
+      if (shareId(call.recording_url) === entry.recording_share_id.trim().toLowerCase()) {
+        return entry;
+      }
+      // An entry may carry both keys; fall through to the page id rather than
+      // giving up, so a row whose recording link was never filled in is still
+      // caught by the id it does have.
+    }
     if (entry.notion_page_id) {
       if (pageId(entry.notion_page_id) === pageId(call.id)) return entry;
       continue;
     }
+    if (entry.recording_share_id) continue;
     const date = day(call.call_date);
     const name = norm(call.name);
     if (!date || !name) continue;

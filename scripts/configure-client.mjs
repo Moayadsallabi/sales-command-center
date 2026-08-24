@@ -169,10 +169,28 @@ nodeBy("Fathom Webhook").parameters.path = `fathom-webhook-${client}`;
 // "Funded Blueprint Onboarding Call" contains "Funded Blueprint".
 //
 // A title matching nothing at all — Google Meet names an ad-hoc call
-// "Impromptu Google Meet Meeting" — is NOT scored and NOT silently dropped.
-// It takes the false branch into the Slack alert, where a person decides. That
-// is deliberate: a generic title carries no evidence of what kind of call it
-// was, and guessing would file onboarding calls as sales.
+// "Impromptu Google Meet Meeting" — has no evidence IN THE TITLE, so the
+// recording is judged instead: fifteen minutes or more, and a voice on it that
+// is not the closer's.
+//
+// THIS USED TO BE A FLAT REFUSAL, and the refusal went to a Slack queue for a
+// person to rule on. Measured on 2026-08-24, across one August that queue asked
+// for 29 rulings and was given 3 — and the unread ones included both calls a
+// second closer had recorded, so a whole closer was missing from the dashboard
+// while the alert worked perfectly. A queue nobody works is not a safety net.
+//
+// The two signals are what a sales call has and a mis-fire does not. Length
+// alone would let in a five-minute no-show and a long internal chat; a second
+// voice alone would let in any two-person meeting. The block list is still
+// checked FIRST and still wins, which is what keeps a 65-minute "Team Meeting"
+// with an outsider on it out — that case was tested against real recordings.
+// A call the evidence does not vouch for still goes to the Slack queue.
+//
+// WHAT THIS DELIBERATELY DOES NOT DO: it cannot tell whose OFFER the call was
+// about. A closer who sells a second product books it into the same calendar,
+// and one such call reached the tracker this way. The durable answer is the
+// scorer saying whether the pitch matched this client's offer — until that
+// exists, `excluded-calls.json` names them by hand, keyed on the recording.
 //
 // AND A PERSON CAN OVERRULE THE TITLE, BUT ONLY IN ONE DIRECTION.
 //
@@ -191,12 +209,22 @@ filter.conditions = [
     id: "meeting-title-filter",
     leftValue:
       "={{ (() => {" +
-      ' const title = String($json.body.meeting_title || "").toLowerCase();' +
+      " const b = $json.body || {};" +
+      ' const title = String(b.meeting_title || "").toLowerCase();' +
       ` const blocked = ${literal(excludes)};` +
-      " if (blocked.some((b) => title.includes(b))) return false;" +
-      " if ($json.body.force_score === true) return true;" +
+      " if (blocked.some((x) => title.includes(x))) return false;" +
+      " if (b.force_score === true) return true;" +
       ` const sales = ${literal(phrases)};` +
-      " return sales.some((s) => title.includes(s));" +
+      " if (sales.some((s) => title.includes(s))) return true;" +
+      // Every read below is guarded, because an expression that THROWS inside
+      // n8n does not fail loudly — it takes a branch, and the call is gone with
+      // no error anyone will see. A missing field must land on `false`.
+      " const mins = (Date.parse(b.recording_end_time) - Date.parse(b.recording_start_time)) / 60000;" +
+      " if (!(mins >= 15)) return false;" +
+      ' const host = ((b.recorded_by || {}).name) || "";' +
+      " const voices = new Set((b.transcript || []).map((t) => (((t || {}).speaker) || {}).display_name).filter(Boolean));" +
+      " voices.delete(host);" +
+      " return voices.size >= 1;" +
       " })() }}",
     rightValue: "",
     operator: { type: "boolean", operation: "true", singleValue: true },
@@ -344,8 +372,39 @@ for (const phrase of phrases) {
 for (const blocked of excludes) {
   if (decide(`${phrases[0]} ${blocked}`)) fail(`"${blocked}" is not being blocked.`);
 }
+// An ad-hoc title with nothing behind it must still be refused — no duration,
+// no transcript, nothing to vouch for it.
 if (decide("Impromptu Google Meet Meeting")) {
-  fail("An untitled ad-hoc meeting is being scored instead of raised for review.");
+  fail("An ad-hoc meeting with no evidence at all is being scored.");
+}
+// ...and with the evidence, it must be accepted, or a closer who works outside
+// the booking link is invisible again.
+const adHocEvidence = {
+  recording_start_time: "2026-08-23T18:02:00Z",
+  recording_end_time: "2026-08-23T19:05:00Z",
+  recorded_by: { name: "The Closer" },
+  transcript: [
+    { speaker: { display_name: "The Closer" } },
+    { speaker: { display_name: "A Prospect" } },
+  ],
+};
+if (!decide("Impromptu Google Meet Meeting", adHocEvidence)) {
+  fail("A 63-minute ad-hoc call with a prospect on it is being refused.");
+}
+if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, transcript: [{ speaker: { display_name: "The Closer" } }] })) {
+  fail("A call with nobody but the closer on it is being scored.");
+}
+if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, recording_end_time: "2026-08-23T18:07:00Z" })) {
+  fail("A five-minute ad-hoc call is being scored.");
+}
+// The block list beats the evidence. A long team meeting has both signals.
+if (decide(`${excludes[0] ?? "Onboarding"} catch-up`, adHocEvidence)) {
+  fail("An excluded call is getting in on evidence — the block list must be checked first.");
+}
+// A malformed body must land on false rather than throwing, because a throw
+// inside an n8n expression is silent.
+if (decide("Impromptu Google Meet Meeting", { transcript: null, recorded_by: null })) {
+  fail("A body with null fields is being scored instead of refused.");
 }
 // The form's whole purpose is this branch, and the blocks still have to beat it.
 if (!decide("Impromptu Google Meet Meeting", { force_score: true })) {

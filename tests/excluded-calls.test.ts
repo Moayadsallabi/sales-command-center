@@ -39,6 +39,32 @@ describe("excluded calls", () => {
     expect(kept.map((c) => c.id)).toEqual(["ccc-ddd"]);
   });
 
+  it("matches on the recording, so a re-created row is still caught", () => {
+    // The exact regression this key exists for: the row was archived, the
+    // automation was widened, and the same call came back as a NEW page.
+    const entries = [
+      {
+        recording_share_id: "JarxFotD6Gc7kq4PPPGrroyNLxYqEumk",
+        notion_page_id: "3c4a6b94-d53c-815b-9501-fbbde6ffbee8",
+      },
+    ];
+    const reimported = call({
+      id: "a-brand-new-page-id",
+      name: "Unknown",
+      recording_url: "https://fathom.video/share/JarxFotD6Gc7kq4PPPGrroyNLxYqEumk",
+    });
+    expect(isExcluded(reimported, entries)).toBe(entries[0]);
+
+    // And the original row, whose recording link may never have been filled in.
+    const original = call({ id: "3c4a6b94-d53c-815b-9501-fbbde6ffbee8", recording_url: null });
+    expect(isExcluded(original, entries)).toBe(entries[0]);
+
+    // A different call is untouched by either key.
+    expect(
+      isExcluded(call({ recording_url: "https://fathom.video/share/somethingelse" }), entries)
+    ).toBeNull();
+  });
+
   it("matches a page id however its dashes are written", () => {
     const entries = [{ notion_page_id: "3c3a6b94-d53c-816d-a543-e9727964967b" }];
     const c = call({ id: "3c3a6b94d53c816da543e9727964967b" });
@@ -82,7 +108,10 @@ describe("excluded calls", () => {
     // and put back on 2026-08-24. This asserts the correction stays corrected.
     expect(dates).not.toContain("2026-08-21");
     for (const entry of entries) {
-      expect(entry.notion_page_id, `${entry.prospect_name} needs a page id`).toBeTruthy();
+      expect(
+        entry.recording_share_id || entry.notion_page_id,
+        `${entry.prospect_name} needs a recording id or a page id`
+      ).toBeTruthy();
       expect(entry.reason, `${entry.prospect_name} needs a reason`).toBeTruthy();
       expect(entry.ruled_by, `${entry.prospect_name} needs who ruled it`).toBeTruthy();
     }

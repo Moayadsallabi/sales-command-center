@@ -25,7 +25,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { readSalesCallFilter } from "./lib/sales-call-filter.mjs";
+import { readSalesCallFilter, phraseListsIn } from "./lib/sales-call-filter.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -143,7 +143,7 @@ const minutes = (m) =>
  * four-minute one, because a list of thirty is only worked if the top of it
  * pays.
  */
-function looksLikeASalesCall(m) {
+function looksLikeASalesCall(m, refusal) {
   const long = minutes(m) >= 15;
   const outsider = (m.calendar_invitees ?? []).some((i) => i.is_external);
   const speakers = new Set(
@@ -151,10 +151,34 @@ function looksLikeASalesCall(m) {
   );
   const host = m.recorded_by?.name;
   const otherVoice = [...speakers].some((s) => s !== host);
-  return { long, outsider, otherVoice, score: (long ? 2 : 0) + (outsider ? 2 : 0) + (otherVoice ? 1 : 0) };
+  // A call refused by NAME is never promoted, however long it ran and whoever
+  // was on it. The first version of this scored on length and outsiders alone
+  // and put two 65-minute "Team Meeting" recordings at the top of the queue —
+  // the two calls the block list exists to reject, recommended hardest. Length
+  // and an outsider are what a team meeting looks like too.
+  const score = refusal === "blocked-by-name"
+    ? -1
+    : (long ? 2 : 0) + (outsider ? 2 : 0) + (otherVoice ? 1 : 0);
+  return { long, outsider, otherVoice, score };
+}
+
+/**
+ * Why this recording was refused — the two are not the same queue.
+ *
+ * "blocked-by-name" means somebody wrote "onboarding" or "team meeting" into
+ * the block list on purpose, and the rule did what it was told. Those want
+ * listing, so a mis-named sales call is still findable, but never ranking.
+ *
+ * "no-phrase-matched" is the real backlog: a call whose title simply says
+ * nothing, which is every impromptu recording ever made.
+ */
+function refusalKind(title, blockedPhrases) {
+  const t = String(title ?? "").toLowerCase();
+  return blockedPhrases.some((b) => t.includes(b)) ? "blocked-by-name" : "no-phrase-matched";
 }
 
 const filter = readSalesCallFilter(CLIENT);
+const BLOCKED_PHRASES = phraseListsIn(filter.expression)?.blocked ?? [];
 
 console.log(`\nRecordings since ${SINCE}, against the rule ${CLIENT}'s workflow is actually running.\n`);
 
@@ -184,7 +208,7 @@ for (const { who, key } of RECORDERS) {
     }
     blocked += 1;
     if (onTracker) blockedAndRescued += 1;
-    else dropped.push({ who, m });
+    else dropped.push({ who, m, refusal: refusalKind(m.title, BLOCKED_PHRASES) });
   }
   totalPassed += passed;
   totalBlocked += blocked;
@@ -209,13 +233,11 @@ if (dropped.length === 0) {
 // and a queue printed newest-first hides exactly the calls that have rotted.
 dropped.sort((a, b) => a.m.recording_start_time.localeCompare(b.m.recording_start_time));
 
-console.log(
-  `\n${dropped.length} recording(s) were refused and never ruled on. ` +
-    `Each line ends with the link that scores it.\n`
-);
+const queue = dropped.filter((d) => d.refusal === "no-phrase-matched");
+const onPurpose = dropped.filter((d) => d.refusal === "blocked-by-name");
 
-for (const { who, m } of dropped) {
-  const s = looksLikeASalesCall(m);
+function line({ who, m, refusal }) {
+  const s = looksLikeASalesCall(m, refusal);
   const marks = [
     s.long ? `${minutes(m)}m` : `${minutes(m)}m short`,
     s.outsider ? "outsider on the invite" : null,
@@ -232,7 +254,23 @@ for (const { who, m } of dropped) {
 }
 
 console.log(
-  `Lines marked !! have both length and an outside participant, which is what a\n` +
-    `sales call looks like from here. Nothing above has been changed — this only\n` +
-    `reads. Scoring one is a click on its own link.\n`
+  `\n${queue.length} recording(s) had a title that named nothing, and nobody ruled\n` +
+    `on them. This is the backlog. Each line ends with the link that scores it.\n`
 );
+queue.forEach(line);
+
+console.log(
+  `Lines marked !! ran past fifteen minutes AND had someone from outside on\n` +
+    `them, which is what a sales call looks like from here. Nothing above has\n` +
+    `been changed — this only reads. Scoring one is a click on its own link.\n`
+);
+
+if (onPurpose.length > 0) {
+  console.log(
+    `\n${onPurpose.length} more were refused BY NAME — their titles contain ` +
+      `${BLOCKED_PHRASES.map((b) => `"${b}"`).join(", ")}.\n` +
+      `That is the rule working, not a backlog, so none of them are ranked. They\n` +
+      `are listed only in case a sales call was given one of those names by mistake.\n`
+  );
+  onPurpose.forEach(line);
+}
