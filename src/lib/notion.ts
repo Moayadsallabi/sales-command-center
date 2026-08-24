@@ -235,6 +235,8 @@ export async function queryAllCalls(): Promise<CallRecord[]> {
         },
         the_moment: extractRichText(props["The Moment"]),
         next_call_drill: extractRichText(props["Next Call Drill"]),
+        offer_match: extractSelect(props["Offer Match"]),
+        offer_evidence: extractRichText(props["Offer Evidence"]),
         notion_url: pageUrl(page.id),
       });
     }

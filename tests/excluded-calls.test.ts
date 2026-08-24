@@ -80,6 +80,28 @@ describe("excluded calls", () => {
     expect(isExcluded(call({ name: "Someone Else", call_date: "2026-08-21" }), entries)).toBeNull();
   });
 
+  it("drops a row the scorer marked as a different offer, with no list entry", () => {
+    const foreign = call({ name: "Ludgero", offer_match: "different offer", offer_evidence: "\"I'm part of Kevin's team\" [00:02]" });
+    const ours = call({ name: "Alan", offer_match: "this offer" });
+    const unsure = call({ name: "Maybe", offer_match: "unclear" });
+    // Scored before the column existed. Must be counted, not hidden.
+    const old = call({ name: "Older", offer_match: null });
+
+    const empty = fileWith({});
+    const { kept, excluded } = partitionCalls([foreign, ours, unsure, old], empty);
+
+    expect(kept.map((c) => c.name)).toEqual(["Alan", "Maybe", "Older"]);
+    expect(excluded).toHaveLength(1);
+    expect(excluded[0].call.name).toBe("Ludgero");
+    // The reason shown on the page is the scorer's own evidence, not a stock line.
+    expect(excluded[0].entry.reason).toContain("Kevin's team");
+  });
+
+  it("is not fooled by capitals or padding in the verdict", () => {
+    const { excluded } = partitionCalls([call({ offer_match: "  Different Offer " })], fileWith({}));
+    expect(excluded).toHaveLength(1);
+  });
+
   it("excludes nothing when the file is missing or malformed", () => {
     const calls = [call(), call()];
     expect(partitionCalls(calls, join(tmpdir(), "no-such-file.json")).kept).toHaveLength(2);

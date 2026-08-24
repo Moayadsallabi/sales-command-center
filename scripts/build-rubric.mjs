@@ -75,6 +75,16 @@ function buildSystemPrompt(r) {
 
   for (const p of r.scoringPrinciples) out.push(`- ${p}`);
 
+  if (r.offerMatch) {
+    out.push(
+      "",
+      `## ${r.offerMatch.heading}`,
+      ""
+    );
+    for (const w of r.offerMatch.why) out.push(w, "");
+    for (const i of r.offerMatch.instruction) out.push(`- ${i}`);
+  }
+
   out.push(
     "",
     `## The ${numberWord(r.dimensions.length)} dimensions`,
@@ -318,6 +328,28 @@ function buildOutputSchema(r) {
   // down what they mean, and it returns.
   const schema = obj({
     outcome: { type: "string", enum: r.commercial.outcomes },
+    // Whose product was sold. Every other field on this row describes HOW the
+    // call went; this one answers whether the call was ours to count at all,
+    // and nothing else on the row can distinguish it.
+    ...(r.offerMatch
+      ? {
+          offer_match: obj({
+            verdict: {
+              type: "string",
+              enum: r.offerMatch.verdicts,
+              description:
+                `${r.offerMatch.heading} Answer "${r.offerMatch.verdicts[1]}" only when the transcript ` +
+                `positively identifies a different product. Answer "${r.offerMatch.default}" whenever you cannot tell.`,
+            },
+            evidence: {
+              type: "string",
+              description:
+                "The line from the transcript that decides it, with its [mm:ss]. " +
+                "When the verdict is unclear, say what was missing instead.",
+            },
+          }),
+        }
+      : {}),
     ...(r.commercial.tiers.length
       ? { tier: nullable({ type: "integer", enum: r.commercial.tiers }) }
       : {}),

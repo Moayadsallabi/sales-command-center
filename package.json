@@ -29,7 +29,8 @@
     "check:rules": "node scripts/check-rules.mjs",
     "check:weekly": "node scripts/weekly-checks.mjs",
     "check:scheduled": "node scripts/weekly-checks.mjs",
-    "check:dropped": "node scripts/check-dropped.mjs"
+    "check:dropped": "node scripts/check-dropped.mjs",
+    "check:claims": "node scripts/check-claims.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

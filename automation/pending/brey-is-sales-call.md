@@ -1,4 +1,4 @@
-# Brey — paste this into "Is Sales Call?"
+# Brey — two changes waiting for a human
 
 **Why this is a file and not already live:** the edit to the running workflow was
 refused by a permission guard on 2026-08-24. Everything about it is finished and
@@ -43,15 +43,51 @@ silently, so every read is guarded.
 4. Confirm with `npm run check:dropped -- --client brey --since 2026-08-25` a
    day later: new ad-hoc calls should stop appearing in the backlog.
 
-## One thing this does NOT do
+---
 
-It cannot tell whose **offer** the call was about. A closer selling a second
-product books it into the same calendar, and widening the gate means such a call
-now reaches the tracker automatically instead of needing a human to wave it
-through. `excluded-calls.json` catches the one known case, keyed on the
-recording so it holds even when the row is re-created — but the real answer is
-the scorer reporting whether the pitch matched this client's offer. That is the
-next build, and it should not wait long.
+# 2. The offer check — built, and it needs the workflow regenerating
+
+The gate above is deliberately blind to whose **product** was sold. That is
+fine while a human waves each ad-hoc call through, and not fine once they walk
+in on their own — so this was built the same day.
+
+**What it does.** The scorer already receives the client's offer description;
+that is what it judges the pitch against. It now also answers, in the same
+response, whether the thing being *sold* on the call was that offer, and quotes
+the line that decides it. Both land on the tracker as `Offer Match` and
+`Offer Evidence`, **which already exist on Brey's database** — added and
+verified on 2026-08-24, all 51 columns present.
+
+**A row marked `different offer` reaches no figure on either dashboard.** No
+list, no memory, nobody remembering to add anything. Ludgero's Amazon call would
+have been caught by this on the day, from the sentence where Tpan introduces
+himself as part of Kevin's team.
+
+**`unclear` is counted normally, and so is any row scored before the columns
+existed.** Only the positive verdict removes anything. Deleting a real sale is
+the expensive mistake — one was deleted that way on 22 August and took two days
+to put back — so the burden of proof sits entirely on that one verdict.
+
+## How to apply both changes at once
+
+The filter above and the offer check are both in the generator now, so one
+regeneration carries both:
+
+```bash
+cd sales-command-center && npm run configure:client -- --client brey --name "Brey" --database <brey's database id> --phrase "Profitability Game Plan" --phrase "The Funded Blueprint" --exclude "Onboarding" --exclude "Team Meeting" --exclude "Standup" --exclude "Internal" --channel "<the alert channel>" --offer rubric/clients/brey.local.md
+```
+
+Then import the written file into n8n and re-attach the two credentials.
+
+**The webhook address does not change** — it is `fathom-webhook-brey`, derived
+from the client name, so Fathom keeps talking to it after the import. That is
+the one thing worth checking after: post a test call and confirm an execution
+appears.
+
+If you would rather not re-import, the three nodes that changed are
+**Is Sales Call?** (the expression below), **Load Rubric** (the system prompt
+and the output schema), and **Write to Notion** (two more properties). The
+expression is the only one small enough to paste by hand.
 
 ## The expression
 

@@ -80,6 +80,8 @@ export function call(over: Partial<CallRecord> = {}): CallRecord {
     },
     the_moment: "",
     next_call_drill: "",
+    offer_match: null,
+    offer_evidence: "",
     notion_url: "",
     ...over,
   };

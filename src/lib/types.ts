@@ -86,6 +86,17 @@ export interface CallRecord {
   next_call_drill: string;
   /** Link to the call's Notion page, where the full written breakdown lives. */
   notion_url: string;
+  /**
+   * Whose product was sold, decided by the scorer from the transcript.
+   *
+   * Every other field says HOW the call went. This one says whether the call
+   * was this client's business at all — a closer who sells two products books
+   * both into one calendar, and nothing else on the row can tell them apart.
+   * Null on any row scored before the field existed, which is read the same as
+   * "unclear": counted, not hidden.
+   */
+  offer_match: string | null;
+  offer_evidence: string;
 }
 
 /** True when the call has a full set of dimension scores to render. */

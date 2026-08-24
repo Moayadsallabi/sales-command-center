@@ -19,6 +19,13 @@
  * down over an optional file, and the fault it guards against (a few thousand
  * dollars counted that should not be) is smaller than the one it would cause.
  *
+ * THE LIST IS THE FALLBACK, NOT THE MECHANISM. The scorer now reads the
+ * client's offer description and reports whether the call was actually about
+ * it, into the tracker's `Offer Match` column. A row it marks "different offer"
+ * is dropped here too, without anybody adding anything to a file. This list
+ * stays for the cases that predate the column, and for the ones a person has to
+ * rule on by hand.
+ *
  * EVERY CLIENT KEY IN THE FILE IS READ, not just one. This deployment already
  * points at exactly one client's tracker, so there is no client name to select
  * on that could be typed wrong — and a mistyped name would exclude nothing at
@@ -142,14 +149,38 @@ export function partitionCalls(
   file: string = FILE
 ): { kept: CallRecord[]; excluded: ExcludedCall[] } {
   const entries = loadExclusions(file);
-  if (entries.length === 0) return { kept: calls, excluded: [] };
 
   const kept: CallRecord[] = [];
   const excluded: ExcludedCall[] = [];
   for (const call of calls) {
-    const entry = isExcluded(call, entries);
+    const entry = isExcluded(call, entries) ?? foreignOffer(call);
     if (entry) excluded.push({ call, entry });
     else kept.push(call);
   }
   return { kept, excluded };
+}
+
+/**
+ * The scorer's own verdict, treated as an exclusion.
+ *
+ * Only the positive verdict counts. "unclear" is left in and null is left in —
+ * a row scored before the column existed must not vanish, and a call the model
+ * could not read is still this client's until somebody says otherwise. Dropping
+ * a real sale is the expensive mistake here, so the burden sits entirely on the
+ * one verdict that means the transcript named a different product.
+ */
+export const FOREIGN_OFFER = "different offer";
+
+function foreignOffer(call: CallRecord): Exclusion | null {
+  if (String(call.offer_match ?? "").trim().toLowerCase() !== FOREIGN_OFFER) {
+    return null;
+  }
+  return {
+    call_date: call.call_date ?? undefined,
+    prospect_name: call.name,
+    reason:
+      call.offer_evidence?.trim() ||
+      "The scorer read the transcript as selling a different product.",
+    ruled_by: "the scorer, from the transcript",
+  };
 }

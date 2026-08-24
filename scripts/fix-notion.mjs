@@ -85,6 +85,17 @@ const SPEC = {
   Summary: { rich_text: {} },
   "The Moment": { rich_text: {} },
   "Next Call Drill": { rich_text: {} },
+  // Whose product was sold, and the line that decides it. The options must
+  // exist before the first write: Notion rejects a write naming an option the
+  // select does not have, which takes down the whole row, not just the field.
+  ...(rubric.offerMatch
+    ? {
+        [rubric.offerMatch.column]: {
+          select: { options: rubric.offerMatch.verdicts.map((name) => ({ name })) },
+        },
+        [rubric.offerMatch.evidenceColumn]: { rich_text: {} },
+      }
+    : {}),
   "Recording ID": { number: {} },
   "Rubric Version": { rich_text: {} },
   ...Object.fromEntries(rubric.dimensions.map((d) => [d.column, { number: {} }])),

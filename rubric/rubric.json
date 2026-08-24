@@ -672,5 +672,27 @@
       "Unknown"
     ],
     "tiers": []
+  },
+  "offerMatch": {
+    "heading": "Was this call about the offer above?",
+    "column": "Offer Match",
+    "evidenceColumn": "Offer Evidence",
+    "verdicts": [
+      "this offer",
+      "different offer",
+      "unclear"
+    ],
+    "default": "unclear",
+    "why": [
+      "A closer who sells more than one product books all of it into one calendar, because the calendar belongs to the closer and not to the product. So a call can be recorded correctly, scored correctly, and still be none of this client's business.",
+      "Nothing else on the row can tell the difference. The closer, the price, the outcome and the length all look identical either way. Until this field existed the only defence was a hand-written list of names, which held whatever somebody remembered to add to it.",
+      "One such call reached this tracker in August 2026: an Amazon FBA mentorship sold for $4,000 by a closer who also sells the client's trading offer. The transcript said so plainly in the first two minutes — the caller introduced himself as part of a different team, and named a different product. It cost three days and two wrong rulings to work out by hand what the transcript said outright."
+    ],
+    "instruction": [
+      "Decide whether the thing being SOLD on this call is the offer described under 'The offer being sold' above. Judge the product, not the prospect: someone who runs an e-commerce shop can still be buying a trading mentorship, and that is 'this offer'.",
+      "Quote the line that decides it, with its [mm:ss]. Strongest evidence first: the caller naming the product or the team they work for, then the structure and price of what was pitched, then what the prospect says they came for.",
+      "Answer 'different offer' ONLY when the transcript positively identifies a different product — a different name, a different team, a different thing being delivered. A call that is simply hard to follow is 'unclear'.",
+      "Answer 'unclear' whenever you cannot tell. That is a real answer and it costs nothing: an unclear call is still counted, it is only flagged for a person to read. A wrong 'different offer' deletes a real sale from the client's revenue, so the burden of proof sits on that verdict alone."
+    ]
   }
 }

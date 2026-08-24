@@ -1,0 +1,62 @@
+{
+  "_README": [
+    "CLAIMS THAT MONEY WAS MISSING, AND WHAT SOMEBODY DID ABOUT IT.",
+    "",
+    "\"The processor has not seen this money\" is a reading of one moment. It is",
+    "not a fact about the deal, and it expires. A payment can land the next day;",
+    "a row with no prospect email reads as unmatched however much the buyer paid.",
+    "",
+    "WHY THIS FILE EXISTS [STATED - Moayad, chat 2026-08-24]: \"what tends to",
+    "happen is u tell me theres no 750$ collected in the whop and then i tell u to",
+    "0 it out, but then the payment comes in or u just didnt look properly and u",
+    "never end up updating.\" That is the whole failure. Somebody edits a figure on",
+    "the strength of a check, the check turns out to have been early or wrong, and",
+    "the corrected figure sits there being wrong for ever because nothing ever",
+    "asks the question a second time.",
+    "",
+    "So every time a missing-money finding is ACTED ON - a figure changed, a row",
+    "corrected, a call excluded - it gets written down here. `npm run check:claims`",
+    "re-asks the processor about every open claim on every run, and shouts when",
+    "money has since arrived. A claim is never closed by time passing; it is closed",
+    "by a person, with a reason.",
+    "",
+    "It has already caught two: Liam's $750, which arrived on the day of the call",
+    "and was about to be deleted from the tracker, and Jonathan Laguna's $4,000,",
+    "which had been in Whop for a day when his call was excluded for not being in",
+    "Whop.",
+    "",
+    "STATUS is one of: open (still believed), reopened (money has since been",
+    "found - somebody must undo what they did), closed (ruled on by a person, with",
+    "a reason and a date)."
+  ],
+  "claims": [
+    {
+      "id": "liam-750-2026-08-22",
+      "client": "Funded Blueprint",
+      "prospect_name": "Liam",
+      "call_date": "2026-08-20",
+      "claim": "No payment of $750 was found in Whop for this call.",
+      "amount": 750,
+      "claimed_on": "2026-08-22",
+      "acted_on": "The team was told to change Collected On Call to $0 on the tracker row.",
+      "status": "closed",
+      "resolution": "2026-08-24: Whop shows liamb2507@yahoo.com paid $750 on 2026-08-20, the day of the call. The instruction was retracted before anybody carried it out. [STATED - Moayad, chat 2026-08-24: 'yes then mark the 750$'] The row stands at $750.",
+      "closed_on": "2026-08-24",
+      "closed_because": "Moayad ruled the $750 stands. The instruction to zero it was retracted before anybody carried it out, so nothing needs undoing."
+    },
+    {
+      "id": "jonathan-laguna-4000-2026-08-22",
+      "client": "Funded Blueprint",
+      "prospect_name": "Jonathan Laguna",
+      "call_date": "2026-08-21",
+      "claim": "This $4,000 never entered Brey's Whop account, so the call belongs to another offer.",
+      "amount": 4000,
+      "claimed_on": "2026-08-22",
+      "acted_on": "The call was excluded from both dashboards.",
+      "status": "closed",
+      "resolution": "2026-08-24: Whop shows jonathanlagunas147@gmail.com paid $2,500 and $1,500 on 2026-08-21, on Brey's only product. The row simply carries no prospect email, which is what made it read as unmatched. The exclusion was reversed and the call is back on both dashboards.",
+      "closed_on": "2026-08-24",
+      "closed_because": "The exclusion was reversed the same day and the call is back on both dashboards, so nothing is left wrong."
+    }
+  ]
+}

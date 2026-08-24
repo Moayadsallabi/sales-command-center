@@ -41,6 +41,31 @@ Leave the number columns on Notion's plain **Number** format rather than Dollar.
 The row's own `Currency` says what the amounts are, and a dollar sign stamped on
 every column would misprice every non-USD deal on sight.
 
+## Whose offer was sold
+
+| Column | Type | Options |
+| --- | --- | --- |
+| `Offer Match` | Select | this offer, different offer, unclear |
+| `Offer Evidence` | Text | The line from the transcript that decides it |
+
+Every other column on the row says **how** the call went. These two say whether
+the call was your business at all.
+
+A closer who sells more than one product books all of it into one calendar,
+because the calendar belongs to the closer and not to the product — so a call
+can be recorded correctly, scored correctly, and still be nothing to do with
+you. Nothing else on the row can tell the difference: the closer, the price, the
+outcome and the length look identical either way.
+
+**A row marked `different offer` reaches no figure on either dashboard.** It is
+still written, so there is a record and so the verdict can be argued with, but
+it is out of revenue, out of the close rate and off the leaderboard.
+
+`unclear` is counted normally. So is a row scored before these columns existed,
+which reads as empty. Only the positive verdict removes anything, because
+deleting a real sale is the expensive mistake — one was deleted this way on
+2026-08-22 by a person, and it took two days to put back.
+
 ## Scorecard
 
 Eight dimension scores, 1–10. `Quality Score` holds their average, which is what the

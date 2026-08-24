@@ -47,6 +47,15 @@ const REQUIRED_PROPS = {
   "Prospect Email": "email",
   Summary: "rich_text",
   "The Moment": "rich_text",
+  // Whose product was sold. Missing these does not break scoring, but it does
+  // mean another offer's calls are counted as this client's with nothing to
+  // notice — which is what happened before they existed.
+  ...(rubric.offerMatch
+    ? {
+        [rubric.offerMatch.column]: "select",
+        [rubric.offerMatch.evidenceColumn]: "rich_text",
+      }
+    : {}),
   "Next Call Drill": "rich_text",
   // Written by the workflow, not read by the dashboard: dedupe + provenance.
   "Recording ID": "number",

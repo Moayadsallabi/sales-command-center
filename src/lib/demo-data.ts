@@ -400,6 +400,8 @@ function buildCall({
     },
     the_moment: feedback ? `${feedback.moment} [${stamp}]` : "",
     next_call_drill: feedback?.drill ?? "",
+    offer_match: "this offer",
+    offer_evidence: "",
     notion_url: "https://www.notion.so/",
   };
 }
