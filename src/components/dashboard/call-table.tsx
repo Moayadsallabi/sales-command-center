@@ -7,13 +7,29 @@ import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
 
+/** One tracker row left out of the dashboard, and why. */
+export interface ExcludedNote {
+  name: string;
+  call_date: string | null;
+  reason: string;
+}
+
 export function CallTable({
   calls,
   onSelect,
+  excluded = [],
   order = 0,
 }: {
   calls: CallRecord[];
   onSelect: (call: CallRecord) => void;
+  /**
+   * Rows on the tracker that are not this client's business — another offer
+   * sold by the same closer, booked into the same calendar. They are named
+   * here because the list that holds them is hand-written: it only ever
+   * contains what somebody remembered to add, and a count on the page is what
+   * makes a stale one noticeable.
+   */
+  excluded?: ExcludedNote[];
   order?: number;
 }) {
   const sorted = [...calls].sort((a, b) => {
@@ -27,7 +43,13 @@ export function CallTable({
       <div className="p-5 pb-0">
         <PanelHeader
           title="All calls"
-          subtitle="Click a row to open its scorecard."
+          subtitle={
+            excluded.length > 0
+              ? `Click a row to open its scorecard. ${excluded.length} tracker ${
+                  excluded.length === 1 ? "row is" : "rows are"
+                } left out as another offer's business.`
+              : "Click a row to open its scorecard."
+          }
           right={
             <span className="font-mono text-[13px] tabular-nums text-zinc-400">
               {sorted.length}
@@ -41,6 +63,29 @@ export function CallTable({
                 contract behind it. The totals at the top of the page do convert
                 — that is why a euro row can read differently in the two places.
               </p>
+              {excluded.length > 0 && (
+                <>
+                  <p>
+                    Left out as another offer&apos;s business, so they reach no
+                    number on this page:
+                  </p>
+                  <ul>
+                    {excluded.map((e) => (
+                      <li key={`${e.call_date}-${e.name}`}>
+                        <strong>{e.name}</strong>
+                        {e.call_date ? `, ${e.call_date}` : ""}
+                        {e.reason ? ` — ${e.reason}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  <p>
+                    These are named by hand, one at a time, because no column on
+                    the tracker says which offer a call was for. The list holds
+                    only what somebody added to it, so a row that belongs to the
+                    other offer and is not on it still counts here.
+                  </p>
+                </>
+              )}
               <p>
                 Lead and Call score are two different questions. The lead is who
                 turned up; the call score is how it was run. A blank lead means

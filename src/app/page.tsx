@@ -4,6 +4,7 @@ import { queryPayments, isWhopConfigured, WhopRead } from "@/lib/whop";
 import { linkBookings, CalendlyState } from "@/lib/bookings";
 import { CallRecord } from "@/lib/types";
 import { reconcile } from "@/lib/reconcile";
+import { partitionCalls } from "@/lib/excluded-calls";
 import { settle } from "@/lib/settle";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
@@ -116,8 +117,24 @@ export default async function Home() {
 
   if (!result.ok) return <SetupNotice failure={result.failure} />;
 
+  // Rows that belong to another offer, dropped before anything else sees them.
+  // A closer who sells two products books both into one tracker, so a row can
+  // be filled in correctly and still not be this client's business. Doing it
+  // here — ahead of bookings, reconciliation and settlement — is what stops an
+  // excluded call being matched to a booking, or turned back into a win by a
+  // payment. See excluded-calls.json for why it is a list and not a rule.
+  const { kept, excluded } = partitionCalls(result.calls);
+  if (excluded.length > 0) {
+    console.log(
+      `Excluded ${excluded.length} call(s) that belong to another offer: ` +
+        excluded
+          .map((e) => `${e.call.name || "Unknown"} (${e.call.call_date ?? "no date"})`)
+          .join(", ")
+    );
+  }
+
   const [calendly, payments] = await Promise.all([
-    loadBookings(result.calls),
+    loadBookings(kept),
     loadPayments(),
   ]);
 
@@ -130,8 +147,8 @@ export default async function Home() {
   // round would settle the calls first and leave reconcile with nothing to
   // report — the disagreement would vanish from the page instead of being
   // named, and the Notion rows would never get corrected.
-  const reconciliation = payments ? reconcile(result.calls, payments.buyers) : null;
-  const calls = settle(result.calls, reconciliation);
+  const reconciliation = payments ? reconcile(kept, payments.buyers) : null;
+  const calls = settle(kept, reconciliation);
 
   return (
     <Dashboard
@@ -140,6 +157,11 @@ export default async function Home() {
       calendly={calendly}
       payments={payments?.days ?? null}
       reconciliation={reconciliation}
+      excluded={excluded.map((e) => ({
+        name: e.call.name || "Unknown",
+        call_date: e.call.call_date,
+        reason: e.entry.reason ?? "",
+      }))}
     />
   );
 }

@@ -30,7 +30,7 @@ import { KPICards } from "./kpi-cards";
 import { CoverageAlarm } from "./coverage-alarm";
 import { WhopGap } from "./whop-gap";
 import { FollowUps } from "./follow-ups";
-import { CallTable } from "./call-table";
+import { CallTable, ExcludedNote } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
 import { WhatsCostingYou } from "./whats-costing-you";
 import { DimensionImpact } from "./dimension-impact";
@@ -56,6 +56,7 @@ export function Dashboard({
   calendly,
   payments = null,
   reconciliation = null,
+  excluded = [],
   demo = false,
 }: {
   calls: CallRecord[];
@@ -65,6 +66,13 @@ export function Dashboard({
   payments?: PaymentDay[] | null;
   /** Rows where the processor and the tracker disagree. Null without Whop. */
   reconciliation?: Reconciliation | null;
+  /**
+   * Tracker rows left out because they belong to another offer. Passed down
+   * only to be SAID on the page: the list they come from holds whatever a
+   * person remembered to add, so a page that dropped rows silently would give
+   * a stale list nowhere to show.
+   */
+  excluded?: ExcludedNote[];
   demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("month");
@@ -693,7 +701,12 @@ export function Dashboard({
 
         <ObjectionPanel order={7} calls={scoped} />
 
-        <CallTable order={8} calls={scoped} onSelect={setOpenCall} />
+        <CallTable
+          order={8}
+          calls={scoped}
+          onSelect={setOpenCall}
+          excluded={excluded}
+        />
 
         {/* DATA HEALTH. Everything above describes the business; these
             describe how much of it the page can actually see.

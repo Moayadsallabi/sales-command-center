@@ -65,6 +65,27 @@ for (const sibling of SIBLINGS) {
 }
 if (!compared) ok("the other dashboard is not on this machine — comparison skipped");
 
+// 3. The exclusion list is duplicated for the same reason and carries the same
+// risk: two copies of "this call is not the client's business" that disagree
+// means one dashboard counts another offer's money and the other does not.
+const mineExcluded = join(repo, "excluded-calls.json");
+const theirExcluded = resolve(repo, "..", "perceptionismlabkpis", "excluded-calls.json");
+if (existsSync(mineExcluded)) {
+  const rawExcluded = readFileSync(mineExcluded, "utf8");
+  const counted = Object.entries(JSON.parse(rawExcluded))
+    .filter(([k]) => !k.startsWith("_"))
+    .reduce((n, [, list]) => n + (Array.isArray(list) ? list.length : 0), 0);
+  ok(`excluded-calls.json lists ${counted} call(s) that belong to another offer`);
+  if (!existsSync(theirExcluded)) {
+    ok("the other dashboard is not on this machine — exclusion comparison skipped");
+  } else if (readFileSync(theirExcluded, "utf8") === rawExcluded) {
+    ok(`excluded-calls.json identical to ${theirExcluded}`);
+  } else {
+    fail(`excluded-calls.json DRIFTED from ${theirExcluded}`);
+    console.error(`        Copy the newer file over the older one, whole. Never edit one side.`);
+  }
+}
+
 if (rules.outcomes?.refund?.NEEDS_A_RULING) {
   console.log(`\n  note  an open ruling is recorded in the file:\n        ${rules.outcomes.refund.NEEDS_A_RULING}`);
 }
