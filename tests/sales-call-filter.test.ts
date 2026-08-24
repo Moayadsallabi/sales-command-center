@@ -96,3 +96,74 @@ describe.skipIf(!configured)("a call a person has vouched for", () => {
     expect(scores("Impromptu Google Meet Meeting", { force_score: "true" })).toBe(false);
   });
 });
+
+/**
+ * THE QUESTION HAS TO BE ASKED WITH THE WHOLE RECORDING.
+ *
+ * On 2026-08-24 the rule stopped being about titles alone: a call whose title
+ * names nothing is accepted when it ran 15+ minutes AND somebody other than
+ * the closer speaks on it. The library grew a `body` argument for that, and
+ * check-dropped.mjs was updated to pass it.
+ *
+ * backfill-fathom.mjs was not — and it is the only tool that can recover the
+ * backlog. So the one script whose job was to rescue 31 ad-hoc recordings went
+ * on applying the old title-only rule to them, and reported Christian's two
+ * calls as "0 match the sales-call rule" hours after the workflow had been
+ * widened specifically to accept them. Nothing failed; it just quietly found
+ * nothing, which is the worst way for this to go wrong.
+ *
+ * These cases pin both halves: what the rule says with the evidence, and what
+ * it says without it. The second one is not a bug — it is the trap, written
+ * down, so the next caller passing a bare title can see why it answers "no".
+ */
+describe.skipIf(!configured)("an ad-hoc call judged on evidence", () => {
+  // Christian's 23 August recording: 63 minutes, the prospect audible on it,
+  // and a $3,000 close his own sheet records. Google titled it "Impromptu
+  // Google Meet Meeting" because he started it in a bare room.
+  const longCallWithAProspect = {
+    recording_start_time: "2026-08-23T15:00:00Z",
+    recording_end_time: "2026-08-23T16:03:00Z",
+    recorded_by: { name: "Christian Pinto" },
+    transcript: [
+      { speaker: { display_name: "Christian Pinto" }, text: "so where are you at right now" },
+      { speaker: { display_name: "John Jones" }, text: "about four thousand down this month" },
+    ],
+  };
+
+  it("is scored when it ran long enough and someone else spoke", () => {
+    expect(scores("Impromptu Google Meet Meeting", longCallWithAProspect)).toBe(true);
+  });
+
+  it("is refused when the same recording is offered as a bare title", () => {
+    // THE BACKFILL BUG, pinned. Same call, no evidence attached, opposite answer.
+    expect(scores("Impromptu Google Meet Meeting")).toBe(false);
+    expect(scores("Impromptu Google Meet Meeting", {})).toBe(false);
+  });
+
+  it("is refused when nobody but the closer speaks on it", () => {
+    // A recorded no-show, or a closer talking to themselves. Length alone is
+    // not evidence of a sales call.
+    expect(
+      scores("Impromptu Google Meet Meeting", {
+        ...longCallWithAProspect,
+        transcript: [{ speaker: { display_name: "Christian Pinto" }, text: "anyone there" }],
+      })
+    ).toBe(false);
+  });
+
+  it("is refused when it was too short to be a sales call", () => {
+    expect(
+      scores("Impromptu Google Meet Meeting", {
+        ...longCallWithAProspect,
+        recording_end_time: "2026-08-23T15:09:00Z",
+      })
+    ).toBe(false);
+  });
+
+  it("still loses to the block list, however long it ran", () => {
+    // The blocks are checked first. A 90-minute team meeting is a team meeting.
+    expect(
+      scores("Team Meeting", { ...longCallWithAProspect, recording_end_time: "2026-08-23T16:30:00Z" })
+    ).toBe(false);
+  });
+});

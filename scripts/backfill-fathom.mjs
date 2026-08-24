@@ -103,6 +103,9 @@ function filterFor(handle, overrides) {
     return {
       source: `--phrase: ${overrides.map((p) => `"${p}"`).join(", ")}`,
       handTyped: true,
+      // A hand-typed phrase list IS only about titles, so the body is ignored
+      // here on purpose — the signature matches so callers need not care which
+      // kind of filter they hold.
       isSalesCall: (title) => lower.some((p) => String(title ?? "").toLowerCase().includes(p)),
     };
   }
@@ -117,7 +120,7 @@ function filterFor(handle, overrides) {
             : "")
         : live.expression,
       handTyped: false,
-      isSalesCall: (title) => live.isSalesCall(title),
+      isSalesCall: (title, body) => live.isSalesCall(title, body),
     };
   } catch (err) {
     if (err instanceof SalesCallFilterError) fail(err.message, err.hint);
@@ -126,7 +129,31 @@ function filterFor(handle, overrides) {
 }
 
 const filter = filterFor(client, phraseOverrides);
-const isSalesCall = (title) => filter.isSalesCall(title);
+
+/* THE RULE IS ASKED WITH THE WHOLE RECORDING, NOT JUST ITS TITLE (2026-08-25).
+
+   The live rule stopped being about titles alone on 2026-08-24: a call whose
+   title names nothing is now accepted when it ran 15+ minutes AND somebody
+   other than the closer speaks on it. readSalesCallFilter's own comment warns
+   that handing it a title and an empty body "answers a question the rule no
+   longer answers: every ad-hoc call comes back refused when the live workflow
+   accepts it" — and that is exactly what this script was doing.
+
+   The effect was that the ONE tool able to recover the backlog applied the old
+   title-only rule to it. Brey's two Christian recordings came back "0 match
+   the sales-call rule" hours after the workflow had been widened specifically
+   to accept them, and 31 ad-hoc recordings stayed unrecoverable.
+
+   check-dropped.mjs already asked properly. This is the same question, in the
+   same shape the webhook sends. */
+const isSalesCall = (meeting) =>
+  filter.isSalesCall(titleOf(meeting), {
+    meeting_title: titleOf(meeting),
+    recording_start_time: meeting.recording_start_time,
+    recording_end_time: meeting.recording_end_time,
+    recorded_by: meeting.recorded_by,
+    transcript: meeting.transcript,
+  });
 
 function titleOf(meeting) {
   return meeting.meeting_title ?? meeting.title ?? "";
@@ -227,7 +254,7 @@ console.log("");
 
 const all = await fetchAll();
 const sales = all
-  .filter((m) => isSalesCall(titleOf(m)))
+  .filter((m) => isSalesCall(m))
   .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
 console.log(`\n${all.length} meetings in the window, ${sales.length} match the sales-call rule.\n`);
