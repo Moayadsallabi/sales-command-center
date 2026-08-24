@@ -121,7 +121,16 @@ export function readSalesCallFilter(client, { root = ROOT } = {}) {
   return {
     path,
     expression,
-    /** What the automation would do with this title. `body` adds fields such as force_score. */
+    /**
+     * What the automation would do with this recording.
+     *
+     * `body` is the webhook body — the whole Fathom meeting object. It used to
+     * carry nothing but overrides like `force_score`, because the rule read
+     * nothing but the title. The rule now also reads the recording's length
+     * and who speaks on it, so a caller that passes only a title is asking a
+     * question the rule no longer answers: every ad-hoc call comes back
+     * "refused" when the live workflow accepts it.
+     */
     isSalesCall(title, body = {}) {
       return decide({ body: { ...body, meeting_title: title ?? "" } }) === true;
     },
