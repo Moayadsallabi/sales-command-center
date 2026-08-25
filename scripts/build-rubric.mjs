@@ -331,23 +331,32 @@ function buildOutputSchema(r) {
     // Whose product was sold. Every other field on this row describes HOW the
     // call went; this one answers whether the call was ours to count at all,
     // and nothing else on the row can distinguish it.
+    // Deliberately TWO FLAT FIELDS, not one nested object. Anthropic compiles
+    // this schema into a validator before it will run the request, and that
+    // validator has a size ceiling that nested objects spend far faster than
+    // fields do. Measured against the live API at this workflow's own settings
+    // (adaptive thinking, effort high) on 2026-08-25: the schema without these
+    // two fields compiles, the schema plus these two flat fields compiles, and
+    // the schema plus the same pair wrapped in ONE object does not — it returns
+    // 400 "The compiled grammar is too large". Grouping other fields, shrinking
+    // the enums and changing how nulls are written all still failed, so the
+    // ceiling is about nesting, not field count. Nesting these again silently
+    // stops every call being scored.
     ...(r.offerMatch
       ? {
-          offer_match: obj({
-            verdict: {
-              type: "string",
-              enum: r.offerMatch.verdicts,
-              description:
-                `${r.offerMatch.heading} Answer "${r.offerMatch.verdicts[1]}" only when the transcript ` +
-                `positively identifies a different product. Answer "${r.offerMatch.default}" whenever you cannot tell.`,
-            },
-            evidence: {
-              type: "string",
-              description:
-                "The line from the transcript that decides it, with its [mm:ss]. " +
-                "When the verdict is unclear, say what was missing instead.",
-            },
-          }),
+          offer_match: {
+            type: "string",
+            enum: r.offerMatch.verdicts,
+            description:
+              `${r.offerMatch.heading} Answer "${r.offerMatch.verdicts[1]}" only when the transcript ` +
+              `positively identifies a different product. Answer "${r.offerMatch.default}" whenever you cannot tell.`,
+          },
+          offer_evidence: {
+            type: "string",
+            description:
+              "The line from the transcript that decides it, with its [mm:ss]. " +
+              "When the verdict is unclear, say what was missing instead.",
+          },
         }
       : {}),
     ...(r.commercial.tiers.length

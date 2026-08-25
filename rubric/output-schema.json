@@ -13,27 +13,17 @@
       ]
     },
     "offer_match": {
-      "type": "object",
-      "properties": {
-        "verdict": {
-          "type": "string",
-          "enum": [
-            "this offer",
-            "different offer",
-            "unclear"
-          ],
-          "description": "Was this call about the offer above? Answer \"different offer\" only when the transcript positively identifies a different product. Answer \"unclear\" whenever you cannot tell."
-        },
-        "evidence": {
-          "type": "string",
-          "description": "The line from the transcript that decides it, with its [mm:ss]. When the verdict is unclear, say what was missing instead."
-        }
-      },
-      "required": [
-        "verdict",
-        "evidence"
+      "type": "string",
+      "enum": [
+        "this offer",
+        "different offer",
+        "unclear"
       ],
-      "additionalProperties": false
+      "description": "Was this call about the offer above? Answer \"different offer\" only when the transcript positively identifies a different product. Answer \"unclear\" whenever you cannot tell."
+    },
+    "offer_evidence": {
+      "type": "string",
+      "description": "The line from the transcript that decides it, with its [mm:ss]. When the verdict is unclear, say what was missing instead."
     },
     "price_discussed": {
       "anyOf": [
@@ -472,6 +462,7 @@
   "required": [
     "outcome",
     "offer_match",
+    "offer_evidence",
     "price_discussed",
     "price_closed",
     "collected_on_call",

@@ -16,6 +16,15 @@
  *   rubric v1.5.0     union-type limit    every call refused
  *   2026-08-18 00:30  union cleared, grammar limit not
  *   2026-08-18 00:39  grammar cleared     scoring resumed
+ *   2026-08-24 21:04  a NESTED OBJECT     every call refused, for 16 hours
+ *
+ * The fourth one is the reason `objects` is measured below. Every ceiling here
+ * passed comfortably that night — size, enums, depth and properties were all
+ * far under — because the change added just one two-field object. Measured
+ * against the live API afterwards: this schema at 14 objects compiles, the
+ * same schema plus two extra FLAT fields compiles, and the same pair wrapped
+ * in one object does not. Objects are the expensive unit, and nothing here
+ * was counting them.
  *
  * Seven of Brey's calls hit `Claude Analysis` between 22:05 and 23:27 that
  * night and every one came back 400.
@@ -60,6 +69,16 @@ const LIMITS = {
   depth: 8,
   /** Distinct properties across the whole tree. */
   properties: 80,
+  /**
+   * Objects anywhere in the tree, including the root. Unlike the ceilings
+   * above this one has NO headroom on purpose: 14 is the count that compiles
+   * and 15 is the count that failed on 2026-08-24, with everything else held
+   * equal. Adding a nested object is the one edit that stops every call being
+   * scored, so it should have to be a deliberate act, not a silent one. If a
+   * new grouping is genuinely needed, flatten something else first and prove
+   * the whole schema compiles with a real call before raising this number.
+   */
+  objects: 14,
 };
 
 let failed = false;
@@ -70,7 +89,7 @@ const fail = (m) => {
 const ok = (m) => console.log(`  ok    ${m}`);
 
 function measure(node, depth = 0) {
-  let stats = { enumMembers: 0, largestEnum: 0, depth, properties: 0 };
+  let stats = { enumMembers: 0, largestEnum: 0, depth, properties: 0, objects: 0 };
   if (Array.isArray(node)) {
     for (const v of node) {
       const s = measure(v, depth);
@@ -83,6 +102,7 @@ function measure(node, depth = 0) {
       stats.enumMembers += node.enum.length;
       stats.largestEnum = Math.max(stats.largestEnum, node.enum.length);
     }
+    if (node.type === "object") stats.objects += 1;
     if (node.properties && typeof node.properties === "object") {
       stats.properties += Object.keys(node.properties).length;
     }
@@ -100,6 +120,7 @@ function merge(a, b) {
     largestEnum: Math.max(a.largestEnum, b.largestEnum),
     depth: Math.max(a.depth, b.depth),
     properties: a.properties + b.properties,
+    objects: a.objects + b.objects,
   };
 }
 
@@ -119,6 +140,7 @@ check("enum members, all", stats.enumMembers, LIMITS.enumMembers);
 check("largest single enum", stats.largestEnum, LIMITS.largestEnum);
 check("nesting depth", stats.depth, LIMITS.depth);
 check("properties", stats.properties, LIMITS.properties);
+check("objects (nesting is what costs)", stats.objects, LIMITS.objects);
 
 if (schema.additionalProperties !== false) {
   fail("additionalProperties must be false, or the model may invent columns");
