@@ -83,6 +83,15 @@
       "what_it_corrects": "Carmine was one of the five 'closes the closer says never closed' found in the 17-23 August audit. This is the first of the five with a positive explanation rather than an absence: the money was never missing, the sale was never Brey's. Removes $2,000 of revenue and one close from August that no payment ever backed.",
       "not_the_same_as": "Ignacio Valera, 2026-08-08, also a JP Embrace call by the summary - deliberately NOT excluded. He paid Brey's own Whop $25 on the day, so unlike Carmine there is a real relationship on this account. $25 is under the $100 deposit floor, so he was never counted as a close and removing him would delete a real customer to fix a number that was never wrong.",
       "also_blocked_at_the_gate": "The workflow now refuses a call whose Fathom purpose names JP Embrace, FBA or Amazon, so a fourth one cannot arrive the same way. This entry is the backstop for the row already written."
+    },
+    {
+      "call_date": "2026-08-23",
+      "prospect_name": "(internal team review)",
+      "recording_share_id": "XNgYHzx_BcUdGs_YhFdURzS-28D4ZQGC",
+      "price_closed": 0,
+      "reason": "Not a sales call at all - an internal team meeting. Fathom's own summary gives the purpose as 'Review sales performance, lead quality, and team changes'. It is caught here rather than by the block list because that list reads TITLES, and this one was started in a bare Meet room so it has no title to read. It is the shape the widened gate cannot see: 8 minutes, two voices, no prospect.",
+      "ruled_by": "Claude, 2026-08-25, backfilling the last two weeks on Moayad's instruction",
+      "why_it_matters": "Scored as a sales call it would count as a call held that closed nobody, so it lowers the close rate while telling you nothing. One row is trivial; the shape is not, since every future team huddle started outside the booking link looks identical to the gate."
     }
   ]
 }
