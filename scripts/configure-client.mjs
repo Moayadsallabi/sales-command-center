@@ -15,12 +15,30 @@
 // "Funded Blueprint", so without a hard block the onboarding call is scored as
 // a sale. Name the sales calls, then block the rest.
 //
+// Pass --block-offer once per OTHER product the same closers sell. That is a
+// different question from --exclude: an excluded call is the wrong KIND of
+// meeting and is caught on its title, while a blocked offer is a real sales
+// call for somebody else's product and often has no distinguishing title at
+// all — so it is caught on the Meeting Purpose line of Fathom's summary
+// instead. Omit it and those calls are scored as this client's business.
+//
+// THE ARGUMENTS BELOW ARE THE LIVE ONES FOR BREY. Regenerating without a
+// --block-offer that the live workflow has is a silent downgrade: the file
+// still builds, still passes every check, and quietly starts scoring another
+// offer's calls. If you change them here, change them in n8n too.
+//
 //   npm run configure:client -- \
 //     --client brey \
 //     --name "Brey" \
 //     --database 3baa6b94d53c809884c0ffa089665938 \
-//     --phrase "Strategy Call" --phrase "Discovery Call" --phrase "Sales Call" \
+//     --phrase "profitability game plan" \
+//     --phrase "funded blueprint enrollment" \
+//     --phrase "funded blueprint — strategy" \
+//     --phrase "funded blueprint (strategy" \
+//     --phrase "the funded blueprint" \
 //     --exclude "Onboarding" --exclude "Team Meeting" \
+//     --exclude "Standup" --exclude "Internal" \
+//     --block-offer "fba" --block-offer "amazon" --block-offer "jp embrace" \
 //     --channel "brey-sales-alerts" \
 //     --offer rubric/clients/brey.local.md
 //
@@ -70,6 +88,7 @@ const client = arg("client");
 const database = arg("database");
 const phrases = argAll("phrase");
 const excludes = argAll("exclude");
+const foreignOffers = argAll("block-offer");
 const offerPath = arg("offer");
 const display = arg("name") ?? client;
 const currency = arg("currency");
@@ -186,11 +205,31 @@ nodeBy("Fathom Webhook").parameters.path = `fathom-webhook-${client}`;
 // with an outsider on it out — that case was tested against real recordings.
 // A call the evidence does not vouch for still goes to the Slack queue.
 //
-// WHAT THIS DELIBERATELY DOES NOT DO: it cannot tell whose OFFER the call was
-// about. A closer who sells a second product books it into the same calendar,
-// and one such call reached the tracker this way. The durable answer is the
-// scorer saying whether the pitch matched this client's offer — until that
-// exists, `excluded-calls.json` names them by hand, keyed on the recording.
+// WHOSE OFFER THE CALL WAS ABOUT, from --block-offer.
+//
+// A closer who sells a second product books it into the same calendar, because
+// the calendar belongs to the closer and not to the product. Nothing else on
+// the row distinguishes it: the closer, the price, the outcome and the length
+// look identical either way. Widening the gate above to accept ad-hoc calls on
+// evidence removed the only protection the block list gave, because that list
+// reads TITLES and an ad-hoc call has none — 7 Amazon FBA calls in one August
+// would have been scored into a trading tracker.
+//
+// So this reads the Meeting Purpose line of Fathom's own summary, which is
+// reliable for naming a PRODUCT: the seller states it up front and it never
+// changes. It is checked before force_score, so a foreign offer cannot be
+// waved through, matching how blocked titles behave.
+//
+// IT READS ONLY THE PURPOSE LINE, AND ONLY FOR PRODUCT NAMES. Do not extend it
+// to the word "onboard". Fathom writes the purpose from how a call ENDED, and a
+// sales call that CLOSES ends by onboarding the new client, so "Onboard X" is
+// what a won deal looks like — that rule refused 10 real closes including two
+// at $4,000. Same field, opposite trustworthiness; the counter-example is
+// pinned in tests/sales-call-filter.test.ts.
+//
+// The scorer also returns `offer_match` per call, which catches what a purpose
+// line does not name. This gate is the cheap half: it refuses the call before
+// it costs a scoring run.
 //
 // AND A PERSON CAN OVERRULE THE TITLE, BUT ONLY IN ONE DIRECTION.
 //
@@ -213,6 +252,16 @@ filter.conditions = [
       ' const title = String(b.meeting_title || "").toLowerCase();' +
       ` const blocked = ${literal(excludes)};` +
       " if (blocked.some((x) => title.includes(x))) return false;" +
+      (foreignOffers.length
+        ? ' const sum = String(((b.default_summary || {}).markdown_formatted) || "");' +
+          " const pm = sum.match(/Meeting Purpose\\s*\\[([^\\]]{0,240})/i);" +
+          ' const purpose = String((pm && pm[1]) || "").toLowerCase();' +
+          ` const foreign = ${literal(foreignOffers)};` +
+          // Word boundaries, not `includes`. "fba" is three letters and would
+          // otherwise fire inside an unrelated word, and a false positive here
+          // REFUSES a real sales call — the expensive direction to be wrong in.
+          ' if (purpose && foreign.some((f) => new RegExp("\\\\b" + f + "\\\\b").test(purpose))) return false;'
+        : "") +
       " if (b.force_score === true) return true;" +
       ` const sales = ${literal(phrases)};` +
       " if (sales.some((s) => title.includes(s))) return true;" +
@@ -397,6 +446,32 @@ if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, transcript: [{ s
 if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, recording_end_time: "2026-08-23T18:07:00Z" })) {
   fail("A five-minute ad-hoc call is being scored.");
 }
+// Every --block-offer name must actually refuse a call, INCLUDING an ad-hoc one
+// carrying full evidence — the evidence path is exactly where a foreign offer
+// gets in, since those calls rarely have a matching title. And the counter-case
+// matters just as much: a purpose line that closes the deal ("Onboard ...") is
+// what a WON call looks like, so it must still be scored.
+const purposeOf = (line) => ({
+  default_summary: { markdown_formatted: `Meeting Purpose [${line}]\n\nNotes...` },
+});
+for (const offer of foreignOffers) {
+  if (decide(`${phrases[0]} with a prospect`, purposeOf(`Discuss the ${offer} programme`))) {
+    fail(`"${offer}" is not being refused on the Meeting Purpose line.`);
+  }
+  if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, ...purposeOf(`Sell ${offer} coaching`) })) {
+    fail(`"${offer}" is getting in on evidence — the purpose check must run before the evidence path.`);
+  }
+}
+if (foreignOffers.length) {
+  if (!decide(`${phrases[0]} with a prospect`, purposeOf("Onboard Alan onto the programme"))) {
+    fail(
+      'A call whose purpose reads "Onboard ..." is being refused. Fathom writes the ' +
+        "purpose from how a call ENDED, so that is what a CLOSED deal looks like — " +
+        "blocking it deletes real sales. See tests/sales-call-filter.test.ts."
+    );
+  }
+}
+
 // The block list beats the evidence. A long team meeting has both signals.
 if (decide(`${excludes[0] ?? "Onboarding"} catch-up`, adHocEvidence)) {
   fail("An excluded call is getting in on evidence — the block list must be checked first.");
