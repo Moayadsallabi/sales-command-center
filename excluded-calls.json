@@ -72,6 +72,17 @@
       "also_named_on_the_tracker_as": "Unknown — the row carried no name until 2026-08-24",
       "row_archived_in_notion": "2026-08-24. The row itself was removed from Brey's tracker, so this entry is now a backstop: it holds if the row is ever restored from Notion's trash, or if the same call is recorded again.",
       "why_the_recording_id_is_the_key": "The Notion row was archived on 2026-08-24, and the automation is being widened to accept impromptu recordings — which would re-import this exact call as a NEW row with a new page id, silently escaping a page-id-only entry. The Fathom share id identifies the call itself and survives that."
+    },
+    {
+      "call_date": "2026-08-03",
+      "prospect_name": "Carmine",
+      "recording_share_id": "1R1zJDzxqfomoxR8Pa73QNy8mZqpuRsh",
+      "price_closed": 2000,
+      "reason": "Sold on JP EMBRACE, a third offer running through the same recorder - not Funded Blueprint. Four independent sources agree and none of them is the tracker: (1) Tpan's Fathom summary states the purpose outright, 'Qualify Carmine for the JP Embrace mentorship and close the sale'; (2) Tpan's own sheet marks the row DQ / cancelled, not won; (3) Brey's Whop holds no payment from Carmine at all, checked across all 131 payments on 2026-08-25; (4) the tracker itself is the only thing claiming a $2,000 Customer, and it got there because the scorer read a close in the transcript - which there was, on somebody else's offer.",
+      "ruled_by": "Claude, 2026-08-25, on Moayad's instruction to do whatever is most accurate",
+      "what_it_corrects": "Carmine was one of the five 'closes the closer says never closed' found in the 17-23 August audit. This is the first of the five with a positive explanation rather than an absence: the money was never missing, the sale was never Brey's. Removes $2,000 of revenue and one close from August that no payment ever backed.",
+      "not_the_same_as": "Ignacio Valera, 2026-08-08, also a JP Embrace call by the summary - deliberately NOT excluded. He paid Brey's own Whop $25 on the day, so unlike Carmine there is a real relationship on this account. $25 is under the $100 deposit floor, so he was never counted as a close and removing him would delete a real customer to fix a number that was never wrong.",
+      "also_blocked_at_the_gate": "The workflow now refuses a call whose Fathom purpose names JP Embrace, FBA or Amazon, so a fourth one cannot arrive the same way. This entry is the backstop for the row already written."
     }
   ]
 }
