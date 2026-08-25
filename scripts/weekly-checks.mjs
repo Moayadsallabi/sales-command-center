@@ -123,7 +123,13 @@ function headlines(output, markers) {
       text += " " + lines[j].trim();
       i = j;
     }
-    if (text) found.push(firstSentences(text));
+    // A HEADLINE WRITTEN FOR THE TERMINAL ENDS IN A COLON, because the rows it
+    // introduces are printed underneath it. Slack gets the headline and not the
+    // rows, so that colon promises a list that never arrives — three bullets in
+    // the 2026-08-24 report each stopped dead on one. Closed here rather than in
+    // the checks themselves: every check writes for the terminal, and the
+    // terminal is right to want the colon.
+    if (text) found.push(firstSentences(text).replace(/\s*:$/, "."));
   }
   return found;
 }
@@ -159,12 +165,23 @@ function paymentsSection({ code, output }) {
     return { mustFix, lines: ["✅ *Payments* — the tracker and Whop agree on every row that can be matched."] };
   }
 
+  // Some findings are ones --apply deliberately refuses to write — a payment
+  // already closed on a later call is the one that exists today. When those are
+  // all that is left, naming the command sends somebody to run a no-op, so the
+  // check's own closing sentence decides whether it is offered. It prints the
+  // line below only when it has something mechanical to write.
+  const canApply = output.includes("Rerun with `npm run check:payments -- --apply`");
+
   const out = [];
   if (mustFix.length) {
     out.push(`⚠️ *Payments* — ${mustFix.length} thing${mustFix.length === 1 ? "" : "s"} to correct in the tracker:`);
     out.push(...cap(mustFix).map((l) => `  • ${l}`));
-    out.push("", "To apply the mechanical corrections: `npm run check:payments -- --apply`");
-    out.push("Read the list first — a payment can be a close, a deposit, or a second instalment, and only you can tell which.");
+    if (canApply) {
+      out.push("", "To apply the mechanical corrections: `npm run check:payments -- --apply`");
+      out.push("Read the list first — a payment can be a close, a deposit, or a second instalment, and only you can tell which.");
+    } else {
+      out.push("", "These are edits only a person can make — run `npm run check:payments` to see which row needs what.");
+    }
   } else {
     out.push("✅ *Payments* — no row needs correcting against Whop.");
   }
@@ -177,6 +194,43 @@ function paymentsSection({ code, output }) {
 }
 
 /** Post to the alert relay, and treat anything but "ok" as an undelivered alert. */
+/** The Monday of two weeks ago, as YYYY-MM-DD. */
+function twoWeeksAgo() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 14);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Whether calls are reaching the tracker, and what is waiting on a ruling.
+ *
+ * Deliberately reports the clean case too, for the same reason the payments
+ * section does: a check that only speaks when it finds something is
+ * indistinguishable from a check that has stopped running.
+ *
+ * A non-zero exit is reported as an unknown rather than as a clean result —
+ * the scripts exit non-zero when the recorder rate-limits, and reading that as
+ * "nothing missing" would be the exact failure this section exists to catch.
+ */
+function arrivalSection(delivery, dropped) {
+  const missing = (delivery.output.match(/(\d+) sales recordings never reached the tracker/) || [])[1];
+  const backlog = (dropped.output.match(/(\d+) recording\(s\) had a title that named nothing/) || [])[1];
+  const lines = [];
+
+  if (delivery.code !== 0 && missing === undefined) {
+    lines.push("⚠ *Delivery* — the check could not complete, so whether calls are arriving is UNKNOWN. Run `npm run check:delivery` by hand.");
+  } else if (Number(missing) > 0) {
+    lines.push(`⚠️ *Delivery* — ${missing} recording(s) the automation should have scored never reached the tracker. Run \`npm run check:delivery\` for which.`);
+  } else {
+    lines.push("✅ *Delivery* — every sales recording of the last two weeks reached the tracker.");
+  }
+
+  if (Number(backlog) > 0) {
+    lines.push(`• ${backlog} ad-hoc recording(s) are waiting on a human ruling. \`npm run check:dropped\` lists them with a link each.`);
+  }
+  return lines;
+}
+
 async function postAlert(text) {
   const url = process.env.OPS_ALERT_WEBHOOK;
   if (!url) {
@@ -201,8 +255,41 @@ async function postAlert(text) {
 const payments = await runScript("check-payments.mjs");
 const pay = paymentsSection(payments);
 
+// Every missing-money finding somebody already ACTED ON, re-asked of the
+// processor. This runs weekly for the same reason the payments check does: the
+// claim it re-checks was true when it was made, and a payment landing the next
+// morning turns a corrected figure into a wrong one with nothing to say so.
+// See money-claims.json. It reads only; closing a claim stays a person's job.
+const claims = await runScript("check-claims.mjs");
+const claimsHold = claims.code === 0;
+const claimLines = claimsHold
+  ? ["Every claim about missing money still holds."]
+  : [
+      "⚠ A claim that money was missing no longer holds — a figure somebody",
+      "  corrected is now wrong. Run `npm run check:claims` for which one.",
+    ];
+
+/* ARE CALLS EVEN ARRIVING? Added 2026-08-25.
+
+   The two checks above ask whether the numbers on the tracker are right. They
+   cannot ask the prior question — whether the tracker is receiving calls at
+   all — and that is the failure that actually happened: on 24 August the
+   scoring step stopped writing to Notion and nothing said so for a day,
+   because a silent pipe produces no wrong numbers to find. Every other check
+   in this system runs on a schedule; the two that would have caught it only
+   ran when somebody remembered.
+
+   Both read only, and both are scoped to the last two weeks, because a
+   recording nobody rescued a month ago is not this week's news. */
+const delivery = await runScript("check-delivery.mjs", ["--client", CLIENT, "--since", twoWeeksAgo()]);
+const dropped = await runScript("check-dropped.mjs", ["--client", CLIENT, "--since", twoWeeksAgo()]);
+const arrivalLines = arrivalSection(delivery, dropped);
+
 const previous = ALWAYS_REPORT ? null : readState(STATE_DIR);
-const verdict = decide({ mustFix: pay.mustFix, previous, now: Date.now() });
+// A reopened claim is a must-fix in its own right: it is a number that is
+// currently wrong in the client's tracker, which is exactly what this report
+// exists to break silence about.
+const verdict = decide({ mustFix: pay.mustFix || !claimsHold, previous, now: Date.now() });
 
 // The coverage check (check-accuracy) is deliberately NOT run here.
 //
@@ -225,6 +312,10 @@ const report = [
   `*${heading} — ${CLIENT}*`,
   "",
   ...pay.lines,
+  "",
+  ...claimLines,
+  "",
+  ...arrivalLines,
   "",
   reasonLine(verdict.reason, verdict.daysSince),
 ].join("\n");
