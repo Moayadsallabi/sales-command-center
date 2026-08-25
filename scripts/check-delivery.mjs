@@ -130,13 +130,21 @@ const perOwner = [];
 for (const [owner, key] of keys) {
   let url =
     `https://api.fathom.ai/external/v1/meetings` +
-    `?created_after=${encodeURIComponent(since.toISOString())}&include_transcript=false`;
+    `?created_after=${encodeURIComponent(since.toISOString())}&include_transcript=true&include_summary=true`;
   let count = 0;
   let pages = 0;
   while (url && pages < 20) {
-    const res = await fetch(url, { headers: { "X-Api-Key": key } });
+    let res = await fetch(url, { headers: { "X-Api-Key": key } });
+    // Asking for transcripts makes these calls heavy and Fathom rate-limits in
+    // bursts. Backing off is the difference between a report and a report with
+    // one closer silently missing — which here would read as calls not being
+    // delivered at all. Same treatment as check-dropped.mjs.
+    for (let attempt = 1; res.status === 429 && attempt <= 4; attempt += 1) {
+      await new Promise((r) => setTimeout(r, attempt * 4000));
+      res = await fetch(url, { headers: { "X-Api-Key": key } });
+    }
     if (!res.ok) {
-      console.error(`  ! ${owner}: Fathom refused (${res.status})`);
+      console.error(`  ! ${owner}: Fathom refused (${res.status})${res.status === 429 ? " — rate-limited and did not recover; this list is INCOMPLETE" : ""}`);
       break;
     }
     const body = await res.json();
@@ -147,7 +155,27 @@ for (const [owner, key] of keys) {
       const when = String(meeting.scheduled_start_time ?? meeting.created_at ?? "").slice(0, 10);
       const id = meeting.recording_id ?? meeting.id ?? null;
 
-      if (!isSalesCall(title)) {
+      /* ASKED WITH THE WHOLE RECORDING, NOT JUST THE TITLE (2026-08-25).
+
+         The rule stopped being about titles alone on 2026-08-24 — a call whose
+         title names nothing is accepted when it ran 15+ minutes with a second
+         voice, and refused when Fathom's summary says it was sold on another
+         offer. readSalesCallFilter's own comment warns that a title with an
+         empty body "answers a question the rule no longer answers".
+
+         This is the THIRD caller found doing it, after backfill-fathom.mjs.
+         The cost here is the worst of the three: this is the tool that says
+         whether calls are reaching the tracker, and with a bare title it files
+         every ad-hoc recording under "not a sales call, correctly left out" —
+         so a genuine delivery failure is reported as the rule working. */
+      if (!isSalesCall(title, {
+        meeting_title: title,
+        recording_start_time: meeting.recording_start_time,
+        recording_end_time: meeting.recording_end_time,
+        recorded_by: meeting.recorded_by,
+        transcript: meeting.transcript,
+        default_summary: meeting.default_summary,
+      })) {
         forReview.push({ owner, when, title });
         continue;
       }
@@ -162,7 +190,7 @@ for (const [owner, key] of keys) {
     }
     url = body.next_cursor
       ? `https://api.fathom.ai/external/v1/meetings?cursor=${encodeURIComponent(body.next_cursor)}` +
-        `&created_after=${encodeURIComponent(since.toISOString())}&include_transcript=false`
+        `&created_after=${encodeURIComponent(since.toISOString())}&include_transcript=true&include_summary=true`
       : null;
   }
   perOwner.push({ owner, count });
