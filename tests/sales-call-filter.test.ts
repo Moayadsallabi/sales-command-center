@@ -167,3 +167,106 @@ describe.skipIf(!configured)("an ad-hoc call judged on evidence", () => {
     ).toBe(false);
   });
 });
+
+/**
+ * ANOTHER OFFER'S CALLS, REFUSED ON WHAT THE CALL WAS ABOUT.
+ *
+ * Tpan sells an Amazon FBA mentorship through the same recorder that feeds
+ * Brey's trading tracker. That was survivable while the gate read titles: an
+ * FBA call booked outside the funnel had no matching title and fell out. The
+ * 2026-08-24 widening — accept any 15-minute call with a second voice — removed
+ * that protection entirely, because the block list also reads TITLES and these
+ * calls have none. Seven untracked August recordings were FBA business queued
+ * to walk into a trading client's numbers.
+ *
+ * The purpose line of Fathom's own summary is what separates them, and it is
+ * already on the webhook payload.
+ *
+ * READ THE NEXT BLOCK BEFORE ADDING TO THIS ONE. The obvious sibling rule —
+ * "refuse anything whose purpose says onboard" — is a trap that deletes real
+ * closes, and it is pinned below so nobody adds it back.
+ */
+describe.skipIf(!configured)("a call sold on another offer", () => {
+  const long = {
+    recording_start_time: "2026-08-21T15:00:00Z",
+    recording_end_time: "2026-08-21T16:10:00Z",
+    recorded_by: { name: "Tpan A" },
+    transcript: [
+      { speaker: { display_name: "Tpan A" }, text: "walk me through it" },
+      { speaker: { display_name: "Miguel Esparza" }, text: "sure" },
+    ],
+  };
+  const purpose = (p: string) => ({
+    default_summary: { markdown_formatted: `Meeting Purpose [${p}](https://fathom.video/share/x)` },
+  });
+
+  it("is refused when the purpose names Amazon FBA", () => {
+    expect(
+      scores("Impromptu Google Meet Meeting", { ...long, ...purpose("Qualify Miguel for and enroll him in the Amazon FBA mentorship program.") })
+    ).toBe(false);
+  });
+
+  it("is refused when the purpose says only FBA", () => {
+    expect(
+      scores("Impromptu Google Meet Meeting", { ...long, ...purpose("Qualify a prospect for The Funded Blueprint's FBA mentorship program.") })
+    ).toBe(false);
+  });
+
+  it("cannot be waved through with force_score", () => {
+    // Same precedence as the blocked titles: a person ticking a box is not a
+    // reason to file another coach's sale as this client's.
+    expect(
+      scores("Impromptu Google Meet Meeting", { ...long, force_score: true, ...purpose("Onboard Ayham Als to The Funded Blueprint's Amazon FBA program.") })
+    ).toBe(false);
+  });
+
+  it("does not refuse a trading call that merely has no summary", () => {
+    // Absence of a purpose is not evidence of a foreign offer. An ad-hoc call
+    // with no summary still rides on length and voices, as before.
+    expect(scores("Impromptu Google Meet Meeting", long)).toBe(true);
+  });
+
+  it("leaves a genuine trading sales call alone", () => {
+    expect(
+      scores("Impromptu Google Meet Meeting", { ...long, ...purpose("Qualify Angel Flores for The Funded Blueprint mentorship and close the sale.") })
+    ).toBe(true);
+  });
+});
+
+/**
+ * THE RULE THAT MUST NOT BE ADDED: "refuse it if the purpose says onboard".
+ *
+ * It is the obvious next step and it is catastrophic. Fathom writes the
+ * purpose from what the call ENDED UP being, and a sales call that CLOSES ends
+ * by onboarding the new client — so Fathom summarises a won deal as "Onboard
+ * X". Simulated across August before shipping, that rule refused TEN calls
+ * already scored on Brey's tracker, among them Alan ($4,000), Jonathan Laguna
+ * ($4,000) and Liam ($1,500), all closes from the week of 17 August.
+ *
+ * A rule that deletes precisely the calls that worked is worse than no rule.
+ * These cases exist so the next person to have the idea sees the counter-example
+ * before the client does.
+ */
+describe.skipIf(!configured)("a closed sale that Fathom describes as onboarding", () => {
+  const won = {
+    recording_start_time: "2026-08-22T15:00:00Z",
+    recording_end_time: "2026-08-22T15:40:00Z",
+    recorded_by: { name: "Tpan A" },
+    transcript: [
+      { speaker: { display_name: "Tpan A" }, text: "welcome aboard" },
+      { speaker: { display_name: "Alan" }, text: "lets do it" },
+    ],
+    default_summary: {
+      markdown_formatted:
+        "Meeting Purpose [Onboard Alan to the Funded Blueprint mentorship program.](https://fathom.video/share/x)",
+    },
+  };
+
+  it("is still scored, by title", () => {
+    expect(scores("Alan: Profitability Game Plan Call", won)).toBe(true);
+  });
+
+  it("is still scored when it was ad-hoc and rides on evidence", () => {
+    expect(scores("Impromptu Google Meet Meeting", won)).toBe(true);
+  });
+});
