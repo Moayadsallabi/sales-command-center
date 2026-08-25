@@ -34,7 +34,51 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export function proxy(request: NextRequest) {
+/**
+ * The shared sign-in, checked with the console that issues it.
+ *
+ * VERIFIED THERE, NOT HERE. The token is HMAC-signed and this file could check
+ * the signature itself in about fifteen lines -- and then a credential format
+ * would live in two repos that deploy independently, which is the drift this
+ * workspace has already paid for with sales-rules.json. So it asks instead.
+ *
+ * FAILS SOFT, DELIBERATELY. If the identity service is unreachable this returns
+ * null and the Basic-auth path below still answers. During the migration that
+ * is the difference between "the shared login is not working yet" and "nobody
+ * can open their dashboard", and only one of those is acceptable to discover
+ * the morning after.
+ */
+async function sharedSession(request: NextRequest): Promise<{ role: string; clientId: string | null } | null> {
+  const cookie = request.cookies.get("kpi_token")?.value;
+  if (!cookie) return null;
+  const base = process.env.IDENTITY_URL ?? "https://kpi.perceptionismlab.com";
+  try {
+    const res = await fetch(base + "/api/session/whoami", {
+      headers: { Cookie: "kpi_token=" + cookie },
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+    const me = await res.json();
+    if (!me?.authenticated) return null;
+    return { role: String(me.role), clientId: me.client_id ?? null };
+  } catch {
+    return null;   // unreachable, expired, malformed: all "no shared session"
+  }
+}
+
+/**
+ * Whose dashboard is this deployment? One service per client today, so it is a
+ * variable rather than a lookup. Unset means nobody is let in by the shared
+ * session -- an unnamed deployment cannot check that the person in front of it
+ * is the client it holds, and letting them in anyway is how one client reads
+ * another's calls.
+ */
+function servesClient(): string | null {
+  return process.env.CLIENT_ID?.trim() || null;
+}
+
+export async function proxy(request: NextRequest) {
   const password = process.env.DASHBOARD_PASSWORD;
   const user = process.env.DASHBOARD_USER ?? "admin";
 
@@ -55,6 +99,26 @@ export function proxy(request: NextRequest) {
       status: 503,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
+  }
+
+  // THE SHARED SIGN-IN FIRST, the password second. Both are accepted for now:
+  // taking the password away in the same change that adds the session means a
+  // single mistake locks the client out with no way back in.
+  const session = await sharedSession(request);
+  if (session) {
+    const mine = servesClient();
+    if (session.role === "admin") return NextResponse.next();
+    if (mine && session.clientId === mine) return NextResponse.next();
+    // A real session belonging to somebody else. Not a login prompt -- they are
+    // signed in, just not to this. A 401 here would invite them to try the
+    // password, which is the wrong instruction for the wrong client.
+    if (session.clientId && mine && session.clientId !== mine) {
+      return new NextResponse(
+        "You are signed in, but this dashboard belongs to a different client.\n\n" +
+        "Go to https://app.perceptionismlab.com to reach yours.",
+        { status: 403, headers: { "Content-Type": "text/plain; charset=utf-8" } }
+      );
+    }
   }
 
   const header = request.headers.get("authorization");
