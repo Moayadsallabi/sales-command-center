@@ -40,12 +40,12 @@ export interface WhopRead {
   buyers: WhopBuyer[];
 }
 
-export function isWhopConfigured(): boolean {
+export function isWhopConfigured(cfg?: { apiKey: string | null }): boolean {
   // Whop settles in dollars. Feeding those into a dashboard reporting in
   // another currency would silently mix currencies — the exact fault the FX
   // banner exists to catch — so a non-USD install keeps the tracker figure.
   const reporting = process.env.NEXT_PUBLIC_REPORTING_CURRENCY ?? "USD";
-  return Boolean(process.env.WHOP_API_KEY) && reporting === "USD";
+  return Boolean(cfg ? cfg.apiKey : process.env.WHOP_API_KEY) && reporting === "USD";
 }
 
 /**
@@ -53,8 +53,8 @@ export function isWhopConfigured(): boolean {
  * so the caller can degrade to the tracker figure and say why, rather than
  * render a half-fetched total as if it were the whole.
  */
-export async function queryPayments(): Promise<WhopRead> {
-  const key = process.env.WHOP_API_KEY;
+export async function queryPayments(cfg?: { apiKey: string | null }): Promise<WhopRead> {
+  const key = cfg ? cfg.apiKey : process.env.WHOP_API_KEY;
   if (!key) throw new Error("WHOP_API_KEY is not set");
 
   const days: PaymentDay[] = [];
