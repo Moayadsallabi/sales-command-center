@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { VIEWING_COOKIE } from "@/lib/client-config";
+import { currentViewing } from "@/lib/viewing-request";
 import { Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -25,16 +28,43 @@ function identityBase(): string {
   return process.env.IDENTITY_URL ?? "https://kpi.perceptionismlab.com";
 }
 
+/**
+ * The name the bar should show, which must be the name the PAGE is showing.
+ *
+ * Demo mode is answered from the demo roster rather than from the registry,
+ * because that is what the page itself renders there — and a rehearsal in which
+ * the bar and the page disagree rehearses nothing. Every other path goes
+ * through the same resolution the page uses, deduplicated per request, so the
+ * two cannot come apart.
+ */
+async function whoThisPageIsAbout(): Promise<string | null> {
+  if (process.env.DASHBOARD_DEMO_DATA === "1") {
+    const { DEMO_CLIENTS } = await import("@/lib/demo-data");
+    const chosen = (await cookies()).get(VIEWING_COOKIE)?.value ?? null;
+    return DEMO_CLIENTS.find((c) => c.id === chosen)?.name ?? "Funded Blueprint";
+  }
+  const viewing = await currentViewing();
+  return viewing.config.brandName ?? process.env.NEXT_PUBLIC_BRAND_NAME?.trim() ?? null;
+}
+
 export const metadata: Metadata = {
   title: "Sales Command Center",
   description: "Sales call analytics dashboard",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /* WHOSE FIGURES THIS PAGE IS ABOUT TO RENDER, told to the bar so it can name
+     them. The bar cannot work it out: with nothing pinned, this app falls back
+     to whoever its deployment is named after while the KPI dashboard falls back
+     to the first client on the roster, so a bar naming the PINNED client would
+     sit above another client's numbers and say nothing. Resolved through the
+     same call the page itself uses, so the two cannot disagree. */
+  const showing = await whoThisPageIsAbout();
+
   return (
     <html
       lang="en"
@@ -54,6 +84,7 @@ export default function RootLayout({
           src={`${identityBase()}/shell.js`}
           data-system="sales"
           data-base={identityBase()}
+          {...(showing ? { "data-client-name": showing } : {})}
           async
         />
       </body>

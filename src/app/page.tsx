@@ -7,8 +7,8 @@ import { reconcile } from "@/lib/reconcile";
 import { partitionCalls } from "@/lib/excluded-calls";
 import { settle } from "@/lib/settle";
 import { Dashboard } from "@/components/dashboard/dashboard";
-import { headers } from "next/headers";
-import { ClientConfig, VIEWING_COOKIE, resolveViewing } from "@/lib/client-config";
+import { ClientConfig, VIEWING_COOKIE } from "@/lib/client-config";
+import { currentViewing } from "@/lib/viewing-request";
 import { cookies } from "next/headers";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
 
@@ -128,11 +128,7 @@ export default async function Home() {
   // every read below is unambiguously one client's -- rather than each library
   // reaching into the environment and all of them silently agreeing because
   // there has only ever been one client per deployment.
-  const cookieHeader = (await headers()).get("cookie");
-  const viewing = await resolveViewing(
-    cookieHeader,
-    (await cookies()).get(VIEWING_COOKIE)?.value ?? null
-  );
+  const viewing = await currentViewing();
   const cfg: ClientConfig = viewing.config;
 
   const result = await loadCalls(cfg);
