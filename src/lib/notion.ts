@@ -145,11 +145,17 @@ function extractLead(
   return lead;
 }
 
-export async function queryAllCalls(): Promise<CallRecord[]> {
+/**
+ * Optional, and defaulting to the environment on purpose. Passing a config is
+ * what lets one deployment serve several clients; passing nothing is exactly
+ * today's behaviour, which is what keeps the existing deployments working
+ * while the two paths overlap.
+ */
+export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: string | null }): Promise<CallRecord[]> {
   // Read at call time, not module load, so a .env change takes effect on the
   // next request rather than needing a cold start.
-  const apiKey = process.env.NOTION_API_KEY;
-  const databaseId = process.env.NOTION_DATABASE_ID;
+  const apiKey = cfg ? cfg.apiKey : process.env.NOTION_API_KEY;
+  const databaseId = cfg ? cfg.databaseId : process.env.NOTION_DATABASE_ID;
 
   const missing: string[] = [];
   if (!apiKey) missing.push("NOTION_API_KEY");

@@ -16,6 +16,8 @@
  * which is what most installs will run on until the client connects Calendly.
  */
 
+import { createHash } from "crypto";
+
 /** Why a Calendly read failed, in terms the dashboard can explain. */
 export type CalendlyFailure =
   | { kind: "not-configured" }
@@ -479,8 +481,8 @@ function lookbackDays(): number {
  * KPI dashboard's calendly_event_types — the two must never disagree about
  * what counts as a sales call.
  */
-function salesEventTypes(): string[] | null {
-  const raw = process.env.CALENDLY_EVENT_TYPES;
+function salesEventTypes(override?: string | null): string[] | null {
+  const raw = override !== undefined ? override : process.env.CALENDLY_EVENT_TYPES;
   if (!raw || raw.trim() === "") return null;
   const names = raw
     .split(",")
@@ -489,8 +491,9 @@ function salesEventTypes(): string[] | null {
   return names.length > 0 ? names : null;
 }
 
-export function isCalendlyConfigured(): boolean {
-  return (process.env.CALENDLY_API_KEY ?? "").trim() !== "";
+export function isCalendlyConfigured(cfg?: { apiKey: string | null }): boolean {
+  const key = cfg ? cfg.apiKey : process.env.CALENDLY_API_KEY;
+  return (key ?? "").trim() !== "";
 }
 
 /* ------------------------------------------------------------------ public */
@@ -668,8 +671,11 @@ async function fillInvitees(current: Store, token: string): Promise<void> {
  * anything yet, which is why the dashboard falls back to the recording numbers
  * until it reaches zero.
  */
-export async function queryBookings(now: Date = new Date()): Promise<BookingsResult> {
-  const token = (process.env.CALENDLY_API_KEY ?? "").trim();
+export async function queryBookings(
+  now: Date = new Date(),
+  cfg?: { apiKey: string | null; eventTypes: string | null }
+): Promise<BookingsResult> {
+  const token = (cfg ? cfg.apiKey : process.env.CALENDLY_API_KEY ?? "")?.trim() ?? "";
   if (token === "") {
     throw new CalendlyError(
       { kind: "not-configured" },
@@ -677,8 +683,20 @@ export async function queryBookings(now: Date = new Date()): Promise<BookingsRes
     );
   }
 
-  const wanted = salesEventTypes();
-  const key = `${lookbackDays()}|${wanted?.join(",") ?? "*"}`;
+  const wanted = salesEventTypes(cfg ? cfg.eventTypes : undefined);
+
+  // THE CACHE KEY INCLUDES THE ACCOUNT.
+  //
+  // It used to be lookback and event-type filter only, which was correct while
+  // one deployment served one client. The moment a deployment serves several,
+  // two clients whose filters happen to match would share a cache entry -- and
+  // the symptom is not an error, it is one client's bookings rendered under
+  // another client's name.
+  //
+  // Hashed rather than stored: a cache key ends up in logs and error messages,
+  // and an API token has no business in either.
+  const account = createHash("sha256").update(token).digest("hex").slice(0, 16);
+  const key = `${account}|${lookbackDays()}|${wanted?.join(",") ?? "*"}`;
 
   const listStale =
     !store ||

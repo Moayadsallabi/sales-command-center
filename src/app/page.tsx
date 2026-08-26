@@ -7,6 +7,8 @@ import { reconcile } from "@/lib/reconcile";
 import { partitionCalls } from "@/lib/excluded-calls";
 import { settle } from "@/lib/settle";
 import { Dashboard } from "@/components/dashboard/dashboard";
+import { headers } from "next/headers";
+import { resolveClientConfig, ClientConfig } from "@/lib/client-config";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +17,9 @@ type LoadResult =
   | { ok: true; calls: CallRecord[] }
   | { ok: false; failure: NotionFailure };
 
-async function loadCalls(): Promise<LoadResult> {
+async function loadCalls(cfg: ClientConfig): Promise<LoadResult> {
   try {
-    return { ok: true, calls: await queryAllCalls() };
+    return { ok: true, calls: await queryAllCalls(cfg.notion) };
   } catch (err) {
     if (err instanceof NotionError) {
       console.error(`Notion read failed (${err.failure.kind}):`, err.message);
@@ -36,13 +38,13 @@ async function loadCalls(): Promise<LoadResult> {
  * booking feed downgrades the show rate to the old one and says so, rather
  * than taking down a dashboard someone is using in a meeting.
  */
-async function loadBookings(calls: CallRecord[]): Promise<CalendlyState> {
-  if (!isCalendlyConfigured()) {
+async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<CalendlyState> {
+  if (!isCalendlyConfigured(cfg.calendly)) {
     return { link: null, windowStart: null, failure: null, pending: 0, total: 0 };
   }
 
   try {
-    const result = await queryBookings();
+    const result = await queryBookings(new Date(), cfg.calendly);
     return {
       link: linkBookings(result.bookings, calls),
       windowStart: result.window_start,
@@ -70,10 +72,10 @@ async function loadBookings(calls: CallRecord[]): Promise<CalendlyState> {
  * a refused Whop route downgrades the Cash Collected tile to the tracker's
  * own figure, it does not take the dashboard down.
  */
-async function loadPayments(): Promise<WhopRead | null> {
-  if (!isWhopConfigured()) return null;
+async function loadPayments(cfg: ClientConfig): Promise<WhopRead | null> {
+  if (!isWhopConfigured(cfg.whop)) return null;
   try {
-    return await queryPayments();
+    return await queryPayments(cfg.whop);
   } catch (err) {
     console.error("Whop read failed:", err);
     return null;
@@ -113,7 +115,14 @@ export default async function Home() {
     );
   }
 
-  const result = await loadCalls();
+  // WHOSE DASHBOARD IS THIS. Resolved once per request and threaded down, so
+  // every read below is unambiguously one client's -- rather than each library
+  // reaching into the environment and all of them silently agreeing because
+  // there has only ever been one client per deployment.
+  const cookieHeader = (await headers()).get("cookie");
+  const cfg = await resolveClientConfig(cookieHeader);
+
+  const result = await loadCalls(cfg);
 
   if (!result.ok) return <SetupNotice failure={result.failure} />;
 
@@ -134,8 +143,8 @@ export default async function Home() {
   }
 
   const [calendly, payments] = await Promise.all([
-    loadBookings(kept),
-    loadPayments(),
+    loadBookings(kept, cfg),
+    loadPayments(cfg),
   ]);
 
   // Matched on the server: the buyer list holds addresses the client has no
@@ -152,6 +161,7 @@ export default async function Home() {
 
   return (
     <Dashboard
+      brandName={cfg.brandName}
       calls={calls}
       today={today}
       calendly={calendly}

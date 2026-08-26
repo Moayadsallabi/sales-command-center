@@ -58,10 +58,24 @@ export function Dashboard({
   reconciliation = null,
   excluded = [],
   demo = false,
+  brandName: brandNameProp,
 }: {
   calls: CallRecord[];
   today: string;
   calendly: CalendlyState;
+  /**
+   * Whose dashboard this is, resolved on the server.
+   *
+   * It used to come from NEXT_PUBLIC_BRAND_NAME, which Next bakes into the
+   * bundle AT BUILD TIME. That is invisible while one deployment serves one
+   * client and impossible the moment it serves two: every visitor would see
+   * whichever name was set when the image was built. A prop is the only shape
+   * that can differ per request.
+   *
+   * Undefined falls back to the variable, so the existing per-client
+   * deployments render exactly as they do today.
+   */
+  brandName?: string | null;
   /** Present only when Whop is connected. Null keeps the tracker's figure. */
   payments?: PaymentDay[] | null;
   /** Rows where the processor and the tracker disagree. Null without Whop. */
@@ -430,7 +444,7 @@ export function Dashboard({
      nothing, and a screenshot of this page arriving in a thread should say who
      it is about without anyone captioning it. When the variable is unset the
      header is exactly what it was — product name as the title, no eyebrow. */
-  const brandName = process.env.NEXT_PUBLIC_BRAND_NAME?.trim() || null;
+  const brandName = (brandNameProp ?? process.env.NEXT_PUBLIC_BRAND_NAME)?.trim() || null;
 
   return (
     <div className="min-h-screen">
@@ -767,7 +781,7 @@ export function Dashboard({
       <footer className="mt-8 border-t border-white/[0.04]">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-2 px-4 py-4 sm:px-6">
           <span className="text-[11px] uppercase tracking-[0.15em] text-zinc-400">
-            {process.env.NEXT_PUBLIC_BRAND_NAME || "Sales Analytics"}
+            {brandName || "Sales Analytics"}
           </span>
           <span className="font-mono text-[11px] tabular-nums text-zinc-400">
             Calls from Notion · bookings from Calendly · money from Whop

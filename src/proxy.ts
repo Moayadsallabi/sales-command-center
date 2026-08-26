@@ -78,6 +78,25 @@ function servesClient(): string | null {
   return process.env.CLIENT_ID?.trim() || null;
 }
 
+/**
+ * A deployment that serves whoever signs in, rather than one named client.
+ *
+ * OPT-IN, and it has to be. The check above -- does this session's client match
+ * the one this deployment names -- is what stops one client opening another's
+ * calls, and "no CLIENT_ID set" must therefore mean "admit nobody" rather than
+ * "admit everyone". An unnamed deployment quietly becoming open to all clients
+ * is the same class of mistake as a global API key being inherited by a client
+ * who had no account, which cost this workspace 123 payments in the wrong sheet.
+ *
+ * So it takes a variable somebody typed on purpose. With it set, any signed-in
+ * client is admitted and the page resolves THEIR credentials per request; the
+ * isolation then rests on that resolution, which is why it refuses rather than
+ * falls back when a client's own config cannot be read.
+ */
+function servesEveryone(): boolean {
+  return process.env.MULTI_TENANT === "1";
+}
+
 export async function proxy(request: NextRequest) {
   const password = process.env.DASHBOARD_PASSWORD;
   const user = process.env.DASHBOARD_USER ?? "admin";
@@ -109,6 +128,7 @@ export async function proxy(request: NextRequest) {
     const mine = servesClient();
     if (session.role === "admin") return NextResponse.next();
     if (mine && session.clientId === mine) return NextResponse.next();
+    if (!mine && servesEveryone() && session.clientId) return NextResponse.next();
     // A real session belonging to somebody else. Not a login prompt -- they are
     // signed in, just not to this. A 401 here would invite them to try the
     // password, which is the wrong instruction for the wrong client.
