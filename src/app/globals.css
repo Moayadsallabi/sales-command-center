@@ -251,3 +251,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #ffffff25;
 }
+
+/* THE BAR ACROSS THE TOP OF EVERY SYSTEM, AND THIS PAGE'S OWN FIXED FURNITURE.
+   The bar pushes the page down by padding <html>, which moves everything in
+   normal flow. It cannot move the two things on this page that are positioned
+   against the VIEWPORT instead — the section rail and the sticky header — so
+   without this they sit underneath it and the rail's collapse button is
+   unreachable.
+
+   No class and no condition: `--pl-shell-h` is published by the bar's own
+   stylesheet, so it simply does not exist when the bar has not loaded, and
+   these two fall back to 0px — exactly where they sat before. Nothing on the
+   page has to be told whether the bar is there. */
+.shell-offset-top {
+  top: var(--pl-shell-h, 0px);
+}

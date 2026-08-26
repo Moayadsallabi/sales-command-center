@@ -39,7 +39,7 @@ import { ObjectionPanel } from "./objection-panel";
 import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
 import { NavSection, SectionNav, useSectionNav } from "./section-nav";
-import { ClientSwitcher, SwitcherClient, SwitchFailure } from "./client-switcher";
+import { SwitchFailure } from "./switch-failure";
 import { SalesCommandMark } from "@/components/brand/logo";
 import {
   Activity,
@@ -92,9 +92,6 @@ export function Dashboard({
   excluded = [],
   demo = false,
   brandName: brandNameProp,
-  clients = [],
-  chosenClient = null,
-  homeName = null,
   switchError = null,
 }: {
   calls: CallRecord[];
@@ -113,19 +110,6 @@ export function Dashboard({
    * deployments render exactly as they do today.
    */
   brandName?: string | null;
-  /**
-   * Clients this visitor may point the dashboard at.
-   *
-   * EMPTY FOR EVERYONE BUT THE LAB, and empty is what hides the switcher — the
-   * server sends a client an empty list because the console refuses them the
-   * roster, not because this component decided to. Nothing here is what keeps
-   * one client out of another's numbers; see lib/client-config.ts.
-   */
-  clients?: SwitcherClient[];
-  /** The client currently pinned by the switcher, or null for this deployment's own. */
-  chosenClient?: string | null;
-  /** What this deployment is named after, for the way back out of a switch. */
-  homeName?: string | null;
   /** Set when a pinned client could not be opened, so the page can say so. */
   switchError?: string | null;
   /** Present only when Whop is connected. Null keeps the tracker's figure. */
@@ -514,21 +498,6 @@ export function Dashboard({
         sections={SECTIONS}
         collapsed={nav.collapsed}
         onToggle={nav.toggle}
-        /* Passed as undefined rather than as a component that renders nothing:
-           the rail draws a bordered block around whatever it is given, and an
-           element that returns null still counts as "given" — which left an
-           empty box above the section list on every client's dashboard. */
-        switcher={
-          clients.length === 0 ? undefined : (
-          <ClientSwitcher
-            clients={clients}
-            currentName={brandName ?? "Sales Command Center"}
-            chosen={chosenClient}
-            homeName={homeName}
-            collapsed={nav.collapsed}
-          />
-          )
-        }
       />
 
       {/* HEADER — ONE TITLE ROW, THEN ONE TOOLBAR.
@@ -538,7 +507,7 @@ export function Dashboard({
           title wrapped to three lines and the range buttons landed on top of
           it. Identity and period on the first row, filtering on the second,
           and each row is allowed to scroll sideways rather than wrap. */}
-      <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/85 backdrop-blur-xl">
+      <header className="shell-offset-top sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
           <motion.div
             {...titleMotion}

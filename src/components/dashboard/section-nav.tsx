@@ -154,17 +154,10 @@ export function SectionNav({
   sections,
   collapsed,
   onToggle,
-  switcher,
 }: {
   sections: NavSection[];
   collapsed: boolean;
   onToggle: () => void;
-  /**
-   * The client switcher, when the visitor is allowed one. Passed in rather than
-   * built here so this file stays a table of contents: it knows where the page
-   * can go, not who is allowed to look at what.
-   */
-  switcher?: React.ReactNode;
 }) {
   const active = useActiveSection(sections);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -244,7 +237,7 @@ export function SectionNav({
       <nav
         aria-label="Sections"
         style={{ width: collapsed ? NAV_WIDTH.closed : NAV_WIDTH.open }}
-        className="fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-white/[0.06] bg-[#0b0b0e] transition-[width] duration-200 lg:flex"
+        className="shell-offset-top fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-white/[0.06] bg-[#0b0b0e] transition-[width] duration-200 lg:flex"
       >
         {/* Its own row, the same height as the page header beside it, so the
             rail and the page start on the same line. */}
@@ -268,10 +261,6 @@ export function SectionNav({
             )}
           </button>
         </div>
-
-        {switcher && (
-          <div className="shrink-0 border-b border-white/[0.06] p-2">{switcher}</div>
-        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {!collapsed && (
@@ -301,13 +290,10 @@ export function SectionNav({
           />
           <nav
             aria-label="Sections"
-            className="absolute inset-y-0 left-0 flex w-[15rem] flex-col border-r border-white/[0.06] bg-[#0b0b0e]"
+            className="shell-offset-top absolute inset-y-0 left-0 flex w-[15rem] flex-col border-r border-white/[0.06] bg-[#0b0b0e]"
           >
             <div className="flex h-[57px] shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
-              {/* With a switcher below it, a "Sections" title here would read
-                  as the label for the client picker rather than for the list.
-                  Each block names itself instead. */}
-              <span className="t-label text-zinc-500">{switcher ? "" : "Sections"}</span>
+              <span className="t-label text-zinc-500">Sections</span>
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
@@ -317,13 +303,7 @@ export function SectionNav({
                 <X className="h-4 w-4" strokeWidth={1.5} />
               </button>
             </div>
-            {switcher && (
-              <div className="shrink-0 border-b border-white/[0.06] p-2">{switcher}</div>
-            )}
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              {switcher && (
-                <div className="px-2.5 pb-1.5 t-label text-zinc-500">Sections</div>
-              )}
               {list}
             </div>
           </nav>

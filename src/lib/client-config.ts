@@ -252,18 +252,22 @@ export async function resolveClientConfig(
 /* -------------------------------------------------------- the switcher */
 
 /**
- * Where an admin's choice of client is kept.
+ * WHERE THE CHOICE OF CLIENT LIVES, AND WHY IT IS NOT THIS APP'S.
  *
- * A COOKIE RATHER THAN THE ADDRESS BAR, for two reasons. This page reloads
- * itself every sixty seconds, so the choice has to survive a reload — which a
- * query string would, but a query string also travels: pasted into a thread or
- * caught in a screenshot, `?client=…` reads as a link anyone can follow, and
- * the fact that it would refuse them is not visible on the face of it.
+ * Written and cleared by the identity service, on the whole
+ * perceptionismlab.com domain, so the KPI dashboard, this app and the calendar
+ * all read the same answer. It began as a cookie of this app's own, which
+ * worked and was wrong: picking a client here meant nothing anywhere else, and
+ * the same question had to be answered again in each system. That is the whole
+ * reason three apps sharing a login still read as three products.
  *
- * It is httpOnly because nothing in the browser needs to read it. The server
+ * This app only ever READS it. The bar across the top of every page is what
+ * writes it — see public/shell.js in the KPI service.
+ *
+ * It is httpOnly because nothing in the browser needs to read it: the server
  * renders whose dashboard this is into the page already.
  */
-export const VIEWING_COOKIE = "scc_viewing";
+export const VIEWING_COOKIE = "lab_client";
 
 export type Viewing = {
   /** The credentials every read on the page goes through. */

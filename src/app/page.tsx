@@ -8,12 +8,7 @@ import { partitionCalls } from "@/lib/excluded-calls";
 import { settle } from "@/lib/settle";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { headers } from "next/headers";
-import {
-  ClientConfig,
-  VIEWING_COOKIE,
-  configFromEnvironment,
-  resolveViewing,
-} from "@/lib/client-config";
+import { ClientConfig, VIEWING_COOKIE, resolveViewing } from "@/lib/client-config";
 import { cookies } from "next/headers";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
 
@@ -98,11 +93,11 @@ export default async function Home() {
   if (process.env.DASHBOARD_DEMO_DATA === "1") {
     const { demoCalls, demoBookings, DEMO_CLIENTS } = await import("@/lib/demo-data");
     const calls = demoCalls(today);
-    // The switcher, driven by the same cookie and the same route as the real
-    // one. The names are invented and every one of them renders the same
-    // invented calls — demo mode reads no registry and no tracker, so switching
-    // here changes the label and nothing else. It exists so the control can be
-    // used and reviewed without pointing a live dashboard at a live client.
+    // WHOSE NAME GOES IN THE HEADER, read from the shared choice the bar
+    // writes. Demo mode has no registry to resolve credentials against, so
+    // every name here renders the same invented calls — but the header follows
+    // the bar, which is what makes the loop reviewable locally: pick a client
+    // on the KPI dashboard, and this page agrees when you walk over to it.
     const demoChosen = (await cookies()).get(VIEWING_COOKIE)?.value ?? null;
     const demoCurrent = DEMO_CLIENTS.find((c) => c.id === demoChosen) ?? null;
     // Bookings are part of the demo unless you ask to see the dashboard as it
@@ -124,9 +119,6 @@ export default async function Home() {
           total: link?.bookings.length ?? 0,
         }}
         brandName={demoCurrent?.name ?? "Funded Blueprint"}
-        clients={DEMO_CLIENTS}
-        chosenClient={demoCurrent?.id ?? null}
-        homeName="Funded Blueprint"
         demo
       />
     );
@@ -183,9 +175,6 @@ export default async function Home() {
   return (
     <Dashboard
       brandName={cfg.brandName}
-      clients={viewing.clients}
-      chosenClient={viewing.chosen}
-      homeName={configFromEnvironment().brandName}
       switchError={viewing.switchError}
       calls={calls}
       today={today}
