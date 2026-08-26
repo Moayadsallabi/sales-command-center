@@ -57,6 +57,42 @@ describe("presetWindow", () => {
     expect(presetWindow("2026-09-02", "week").from).toBe("2026-08-31");
   });
 
+  it("gives Last week a whole finished week, Monday to Sunday", () => {
+    // 19 August 2026 is a Wednesday, so last week is 10–16 August. It does NOT
+    // stop at today the way This week does: the week is over, and clipping it
+    // would hand back a three-day window under a button that says week.
+    expect(presetWindow("2026-08-19", "lastweek")).toEqual({
+      from: "2026-08-10",
+      to: "2026-08-16",
+    });
+  });
+
+  it("reads Last week on a Monday as the seven days just finished", () => {
+    // The day This week holds a single day is the day Last week matters most,
+    // and the naive Sunday-is-0 expression would move it a week out.
+    expect(presetWindow("2026-08-17", "lastweek")).toEqual({
+      from: "2026-08-10",
+      to: "2026-08-16",
+    });
+  });
+
+  it("does not let a Sunday steal the week that is still running", () => {
+    // 23 August 2026 is a Sunday and belongs to the week starting the 17th, so
+    // Last week is still 10–16 August rather than 17–23.
+    expect(presetWindow("2026-08-23", "lastweek")).toEqual({
+      from: "2026-08-10",
+      to: "2026-08-16",
+    });
+  });
+
+  it("lets Last week run back over a month boundary", () => {
+    // 2 September 2026 is a Wednesday; the week before it is 24–30 August.
+    expect(presetWindow("2026-09-02", "lastweek")).toEqual({
+      from: "2026-08-24",
+      to: "2026-08-30",
+    });
+  });
+
   it("starts This month on the 1st and stops it at today", () => {
     expect(presetWindow("2026-08-19", "month")).toEqual({
       from: "2026-08-01",
@@ -114,6 +150,15 @@ describe("previousWindow", () => {
     expect(previousWindow({ from: "2026-08-17", to: "2026-08-19" }, "week")).toEqual({
       from: "2026-08-10",
       to: "2026-08-12",
+    });
+  });
+
+  it("measures Last week against the week before it, both whole", () => {
+    // 10–16 August against 3–9 August. Seven full days against seven full
+    // days, so nothing on the strip is comparing a part-week to a whole one.
+    expect(previousWindow({ from: "2026-08-10", to: "2026-08-16" }, "lastweek")).toEqual({
+      from: "2026-08-03",
+      to: "2026-08-09",
     });
   });
 

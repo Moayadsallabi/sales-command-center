@@ -12,8 +12,8 @@
  */
 
 /**
- * EVERY PRESET IS A CALENDAR PERIOD — today, this week, this month, last
- * month, this year.
+ * EVERY PRESET IS A CALENDAR PERIOD — today, this week, last week, this
+ * month, last month, this year.
  *
  * The ROLLING windows (7 days, 30 days, 90 days) and All time came off this
  * strip on 2026-08-19 on Moayad's call. A page that offers "the last 30 days"
@@ -26,11 +26,12 @@
  * measures 1–19 August against 1–19 July rather than against all of it, and
  * Monday-to-Wednesday against Monday-to-Wednesday of the week before.
  */
-export type DateRange = "today" | "week" | "month" | "lastmonth" | "year" | "custom";
+export type DateRange = "today" | "week" | "lastweek" | "month" | "lastmonth" | "year" | "custom";
 
 export const DATE_RANGES: { value: DateRange; label: string }[] = [
   { value: "today", label: "Today" },
   { value: "week", label: "This week" },
+  { value: "lastweek", label: "Last week" },
   { value: "month", label: "This month" },
   { value: "lastmonth", label: "Last month" },
   { value: "year", label: "This year" },
@@ -117,6 +118,14 @@ export function sameDayOf(monthIso: string, day: number): string {
 export function presetWindow(today: string, range: DateRange): DateWindow {
   if (range === "today") return { from: today, to: today };
   if (range === "week") return { from: weekStart(today), to: today };
+  // LAST WEEK IS A FINISHED WEEK — the Monday to the Sunday before this one,
+  // both ends, never stopping at today. "This month" and "This year" stop at
+  // today because they are still running; a week already over is not, and
+  // clipping it would hand back the same partial window as This week.
+  if (range === "lastweek") {
+    const monday = daysBefore(weekStart(today), 7);
+    return { from: monday, to: daysBefore(weekStart(today), 1) };
+  }
   if (range === "month") return { from: monthStart(today), to: today };
   if (range === "lastmonth") {
     const prior = inPreviousMonth(today);
@@ -158,7 +167,12 @@ export function previousWindow(window: DateWindow, range: DateRange): DateWindow
   // days immediately before it. On a Wednesday the same-length rule would set
   // Monday–Wednesday against Friday–Sunday: a weekend against three trading
   // days, which is the comparison that makes every Monday look catastrophic.
-  if (range === "week") {
+  // Last week takes the same rule for the same reason: the seven days before
+  // it, aligned Monday to Sunday, rather than the generic same-length window.
+  // They happen to agree here — a whole week shifted back seven days is the
+  // week before it either way — but the alignment is stated rather than
+  // inherited, so a later change to the generic rule cannot quietly move it.
+  if (range === "week" || range === "lastweek") {
     return { from: daysBefore(window.from, 7), to: daysBefore(window.to, 7) };
   }
 
