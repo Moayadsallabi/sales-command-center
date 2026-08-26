@@ -198,7 +198,6 @@ describe("who earns a place on the roster", () => {
       who: ADMIN,
       clients: [
         row("brey", "Funded Blueprint"),
-        row("lab", "Perceptionism Lab", { internal: true }),
         row("propfolio", "Propfolio", { status: "archived" }),
         row("zennbot", "Zennbot", { notion: false }),
       ],
@@ -207,6 +206,23 @@ describe("who earns a place on the roster", () => {
     const names = (await servableClients("kpi_token=x")).map((c) => c.name);
 
     expect(names).toEqual(["Funded Blueprint"]);
+  });
+
+  it("KEEPS the Lab's own account, which is the one we look at most", async () => {
+    // Internal was refused here alongside archived, and the two were never the
+    // same thing: archived is somebody who left, internal is us. The effect was
+    // that this dashboard could be pointed at every client except ourselves.
+    mockConsole({
+      who: ADMIN,
+      clients: [
+        row("brey", "Funded Blueprint"),
+        row("lab", "Perceptionism Lab", { internal: true }),
+      ],
+    });
+
+    const names = (await servableClients("kpi_token=x")).map((c) => c.name);
+
+    expect(names).toContain("Perceptionism Lab");
   });
 
   it("is empty when the console refuses the roster", async () => {

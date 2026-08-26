@@ -233,7 +233,11 @@ export async function servableClients(cookieHeader: string | null): Promise<Serv
     }> = body?.clients ?? [];
 
     return rows
-      .filter((c) => c.status !== "archived" && !c.is_internal)
+      // Archived only. Internal is the LAB'S OWN account -- its own sales calls,
+      // the ones Moayad looks at most -- and refusing it meant this dashboard
+      // could be pointed at every client except us. Nothing about isolation
+      // rests on that flag; the admin check above is what carries it.
+      .filter((c) => c.status !== "archived")
       .filter((c) => (c.integrations ?? []).some((i) => i.provider === "notion" && i.configured))
       .map((c) => ({ id: c.id, name: c.name }));
   } catch {
