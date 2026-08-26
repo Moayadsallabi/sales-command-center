@@ -64,45 +64,78 @@ export function configFromEnvironment(): ClientConfig {
   };
 }
 
-/**
- * Ask the console who this is, then ask it for their credentials.
- *
- * Two calls rather than one because they answer different questions and are
- * guarded differently: whoami reads the visitor's own cookie and tells you
- * nothing without it, while the credentials call is server-to-server and needs
- * a token this app holds. Collapsing them would mean a cookie could ask for
- * credentials.
- *
- * Returns null on ANY failure -- unreachable, unauthorised, no session, no
- * client. The caller falls back to the environment, so a registry outage
- * degrades to today's behaviour instead of an empty dashboard.
- */
-export async function configFromRegistry(cookieHeader: string | null): Promise<ClientConfig | null> {
-  if (!cookieHeader) return null;
-  const base = process.env.IDENTITY_URL ?? "https://kpi.perceptionismlab.com";
-  const token = process.env.REGISTRY_TOKEN;
-  if (!token) return null;
+/** The console's base address. One place, so a redeploy moves every call. */
+function identityBase(): string {
+  return process.env.IDENTITY_URL ?? "https://kpi.perceptionismlab.com";
+}
 
+/** Who is holding this cookie, as the console sees them. */
+export type Viewer = {
+  role: string;
+  clientId: string | null;
+  clientName: string | null;
+};
+
+/**
+ * Ask the console who this visitor is.
+ *
+ * Split out from the credential fetch below because the two answer different
+ * questions and are guarded differently: this reads the VISITOR'S cookie and
+ * tells you nothing without it, while the credential call is server-to-server
+ * and needs a token this app holds. Collapsing them would mean a cookie could
+ * ask for credentials.
+ *
+ * Null on any failure -- unreachable, expired, malformed -- so every caller
+ * treats "the console did not answer" as "nobody is signed in", which is the
+ * safe reading in both directions.
+ */
+export async function whoami(cookieHeader: string | null): Promise<Viewer | null> {
+  if (!cookieHeader) return null;
   try {
-    const meRes = await fetch(base + "/api/session/whoami", {
+    const res = await fetch(identityBase() + "/api/session/whoami", {
       headers: { Cookie: cookieHeader },
       cache: "no-store",
       signal: AbortSignal.timeout(4000),
     });
-    if (!meRes.ok) return null;
-    const me = await meRes.json();
+    if (!res.ok) return null;
+    const me = await res.json();
     if (!me?.authenticated) return null;
+    return {
+      role: String(me.role),
+      clientId: me.client_id ?? null,
+      clientName: me.client_name ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
 
-    // An admin is not a client. Without a client to render they get whatever
-    // this deployment already names, rather than an arbitrary one.
-    const clientId: string | null = me.client_id ?? null;
-    if (!clientId) return null;
+/**
+ * One named client's credentials, server-to-server.
+ *
+ * THE CALLER HAS ALREADY DECIDED THIS IS ALLOWED. This function does not ask
+ * who is looking -- it holds an internal token and would hand over anybody's
+ * keys to anybody who reached it. Every path into it therefore establishes the
+ * right to the client id FIRST: the visitor's own session, or an admin's
+ * explicit choice checked against their role. Adding a caller that skips that
+ * step is how one client reads another's calls.
+ *
+ * Null on ANY failure, so a registry outage degrades to the environment
+ * instead of an empty dashboard.
+ */
+export async function credentialsFor(clientId: string): Promise<ClientConfig | null> {
+  const token = process.env.REGISTRY_TOKEN;
+  if (!token) return null;
 
-    const credRes = await fetch(base + "/api/internal/credentials/" + encodeURIComponent(clientId), {
-      headers: { "X-Internal-Token": token },
-      cache: "no-store",
-      signal: AbortSignal.timeout(4000),
-    });
+  try {
+    const credRes = await fetch(
+      identityBase() + "/api/internal/credentials/" + encodeURIComponent(clientId),
+      {
+        headers: { "X-Internal-Token": token },
+        cache: "no-store",
+        signal: AbortSignal.timeout(4000),
+      }
+    );
     if (!credRes.ok) return null;
     const body = await credRes.json();
     const i = body?.integrations ?? {};
@@ -120,7 +153,7 @@ export async function configFromRegistry(cookieHeader: string | null): Promise<C
 
     return {
       clientId,
-      brandName: body?.client?.name ?? me.client_name ?? null,
+      brandName: body?.client?.name ?? null,
       source: "registry",
       notion: {
         apiKey: notion.api_key ?? null,
@@ -137,7 +170,178 @@ export async function configFromRegistry(cookieHeader: string | null): Promise<C
   }
 }
 
+/**
+ * The visitor's OWN dashboard, from the registry.
+ *
+ * Unchanged in meaning from before the switcher existed: an admin is not a
+ * client, so without a client of their own they get whatever this deployment
+ * already names. The switcher is a separate, explicit path -- see
+ * `servableClients` below.
+ */
+export async function configFromRegistry(
+  cookieHeader: string | null,
+  viewer?: Viewer | null
+): Promise<ClientConfig | null> {
+  const me = viewer !== undefined ? viewer : await whoami(cookieHeader);
+  if (!me) return null;
+  const clientId = me.clientId;
+  if (!clientId) return null;
+  const cfg = await credentialsFor(clientId);
+  if (!cfg) return null;
+  return { ...cfg, brandName: cfg.brandName ?? me.clientName ?? null };
+}
+
+/** A client an admin may point this dashboard at. Names only -- see below. */
+export type ServableClient = { id: string; name: string };
+
+/**
+ * THE ADMIN'S CLIENT LIST, AND ONLY THE ADMIN'S.
+ *
+ * Guarded at the console, not here. `/api/registry/clients` already answers 403
+ * to a client session, so a client asking gets an empty list by the same rule
+ * that stops them reading the roster anywhere else -- rather than by a check
+ * written a second time in this repo, which is the drift that has cost this
+ * workspace before. The visitor's own cookie is forwarded so the console is
+ * deciding about the person actually looking.
+ *
+ * WHAT EARNS A PLACE ON THE LIST: a Notion tracker that is actually connected.
+ * Not the `sales` surface -- that records what a CLIENT is entitled to open,
+ * and this list is read by the agency, who are not bound by it. The question
+ * here is only "can this client's dashboard render", and Notion is the whole of
+ * the answer: it holds the calls, and everything else on the page is optional.
+ *
+ * Archived and internal clients are left out because the credentials endpoint
+ * REFUSES them. That is not a second opinion about who should be listed; it is
+ * this list agreeing with the server, so that every name on it can be clicked.
+ */
+export async function servableClients(cookieHeader: string | null): Promise<ServableClient[]> {
+  if (!cookieHeader) return [];
+  try {
+    const res = await fetch(identityBase() + "/api/registry/clients", {
+      headers: { Cookie: cookieHeader },
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return [];   // 403 for a client session, and that is the point
+    const body = await res.json();
+    const rows: Array<{
+      id: string;
+      name: string;
+      status: string;
+      is_internal: boolean;
+      integrations?: Array<{ provider: string; configured: boolean }>;
+    }> = body?.clients ?? [];
+
+    return rows
+      .filter((c) => c.status !== "archived" && !c.is_internal)
+      .filter((c) => (c.integrations ?? []).some((i) => i.provider === "notion" && i.configured))
+      .map((c) => ({ id: c.id, name: c.name }));
+  } catch {
+    return [];
+  }
+}
+
 /** The registry when it can answer for this visitor, this deployment otherwise. */
-export async function resolveClientConfig(cookieHeader: string | null): Promise<ClientConfig> {
-  return (await configFromRegistry(cookieHeader)) ?? configFromEnvironment();
+export async function resolveClientConfig(
+  cookieHeader: string | null,
+  viewer?: Viewer | null
+): Promise<ClientConfig> {
+  return (await configFromRegistry(cookieHeader, viewer)) ?? configFromEnvironment();
+}
+
+/* -------------------------------------------------------- the switcher */
+
+/**
+ * Where an admin's choice of client is kept.
+ *
+ * A COOKIE RATHER THAN THE ADDRESS BAR, for two reasons. This page reloads
+ * itself every sixty seconds, so the choice has to survive a reload — which a
+ * query string would, but a query string also travels: pasted into a thread or
+ * caught in a screenshot, `?client=…` reads as a link anyone can follow, and
+ * the fact that it would refuse them is not visible on the face of it.
+ *
+ * It is httpOnly because nothing in the browser needs to read it. The server
+ * renders whose dashboard this is into the page already.
+ */
+export const VIEWING_COOKIE = "scc_viewing";
+
+export type Viewing = {
+  /** The credentials every read on the page goes through. */
+  config: ClientConfig;
+  /** Who this visitor may switch to. EMPTY for everyone who is not an admin. */
+  clients: ServableClient[];
+  /** The client currently pinned by the switcher, when one is. */
+  chosen: string | null;
+  /**
+   * Set when a pinned client could not be opened.
+   *
+   * It exists so the page can SAY so. Falling back silently would render the
+   * deployment's own client under a heading the admin believes says somebody
+   * else — one client's numbers read as another's, which is the single worst
+   * outcome this file is arranged to prevent.
+   */
+  switchError: string | null;
+};
+
+/**
+ * Whose dashboard to render, and what the switcher may offer.
+ *
+ * THE ROLE IS CHECKED HERE, ON EVERY REQUEST, against the console — never
+ * against anything the browser sent. The cookie above carries a client id and
+ * nothing else; on its own it is a request, not a permission. A client who
+ * copies an admin's cookie value gets their own dashboard, because the id is
+ * only ever honoured after `whoami` comes back `admin`.
+ */
+export async function resolveViewing(
+  cookieHeader: string | null,
+  chosen: string | null
+): Promise<Viewing> {
+  const me = await whoami(cookieHeader);
+  const fallback = () => resolveClientConfig(cookieHeader, me);
+
+  // Not an admin: the switcher does not exist, and a pinned id is ignored
+  // rather than refused. There is nothing to tell them — the cookie is not
+  // theirs to have used.
+  if (me?.role !== "admin") {
+    return { config: await fallback(), clients: [], chosen: null, switchError: null };
+  }
+
+  const clients = await servableClients(cookieHeader);
+  if (!chosen) {
+    return { config: await fallback(), clients, chosen: null, switchError: null };
+  }
+
+  // A pinned client that has since been archived, had its tracker removed, or
+  // was never on the list. Checked before the credential call so the answer
+  // comes from the same list the switcher offered, rather than from a 403.
+  const named = clients.find((c) => c.id === chosen);
+  if (!named) {
+    return {
+      config: await fallback(),
+      clients,
+      chosen: null,
+      switchError:
+        "The client this dashboard was pointed at is no longer one it can open — " +
+        "archived, or their sales tracker has been disconnected.",
+    };
+  }
+
+  const cfg = await credentialsFor(chosen);
+  if (!cfg) {
+    return {
+      config: await fallback(),
+      clients,
+      chosen: null,
+      switchError:
+        `${named.name}'s dashboard could not be opened: the registry did not return their keys. ` +
+        "Every number below belongs to whoever this deployment is named after, not to them.",
+    };
+  }
+
+  return {
+    config: { ...cfg, brandName: cfg.brandName ?? named.name },
+    clients,
+    chosen,
+    switchError: null,
+  };
 }

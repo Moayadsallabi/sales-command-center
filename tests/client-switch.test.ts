@@ -1,0 +1,221 @@
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { resolveViewing, servableClients } from "../src/lib/client-config";
+
+/**
+ * THE RULES THAT KEEP ONE CLIENT OUT OF ANOTHER'S CALLS.
+ *
+ * The switcher is admin-only, and "admin" is a claim only the console can make.
+ * Everything below asserts that the browser cannot promote itself: a pinned
+ * client id is a REQUEST, honoured only after the console says the person
+ * holding it is the Lab.
+ *
+ * The second thing asserted here is quieter and matters as much: when a switch
+ * cannot be completed, the page must SAY so. Falling back silently renders the
+ * deployment's own client under the heading of the one that was asked for, and
+ * a number attached to the wrong name is worse than a missing number.
+ */
+
+const ADMIN = { authenticated: true, role: "admin", client_id: null, client_name: null };
+const CLIENT = { authenticated: true, role: "client", client_id: "karan", client_name: "Karan Thind" };
+
+/** A registry row as `/api/registry/clients` sends it. */
+function row(
+  id: string,
+  name: string,
+  opts: { status?: string; internal?: boolean; notion?: boolean } = {}
+) {
+  return {
+    id,
+    name,
+    status: opts.status ?? "active",
+    is_internal: opts.internal ?? false,
+    integrations: [{ provider: "notion", configured: opts.notion ?? true }],
+  };
+}
+
+/** Credentials as `/api/internal/credentials/:id` sends them. */
+function creds(id: string, name: string) {
+  return {
+    client: { id, name, status: "active" },
+    integrations: {
+      notion: { api_key: `key-${id}`, account_id: `db-${id}`, config: {} },
+    },
+  };
+}
+
+type Routes = {
+  who?: unknown;
+  clients?: unknown[];
+  credentials?: Record<string, unknown>;
+};
+
+/** Answers the three console endpoints; anything else 404s, loudly. */
+function mockConsole({ who, clients, credentials = {} }: Routes) {
+  const calls: string[] = [];
+  const fetchMock = vi.fn(async (url: string) => {
+    calls.push(url);
+    const ok = (body: unknown) =>
+      ({ ok: true, json: async () => body }) as unknown as Response;
+    const refused = (status: number) =>
+      ({ ok: false, status, json: async () => ({}) }) as unknown as Response;
+
+    if (url.includes("/api/session/whoami")) {
+      return who ? ok(who) : ok({ authenticated: false });
+    }
+    if (url.includes("/api/registry/clients")) {
+      // The console answers 403 to a client session. Mirrored here, because
+      // that refusal is what makes the list admin-only.
+      return clients ? ok({ clients }) : refused(403);
+    }
+    const m = url.match(/\/api\/internal\/credentials\/(.+)$/);
+    if (m) {
+      const body = credentials[decodeURIComponent(m[1])];
+      return body ? ok(body) : refused(404);
+    }
+    return refused(404);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return calls;
+}
+
+beforeEach(() => {
+  vi.stubEnv("REGISTRY_TOKEN", "internal-token");
+  vi.stubEnv("IDENTITY_URL", "https://console.test");
+  vi.stubEnv("CLIENT_ID", "brey");
+  vi.stubEnv("NEXT_PUBLIC_BRAND_NAME", "Funded Blueprint");
+  vi.stubEnv("NOTION_API_KEY", "env-key");
+  vi.stubEnv("NOTION_DATABASE_ID", "env-db");
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+describe("who may switch client", () => {
+  it("gives a client no roster at all, so the switcher cannot render", async () => {
+    mockConsole({ who: CLIENT, credentials: { karan: creds("karan", "Karan Thind") } });
+
+    const v = await resolveViewing("kpi_token=x", null);
+
+    expect(v.clients).toEqual([]);
+    expect(v.config.clientId).toBe("karan");
+  });
+
+  it("IGNORES a client's pinned cookie rather than honouring it", async () => {
+    // The exact attack this is arranged against: a client session that has
+    // somehow acquired an admin's cookie VALUE. The id is not a permission.
+    mockConsole({
+      who: CLIENT,
+      credentials: {
+        karan: creds("karan", "Karan Thind"),
+        brey: creds("brey", "Funded Blueprint"),
+      },
+    });
+
+    const v = await resolveViewing("kpi_token=x", "brey");
+
+    expect(v.chosen).toBeNull();
+    expect(v.config.clientId).toBe("karan");
+    expect(v.config.brandName).toBe("Karan Thind");
+  });
+
+  it("never asks for the pinned client's credentials on a client session", async () => {
+    const calls = mockConsole({
+      who: CLIENT,
+      credentials: {
+        karan: creds("karan", "Karan Thind"),
+        brey: creds("brey", "Funded Blueprint"),
+      },
+    });
+
+    await resolveViewing("kpi_token=x", "brey");
+
+    expect(calls.some((u) => u.includes("credentials/brey"))).toBe(false);
+  });
+
+  it("offers an admin the roster, and this deployment's own client until one is picked", async () => {
+    mockConsole({ who: ADMIN, clients: [row("brey", "Funded Blueprint"), row("karan", "Karan Thind")] });
+
+    const v = await resolveViewing("kpi_token=x", null);
+
+    expect(v.clients.map((c) => c.name)).toEqual(["Funded Blueprint", "Karan Thind"]);
+    expect(v.config.source).toBe("environment");
+    expect(v.switchError).toBeNull();
+  });
+
+  it("renders the client an admin picked, under that client's name", async () => {
+    mockConsole({
+      who: ADMIN,
+      clients: [row("brey", "Funded Blueprint"), row("karan", "Karan Thind")],
+      credentials: { karan: creds("karan", "Karan Thind") },
+    });
+
+    const v = await resolveViewing("kpi_token=x", "karan");
+
+    expect(v.chosen).toBe("karan");
+    expect(v.config.brandName).toBe("Karan Thind");
+    expect(v.config.notion.apiKey).toBe("key-karan");
+    expect(v.switchError).toBeNull();
+  });
+});
+
+describe("a switch that cannot be completed says so", () => {
+  it("does not silently render the deployment's own client instead", async () => {
+    // Listed, so the switcher offered it — and then the credential call fails.
+    mockConsole({
+      who: ADMIN,
+      clients: [row("karan", "Karan Thind")],
+      credentials: {},
+    });
+
+    const v = await resolveViewing("kpi_token=x", "karan");
+
+    expect(v.switchError).toContain("Karan Thind");
+    expect(v.chosen).toBeNull();
+    // It DID fall back — that part is fine. What matters is that it is named.
+    expect(v.config.source).toBe("environment");
+    expect(v.config.brandName).toBe("Funded Blueprint");
+  });
+
+  it("refuses a client that has dropped off the list, before asking for keys", async () => {
+    const calls = mockConsole({
+      who: ADMIN,
+      clients: [row("brey", "Funded Blueprint")],
+      credentials: { karan: creds("karan", "Karan Thind") },
+    });
+
+    const v = await resolveViewing("kpi_token=x", "karan");
+
+    expect(v.switchError).toContain("no longer one it can open");
+    expect(calls.some((u) => u.includes("credentials/karan"))).toBe(false);
+  });
+});
+
+describe("who earns a place on the roster", () => {
+  it("leaves out anyone the credentials endpoint would refuse, and anyone with no tracker", async () => {
+    mockConsole({
+      who: ADMIN,
+      clients: [
+        row("brey", "Funded Blueprint"),
+        row("lab", "Perceptionism Lab", { internal: true }),
+        row("propfolio", "Propfolio", { status: "archived" }),
+        row("zennbot", "Zennbot", { notion: false }),
+      ],
+    });
+
+    const names = (await servableClients("kpi_token=x")).map((c) => c.name);
+
+    expect(names).toEqual(["Funded Blueprint"]);
+  });
+
+  it("is empty when the console refuses the roster", async () => {
+    mockConsole({ who: CLIENT });
+    expect(await servableClients("kpi_token=x")).toEqual([]);
+  });
+
+  it("is empty for a visitor with no cookie at all", async () => {
+    mockConsole({ who: ADMIN, clients: [row("brey", "Funded Blueprint")] });
+    expect(await servableClients(null)).toEqual([]);
+  });
+});

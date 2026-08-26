@@ -600,3 +600,17 @@ export function demoBookings(calls: CallRecord[], today: string): BookingRecord[
 
   return bookings;
 }
+
+/**
+ * An invented roster for the demo's client switcher.
+ *
+ * Every name here renders the SAME invented calls: demo mode reads no registry
+ * and no tracker, so switching changes the label and nothing else. It exists so
+ * the control can be driven and reviewed without pointing a live dashboard at a
+ * live client — which is the one thing you cannot rehearse on production.
+ */
+export const DEMO_CLIENTS = [
+  { id: "demo-funded-blueprint", name: "Funded Blueprint" },
+  { id: "demo-zennbot", name: "Zennbot" },
+  { id: "demo-karan-thind", name: "Karan Thind" },
+];

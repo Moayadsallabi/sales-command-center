@@ -8,7 +8,13 @@ import { partitionCalls } from "@/lib/excluded-calls";
 import { settle } from "@/lib/settle";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { headers } from "next/headers";
-import { resolveClientConfig, ClientConfig } from "@/lib/client-config";
+import {
+  ClientConfig,
+  VIEWING_COOKIE,
+  configFromEnvironment,
+  resolveViewing,
+} from "@/lib/client-config";
+import { cookies } from "next/headers";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
 
 export const dynamic = "force-dynamic";
@@ -90,8 +96,15 @@ export default async function Home() {
 
   // Preview the dashboard without Notion. Unset in any real deployment.
   if (process.env.DASHBOARD_DEMO_DATA === "1") {
-    const { demoCalls, demoBookings } = await import("@/lib/demo-data");
+    const { demoCalls, demoBookings, DEMO_CLIENTS } = await import("@/lib/demo-data");
     const calls = demoCalls(today);
+    // The switcher, driven by the same cookie and the same route as the real
+    // one. The names are invented and every one of them renders the same
+    // invented calls — demo mode reads no registry and no tracker, so switching
+    // here changes the label and nothing else. It exists so the control can be
+    // used and reviewed without pointing a live dashboard at a live client.
+    const demoChosen = (await cookies()).get(VIEWING_COOKIE)?.value ?? null;
+    const demoCurrent = DEMO_CLIENTS.find((c) => c.id === demoChosen) ?? null;
     // Bookings are part of the demo unless you ask to see the dashboard as it
     // looks before Calendly is connected — which is the state every new install
     // starts in, and therefore worth being able to preview on purpose.
@@ -110,6 +123,10 @@ export default async function Home() {
           pending: 0,
           total: link?.bookings.length ?? 0,
         }}
+        brandName={demoCurrent?.name ?? "Funded Blueprint"}
+        clients={DEMO_CLIENTS}
+        chosenClient={demoCurrent?.id ?? null}
+        homeName="Funded Blueprint"
         demo
       />
     );
@@ -120,7 +137,11 @@ export default async function Home() {
   // reaching into the environment and all of them silently agreeing because
   // there has only ever been one client per deployment.
   const cookieHeader = (await headers()).get("cookie");
-  const cfg = await resolveClientConfig(cookieHeader);
+  const viewing = await resolveViewing(
+    cookieHeader,
+    (await cookies()).get(VIEWING_COOKIE)?.value ?? null
+  );
+  const cfg: ClientConfig = viewing.config;
 
   const result = await loadCalls(cfg);
 
@@ -162,6 +183,10 @@ export default async function Home() {
   return (
     <Dashboard
       brandName={cfg.brandName}
+      clients={viewing.clients}
+      chosenClient={viewing.chosen}
+      homeName={configFromEnvironment().brandName}
+      switchError={viewing.switchError}
       calls={calls}
       today={today}
       calendly={calendly}

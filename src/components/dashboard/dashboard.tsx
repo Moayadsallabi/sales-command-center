@@ -38,8 +38,41 @@ import { LeadImpact } from "./lead-impact";
 import { ObjectionPanel } from "./objection-panel";
 import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
+import { NavSection, SectionNav, useSectionNav } from "./section-nav";
+import { ClientSwitcher, SwitcherClient, SwitchFailure } from "./client-switcher";
 import { SalesCommandMark } from "@/components/brand/logo";
-import { AlertTriangle, X } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Coins,
+  Gauge,
+  List,
+  MessageSquareWarning,
+  PhoneForwarded,
+  Trophy,
+  UserSearch,
+  X,
+} from "lucide-react";
+
+/**
+ * THE PAGE'S OWN TABLE OF CONTENTS, IN READING ORDER.
+ *
+ * Same list, same order, same icons as the panels themselves — a section that
+ * moves up the page moves up the rail, because both come from here. Each `id`
+ * has to match the wrapper it names in the markup below; nothing else on the
+ * page carries these strings.
+ */
+const SECTIONS: NavSection[] = [
+  { id: "numbers", label: "The numbers", icon: Gauge },
+  { id: "follow-ups", label: "Follow-ups", icon: PhoneForwarded },
+  { id: "closers", label: "Closers", icon: Trophy },
+  { id: "costing", label: "What is costing you", icon: AlertTriangle },
+  { id: "call-parts", label: "Parts of the call", icon: Coins },
+  { id: "leads", label: "What leads are worth", icon: UserSearch },
+  { id: "objections", label: "Objections", icon: MessageSquareWarning },
+  { id: "calls", label: "All calls", icon: List },
+  { id: "data-health", label: "Data health", icon: Activity },
+];
 
 /** `2026-08-12` -> `12 Aug`, for the line under the range buttons. */
 function shortDate(iso: string): string {
@@ -59,6 +92,10 @@ export function Dashboard({
   excluded = [],
   demo = false,
   brandName: brandNameProp,
+  clients = [],
+  chosenClient = null,
+  homeName = null,
+  switchError = null,
 }: {
   calls: CallRecord[];
   today: string;
@@ -76,6 +113,21 @@ export function Dashboard({
    * deployments render exactly as they do today.
    */
   brandName?: string | null;
+  /**
+   * Clients this visitor may point the dashboard at.
+   *
+   * EMPTY FOR EVERYONE BUT THE LAB, and empty is what hides the switcher — the
+   * server sends a client an empty list because the console refuses them the
+   * roster, not because this component decided to. Nothing here is what keeps
+   * one client out of another's numbers; see lib/client-config.ts.
+   */
+  clients?: SwitcherClient[];
+  /** The client currently pinned by the switcher, or null for this deployment's own. */
+  chosenClient?: string | null;
+  /** What this deployment is named after, for the way back out of a switch. */
+  homeName?: string | null;
+  /** Set when a pinned client could not be opened, so the page can say so. */
+  switchError?: string | null;
   /** Present only when Whop is connected. Null keeps the tracker's figure. */
   payments?: PaymentDay[] | null;
   /** Rows where the processor and the tracker disagree. Null without Whop. */
@@ -103,6 +155,7 @@ export function Dashboard({
   );
   const [selectedCloser, setSelectedCloser] = useState<string | null>(null);
   const [openCall, setOpenCall] = useState<CallRecord | null>(null);
+  const nav = useSectionNav();
 
   const allSources = useMemo(() => {
     const sources = new Set<string>();
@@ -305,7 +358,8 @@ export function Dashboard({
     if (prior === null) return "";
     if (dateRange === "custom") return `vs prev ${daysBetween(prior.from!, prior.to!)} days`;
     if (dateRange === "today") return `vs ${shortDate(prior.from!)}`;
-    if (dateRange === "week") return `vs ${shortDate(prior.from!)} – ${shortDate(prior.to!)}`;
+    if (dateRange === "week" || dateRange === "lastweek")
+      return `vs ${shortDate(prior.from!)} – ${shortDate(prior.to!)}`;
     if (dateRange === "year") return `vs ${shortDate(prior.from!)} – ${shortDate(prior.to!)} ${prior.from!.slice(0, 4)}`;
     // A whole month is named; a part-month says which part, so "vs Jul" can
     // never claim all of July while holding its first nineteen days.
@@ -447,7 +501,36 @@ export function Dashboard({
   const brandName = (brandNameProp ?? process.env.NEXT_PUBLIC_BRAND_NAME)?.trim() || null;
 
   return (
-    <div className="min-h-screen">
+    /* The rail is fixed to the viewport so it survives scrolling, which means
+       it takes up no space of its own — this padding is what stops it sitting
+       on top of the header and the panels. Below `lg` the rail is a drawer
+       instead, and there is no gap to leave. */
+    <div
+      className={`min-h-screen transition-[padding] duration-200 ${
+        nav.collapsed ? "lg:pl-14" : "lg:pl-56"
+      }`}
+    >
+      <SectionNav
+        sections={SECTIONS}
+        collapsed={nav.collapsed}
+        onToggle={nav.toggle}
+        /* Passed as undefined rather than as a component that renders nothing:
+           the rail draws a bordered block around whatever it is given, and an
+           element that returns null still counts as "given" — which left an
+           empty box above the section list on every client's dashboard. */
+        switcher={
+          clients.length === 0 ? undefined : (
+          <ClientSwitcher
+            clients={clients}
+            currentName={brandName ?? "Sales Command Center"}
+            chosen={chosenClient}
+            homeName={homeName}
+            collapsed={nav.collapsed}
+          />
+          )
+        }
+      />
+
       {/* HEADER — ONE TITLE ROW, THEN ONE TOOLBAR.
           The title block, both filter families, the date presets, the custom
           date fields and the live indicator all used to share a two-row
@@ -674,53 +757,76 @@ export function Dashboard({
             turns it into its entrance delay, so reading order and animation
             order are one list rather than ten hand-written numbers that drift
             apart when a panel moves. See components/dashboard/panel.tsx. */}
-        <KPICards
-          calls={scoped}
-          previousCalls={previousScoped}
-          comparisonLabel={comparisonLabel}
-          funnel={funnel}
-          bank={bank}
-          payments={payments !== null}
-          cashSeries={series}
-          unratedCount={unrated.length}
-        />
+        {/* Each section below is wrapped in an id the rail links to, and
+            `scroll-mt` is what keeps its heading clear of the sticky header
+            when it is jumped to rather than scrolled to. */}
+        {/* The one thing allowed above the numbers, because it says the
+            numbers are not whose the header says they are. */}
+        {switchError && <SwitchFailure message={switchError} />}
+
+        <div id="numbers" className="scroll-mt-32">
+          <KPICards
+            calls={scoped}
+            previousCalls={previousScoped}
+            comparisonLabel={comparisonLabel}
+            funnel={funnel}
+            bank={bank}
+            payments={payments !== null}
+            cashSeries={series}
+            unratedCount={unrated.length}
+          />
+        </div>
 
         {/* ACT. The follow-up worklist, above everything that only describes.
             Reads the unfiltered call list: an unworked follow-up does not stop
             being owed when the date filter moves. */}
-        <FollowUps order={2} calls={calls} today={today} />
+        <div id="follow-ups" className="scroll-mt-32">
+          <FollowUps order={2} calls={calls} today={today} />
+        </div>
 
-        <CloserLeaderboard
-          order={3}
-          calls={filtered}
-          previousCalls={previous}
-          selected={selectedCloser}
-          onSelect={setSelectedCloser}
-        />
+        <div id="closers" className="scroll-mt-32">
+          <CloserLeaderboard
+            order={3}
+            calls={filtered}
+            previousCalls={previous}
+            selected={selectedCloser}
+            onSelect={setSelectedCloser}
+          />
+        </div>
 
-        <WhatsCostingYou
-          order={4}
-          calls={scoped}
-          previousCalls={previousScoped}
-          comparisonLabel={comparisonLabel}
-          closer={selectedCloser}
-        />
+        <div id="costing" className="scroll-mt-32">
+          <WhatsCostingYou
+            order={4}
+            calls={scoped}
+            previousCalls={previousScoped}
+            comparisonLabel={comparisonLabel}
+            closer={selectedCloser}
+          />
+        </div>
 
         {/* The pair, in this order on purpose. The dimensions say how well the
             calls were run; the leads say what they were run on. Reading the
             first without the second is how a traffic problem gets coached. */}
-        <DimensionImpact order={5} calls={scoped} />
+        <div id="call-parts" className="scroll-mt-32">
+          <DimensionImpact order={5} calls={scoped} />
+        </div>
 
-        <LeadImpact order={6} calls={scoped} />
+        <div id="leads" className="scroll-mt-32">
+          <LeadImpact order={6} calls={scoped} />
+        </div>
 
-        <ObjectionPanel order={7} calls={scoped} />
+        <div id="objections" className="scroll-mt-32">
+          <ObjectionPanel order={7} calls={scoped} />
+        </div>
 
-        <CallTable
-          order={8}
-          calls={scoped}
-          onSelect={setOpenCall}
-          excluded={excluded}
-        />
+        <div id="calls" className="scroll-mt-32">
+          <CallTable
+            order={8}
+            calls={scoped}
+            onSelect={setOpenCall}
+            excluded={excluded}
+          />
+        </div>
 
         {/* DATA HEALTH. Everything above describes the business; these
             describe how much of it the page can actually see.
