@@ -185,7 +185,7 @@
             {
               "id": "direct-prospect-name",
               "name": "prospect_name",
-              "value": "={{ (() => { const t = String($json.meeting_title ?? '').trim(); const i = t.indexOf(':'); if (i > 0) { const n = t.slice(0, i).trim(); if (n) return n; } const ext = ($('Fathom Webhook').item.json.body.calendar_invitees ?? []).filter(x => !!x && x.is_external && x.name); if (ext.length) return String(ext[0].name).trim(); return 'Unknown'; })() }}",
+              "value": "={{ (() => { const body = $('Fathom Webhook').item.json.body; const t = String($json.meeting_title ?? '').trim(); const closer = String($json.closer ?? '').trim(); const internal = (body.calendar_invitees ?? []).filter(x => !!x && !x.is_external).map(x => String(x.name ?? '').trim()); const ours = internal.concat([closer, String(body.recorded_by?.name ?? '').trim()]).filter(n => n !== ''); const isOurs = (n) => ours.some(o => o.toLowerCase() === String(n).trim().toLowerCase()); const i = t.indexOf(':'); if (i > 0) { const n = t.slice(0, i).trim(); if (n && !isOurs(n)) return n; } const w = t.match(/\\bwith\\s+(.+)$/i); if (w) { const n = w[1].trim(); if (n && !isOurs(n)) return n; } const ext = (body.calendar_invitees ?? []).filter(x => !!x && x.is_external && x.name); const named = ext.filter(x => !String(x.name).includes('@')); if (named.length) return String(named[0].name).trim(); const seen = []; for (const line of (body.transcript ?? [])) { const s = String(line?.speaker?.display_name ?? '').trim(); if (s !== '' && !isOurs(s) && seen.indexOf(s) === -1) seen.push(s); } if (seen.length === 1) return seen[0]; if (ext.length) return String(ext[0].name).trim(); return 'Unknown'; })() }}",
               "type": "string"
             },
             {
@@ -247,7 +247,8 @@
       "position": [
         208,
         -208
-      ]
+      ],
+      "notes": "The prospect's name, strongest source first: the title before a colon, the title after \"with\", the calendar invite, then \u2014 for an impromptu call, which has no invite at all \u2014 the one person in the transcript who is not ours. Two unaccounted speakers is not a name, so it stays Unknown rather than picking one."
     },
     {
       "parameters": {

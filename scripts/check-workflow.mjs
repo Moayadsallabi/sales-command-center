@@ -531,20 +531,46 @@ else pass("two raised objections with no primary are left blank rather than gues
 /* ------------------------------------------ 4c. Prospect name extraction */
 
 // Real titles seen in Fathom: "Karan: Strategy Call" (correct), "Alphazone.ai
-// Strategy Call" (no colon) and "Impromptu Zoom Meeting" (no invite at all).
-// The first is easy; the other two used to produce a row named after the
-// meeting, which reads as a real prospect in the table.
+// Strategy Call" (no colon), "Profitability Game Plan Call with Kevin" (the
+// name after the offer rather than before it) and "Impromptu Google Meet
+// Meeting" (no invite at all). The first is easy; the rest used to produce a
+// row named after the meeting, or named Unknown.
+//
+// The impromptu case is the one that mattered on Brey's account: a closer who
+// opens their own Meet room instead of joining the booked event leaves Fathom
+// with no calendar event, so there is no invitee to read a name or an address
+// off. Eleven of the fourteen nameless rows on 27 August 2026 were that, and
+// every one of them had the prospect's name sitting in the transcript, because
+// Google Meet labels whoever is in the room.
+//
+// Two things this must never do. It must not name a call after the closer, so
+// every candidate is checked against the internal invitees, the closer and
+// whoever recorded it. And with two unaccounted speakers in the room it must
+// return Unknown rather than pick one — a wrong human's name on a row is worse
+// than no name, because nothing downstream can tell it is wrong.
 const prospectExpr = nodeByName["Extract Direct Fields"].parameters.assignments.assignments.find(
   (a) => a.name === "prospect_name"
 ).value;
 
-const nameFrom = (title, invitees = []) =>
+const nameFrom = (title, invitees = [], transcript = [], closer = "Sam Rep") =>
   evalExpr(prospectExpr, {
-    $json: { meeting_title: title },
-    $: () => ({ item: { json: { body: { calendar_invitees: invitees } } } }),
+    $json: { meeting_title: title, closer },
+    $: () => ({
+      item: {
+        json: {
+          body: {
+            calendar_invitees: invitees,
+            transcript,
+            recorded_by: { name: closer },
+          },
+        },
+      },
+    }),
   });
 
 const externalInvitee = [{ name: "Alex Morgan", email: "alex@prospect.com", is_external: true }];
+const said = (...names) =>
+  names.map((n) => ({ speaker: { display_name: n }, text: "Something said out loud." }));
 
 if (nameFrom("Alex Morgan: Strategy Call", externalInvitee) !== "Alex Morgan")
   fail("prospect name is not taken from the part before the colon");
@@ -554,9 +580,41 @@ if (nameFrom("Alphazone.ai Strategy Call", externalInvitee) !== "Alex Morgan")
   fail("a title with no colon does not fall back to the external invitee");
 else pass("a title with no colon falls back to the external invitee");
 
-if (nameFrom("Impromptu Zoom Meeting", []) !== "Unknown")
-  fail("an impromptu call with no invitees is not named Unknown");
-else pass("an impromptu call with no invitees is named Unknown");
+if (nameFrom("Profitability Game Plan Call with Kevin", []) !== "Kevin")
+  fail("a name written after \"with\" in the title is not read");
+else pass("a name written after \"with\" in the title is read");
+
+if (nameFrom("Strategy Call with Sam Rep", [], said("Sam Rep", "Alex Morgan")) !== "Alex Morgan")
+  fail("a title naming the closer after \"with\" is taken as the prospect");
+else pass("a title naming the closer after \"with\" is skipped, not taken as the prospect");
+
+// The invite carries the prospect as an address with no name — Fathom then
+// repeats the address in the name field, and an address is not a name.
+const addressAsName = [
+  { name: "alex@prospect.com", email: "alex@prospect.com", is_external: true },
+];
+if (nameFrom("Impromptu Google Meet Meeting", addressAsName, said("Sam Rep", "Alex Morgan")) !== "Alex Morgan")
+  fail("an invitee whose name is just their address wins over the transcript");
+else pass("an invitee whose name is just their address loses to the transcript");
+
+if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep", "Alex Morgan")) !== "Alex Morgan")
+  fail("an impromptu call is not named from the one speaker who is not ours");
+else pass("an impromptu call is named from the one speaker who is not ours");
+
+if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep")) !== "Unknown")
+  fail("a call where only our own side spoke is not named Unknown");
+else pass("a call where only our own side spoke is named Unknown");
+
+if (
+  nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep", "Alex Morgan", "Jo Guest")) !==
+  "Unknown"
+)
+  fail("two unaccounted speakers should be Unknown rather than a guess at which is the prospect");
+else pass("two unaccounted speakers stay Unknown rather than a guess");
+
+if (nameFrom("Impromptu Google Meet Meeting", []) !== "Unknown")
+  fail("an impromptu call with no invitees and no transcript is not named Unknown");
+else pass("an impromptu call with nothing to read is named Unknown");
 
 /* ------------------------------------------- 4c. Untracked recordings */
 

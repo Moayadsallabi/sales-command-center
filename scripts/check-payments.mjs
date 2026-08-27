@@ -40,6 +40,76 @@ const MIN_NAME_TOKEN = 3;
 const MIN_SUBSTRING_TOKEN = 5;
 const WHOP_V2 = process.env.WHOP_API_V2_BASE ?? "https://api.whop.com/api/v2";
 
+/**
+ * WHERE THIS CHECK STOPS LOOKING BACK.
+ *
+ * Read from sales-rules.json rather than typed here, because the KPI dashboard
+ * has to obey the same date and the two copies are compared by check:rules.
+ *
+ * A row older than this is not reconciled and not reported. The tracking was
+ * built around 2026-08-16: the inbox sync began recording conversations on the
+ * 16th and the booking form started asking for the Instagram handle on the
+ * 18th, so a gap on an older row measures the absence of the system rather than
+ * anything anybody did. [STATED - Moayad, chat 2026-08-24: "no matter what we
+ * do that data from previous to that is tainted"]
+ *
+ * This is NOT a floor on the dashboard - revenue and the close rate still count
+ * the full history, because that money was really earned. It governs what this
+ * report puts in front of a person, so the lists stay actionable.
+ *
+ * How many rows it dropped is printed on every run. A cutoff nobody can see is
+ * indistinguishable from a tracker that has gone quiet.
+ */
+/**
+ * CALLS RULED OUT AS ANOTHER OFFER'S BUSINESS.
+ *
+ * This script was reporting them anyway. The 2026-08-22 "Unknown" row was ruled
+ * out on 2026-08-24 as Tpan's own offer, and the very next run still put it top
+ * of the must-fix list — so a ruling that had been made was going to be asked
+ * for again every week, which is how a report teaches people to skim it.
+ *
+ * Same rules as src/lib/excluded-calls.ts: the page id wins when the entry has
+ * one, date plus name is the fallback, and both halves of the fallback must
+ * match. A .mjs script cannot import the TypeScript library, so this is a
+ * deliberate second copy - keep the two in step.
+ */
+function loadExclusions() {
+  try {
+    const parsed = JSON.parse(readFileSync("excluded-calls.json", "utf8"));
+    return Object.entries(parsed)
+      .filter(([key]) => !key.startsWith("_"))
+      .flatMap(([, list]) => (Array.isArray(list) ? list : []));
+  } catch {
+    return [];
+  }
+}
+
+const pageId = (v) => String(v ?? "").trim().toLowerCase().replace(/-/g, "");
+const lower = (v) => String(v ?? "").trim().toLowerCase();
+
+function excludedBy(row, entries) {
+  for (const entry of entries) {
+    if (entry.notion_page_id) {
+      if (pageId(entry.notion_page_id) === pageId(row.id)) return entry;
+      continue;
+    }
+    const date = String(row.date ?? "").slice(0, 10);
+    if (!date || !lower(row.name)) continue;
+    if (String(entry.call_date ?? "").slice(0, 10) === date && lower(entry.prospect_name) === lower(row.name)) {
+      return entry;
+    }
+  }
+  return null;
+}
+
+const DATA_STARTS = (() => {
+  try {
+    return JSON.parse(readFileSync("sales-rules.json", "utf8")).data_starts?.date ?? null;
+  } catch {
+    return null;
+  }
+})();
+
 function loadEnv() {
   for (const file of [".env.local", ".env"]) {
     let raw;
@@ -210,12 +280,17 @@ async function readPayments() {
         gross: 0,
         payments: 0,
         first: day,
+        // EVERY PAYMENT'S DAY AND AMOUNT, not just the total. The cash check
+        // below has to ask "how much arrived ON the call", and a running total
+        // cannot answer that — see the note on cashOff.
+        history: [],
       };
       if (billing && !buyer.billing) buyer.billing = billing;
       buyer.paid += net;
       buyer.refunded += p.refunded_amount ?? 0;
       buyer.gross += gross;
       buyer.payments += 1;
+      buyer.history.push({ day, amount: net });
       if (day && (!buyer.first || day < buyer.first)) buyer.first = day;
       buyers.set(email, buyer);
     }
@@ -259,21 +334,28 @@ function tokenHits(tokens, text) {
  * two-token match wins and the one-token match is left unmatched, which is the
  * honest answer.
  */
+/**
+ * How well a row's name fits one buyer's text. Kept as its own function
+ * because the duplicate-close guard further down has to ask exactly the same
+ * question of rows this matcher has already turned away, and two copies of a
+ * matching rule drift.
+ */
+function nameScore(name, text) {
+  const full = normalise(name);
+  const tokens = full.split(/\s+/).filter((t) => t.length >= MIN_NAME_TOKEN);
+  if (tokens.length === 0 || !text) return 0;
+  const hits = tokenHits(tokens, text);
+  // A buyer carrying the whole name outranks one sharing a single word.
+  return hits === 0 ? 0 : hits + (text.includes(full) ? 1 : 0);
+}
+
 function scoreCandidates(row, buyers, haystacks) {
   if (row.email && buyers.has(row.email)) {
     return [{ buyer: buyers.get(row.email), score: Infinity, certain: true }];
   }
 
-  const full = normalise(row.name);
-  const tokens = full.split(/\s+/).filter((t) => t.length >= MIN_NAME_TOKEN);
-  if (tokens.length === 0) return [];
-
   return haystacks
-    .map(({ buyer, text }) => {
-      const hits = tokenHits(tokens, text);
-      // A buyer carrying the whole name outranks one sharing a single word.
-      return { buyer, score: hits === 0 ? 0 : hits + (text.includes(full) ? 1 : 0), certain: false };
-    })
+    .map(({ buyer, text }) => ({ buyer, score: nameScore(row.name, text), certain: false }))
     // Two signals, never one. A single shared word off a two-word name is not
     // a weak match, it is a different person: "Barron ace" scored a hit on
     // "Ace Acosta" and reported his $4,000 against Barron's call, and "Jon
@@ -310,12 +392,58 @@ function matchAll(rows, buyers, haystacks) {
 
 /* ------------------------------------------------------------------ compare */
 
-const tracker = await readTracker();
+const allTracker = await readTracker();
 const buyers = await readPayments();
+const exclusions = loadExclusions();
+const ruledOut = allTracker.filter((r) => excludedBy(r, exclusions));
+
+/*
+ * AN OLD CALL WHOSE MONEY IS STILL MOVING IS NOT AN OLD CALL.
+ *
+ * The cutoff drops calls from before the tracking existed, because a gap on
+ * one of those measures the absence of the system. But a row from 10 August
+ * whose buyer paid again on the 22nd is live work: Danny's row still read
+ * "$300 collected, $3,700 due" on 2026-08-24, having been reconciled on the
+ * 18th and overtaken by an $800 payment on the 22nd. Dropping him by call date
+ * alone meant nothing would ever notice again.
+ *
+ * So a pre-cutoff row is kept when its buyer has paid on or since the cutoff.
+ * Matched on the row's own email — a guess by name is not enough to reopen a
+ * row the cutoff has already set aside.
+ */
+const paidSinceCutoff = new Set(
+  [...buyers.values()]
+    .filter((b) => b.history.some((h) => h.day && DATA_STARTS && h.day >= DATA_STARTS))
+    .map((b) => b.email)
+);
+const beforeCutoff = allTracker.filter(
+  (r) =>
+    !ruledOut.includes(r) &&
+    DATA_STARTS &&
+    r.date &&
+    String(r.date).slice(0, 10) < DATA_STARTS &&
+    !(r.email && paidSinceCutoff.has(String(r.email).trim().toLowerCase()))
+);
+const dropped = new Set([...ruledOut, ...beforeCutoff]);
+const tracker = allTracker.filter((r) => !dropped.has(r));
 
 console.log(
   `Tracker: ${tracker.length} rows (${tracker.filter((r) => r.email).length} with a prospect email)`
 );
+// Named, not silent: excluded-calls.json's own README requires every command
+// that reads it to say how many rows it left out, so the list cannot rot.
+if (ruledOut.length) {
+  console.log(`         ${ruledOut.length} row(s) ruled out as another offer's business:`);
+  for (const r of ruledOut) {
+    console.log(`           ${r.date ?? "no date"}  ${r.name} — ${excludedBy(r, exclusions).ruled_by}`);
+  }
+}
+if (beforeCutoff.length) {
+  console.log(
+    `         ${beforeCutoff.length} row(s) before ${DATA_STARTS} left out — the tracking was not built yet, ` +
+      `so a gap on them says nothing. Change data_starts in sales-rules.json to look further back.`
+  );
+}
 const banked = [...buyers.values()].reduce((sum, b) => sum + b.paid, 0);
 console.log(`Whop:    ${buyers.size} buyers, ${money(banked)} collected\n`);
 
@@ -399,7 +527,32 @@ for (const row of tracker) {
     if (MIN_DEPOSIT > 0 && match.buyer.paid > 0 && match.buyer.paid < MIN_DEPOSIT) {
       belowBar.push({ row, ...match });
     }
-    if (Math.abs(row.cash - match.buyer.paid) >= CASH_TOLERANCE) cashOff.push({ row, ...match });
+    /*
+     * A TO-DATE FIGURE AGAINST THE TOTAL RECEIVED, which is the right pairing.
+     *
+     * `cash` reads Cash Collected — the figure a person reconciled after the
+     * call — and falls back to Collected On Call only when nobody has written
+     * one. Both halves therefore mean "money received by now", so the buyer's
+     * total is the correct yardstick.
+     *
+     * Tried and reverted on 2026-08-24: comparing it against payments made ON
+     * the call day. That is the right test for Collected On Call, which is a
+     * claim about the call itself — and `unbanked` above already applies it.
+     * Applied to Cash Collected it inverted the check, reporting every deal
+     * paid after its call as a contradiction.
+     *
+     * WHEN the money arrived is still worth saying, so the report prints the
+     * last payment date beside the gap: "$300 recorded, $1,100 received, last
+     * on 22 Aug" is a stale row, and it reads as one.
+     */
+    const lastPaid = match.buyer.history
+      .map((h) => h.day)
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+    if (Math.abs(row.cash - match.buyer.paid) >= CASH_TOLERANCE) {
+      cashOff.push({ row, ...match, lastPaid });
+    }
   }
 }
 
@@ -411,8 +564,79 @@ unbanked.sort(byDate);
 deposits.sort(byDate);
 noPayment.sort(byDate);
 
+/* ------------------------------------- a close that is already on the tracker
+
+THE SHAPE, from Brey's live account on 2026-08-21.
+
+X'Zadrea Strickland was called on 27 July, did not buy, and the row says BAMFAM.
+She was called again on 20 August under her Whop handle, "Lucid Cookie", and
+that row says Customer. Her $2,000 arrived on 20 August.
+
+Only the July row carries her email address, so the payment matched there, and
+this script reported the July call as a close that had been missed. Applying
+that would have turned a call that genuinely did not close into a close, and
+credited the same $2,000 twice — two sales, one deal, and a close rate built on
+it.
+
+So before a row is offered for promotion, look for a LATER call, already marked
+Customer, whose name fits the same buyer. If there is one, the money belongs to
+that call and the correction is on that row instead: it is the one missing the
+email address, and until it has one every future run will make this same wrong
+suggestion.
+
+Scored with the same rule the matcher uses. These rows lost the buyer to an
+email match rather than to a better name — that is the only reason they are
+unmatched — so asking the name question again is asking who they are, not
+inventing a second matcher.
+*/
+const buyerText = new Map(haystacks.map((h) => [h.buyer.email, h.text]));
+
+function laterCloseFor(m) {
+  const text = buyerText.get(m.buyer.email) ?? "";
+  const after = String(m.row.date ?? "");
+  return (
+    considered.find(
+      (other) =>
+        other !== m.row &&
+        other.outcome === "Customer" &&
+        // A row with its own matched buyer is a different person's call.
+        !matches.has(other) &&
+        String(other.date ?? "") >= after &&
+        nameScore(other.name, text) >= 2
+    ) ?? null
+  );
+}
+
+const duplicated = [];
+for (let i = missedCloses.length - 1; i >= 0; i--) {
+  const later = laterCloseFor(missedCloses[i]);
+  if (!later) continue;
+  duplicated.push({ ...missedCloses[i], later });
+  missedCloses.splice(i, 1);
+}
+duplicated.sort(byDate);
+
+// The later row is explained in full by the section above, so leave it out of
+// the unmatched-customer list rather than saying the same thing twice.
+const explained = new Set(duplicated.map((d) => d.later));
+for (let i = noPayment.length - 1; i >= 0; i--) if (explained.has(noPayment[i])) noPayment.splice(i, 1);
+
+/*
+ * SCOPED TO THE SAME CUTOFF AS THE TRACKER, and it has to be.
+ *
+ * This asks "who paid with no call on the tracker". Cutting the tracker to rows
+ * since 2026-08-16 without cutting the buyers turned that into "who paid, ever,
+ * with no RECENT call" — it jumped from 69 buyers to 102 the moment the cutoff
+ * went in, and every one of the extra 33 has a call, just an older one. A
+ * number that moves like that on a change to the other side of the comparison
+ * was measuring the comparison, not the coverage.
+ *
+ * Counted on the buyer's FIRST payment, which is the closest thing here to when
+ * they arrived.
+ */
 const untracked = [...buyers.values()]
   .filter((b) => !claimed.has(b.email))
+  .filter((b) => !DATA_STARTS || !b.first || String(b.first).slice(0, 10) >= DATA_STARTS)
   .sort((a, b) => b.paid - a.paid);
 
 /* ------------------------------------------------------------------- report */
@@ -434,8 +658,32 @@ if (missedCloses.length) {
     console.log(`      ${m.row.url}`);
   }
   console.log();
-} else {
+} else if (!duplicated.length) {
   console.log("✓ Every prospect who paid is marked Customer\n");
+}
+
+if (duplicated.length) {
+  console.log(
+    `✗ ${duplicated.length} payment${duplicated.length === 1 ? " is" : "s are"} already closed on a later call — ` +
+      `the earlier call must NOT be promoted, or the same deal counts twice:\n`
+  );
+  for (const d of duplicated) {
+    console.log(
+      `  ${d.row.date ?? "no date"}  ${d.row.name.padEnd(22)} ${String(d.row.outcome).padEnd(14)}` +
+        ` — leave as is, ${money(d.buyer.paid)} arrived ${d.buyer.first ?? "later"}`
+    );
+    console.log(`      ${d.row.url}`);
+    console.log(
+      `  ${d.later.date ?? "no date"}  ${d.later.name.padEnd(22)} ${String(d.later.outcome).padEnd(14)}` +
+        ` — this is the close. Put ${d.buyer.email} and ${money(d.buyer.paid)} on THIS row`
+    );
+    console.log(`      ${d.later.url}`);
+  }
+  console.log(
+    "\n  Both rows are the same person. Only the earlier one carries the email\n" +
+      "  address, which is why the payment landed there. Adding the address to the\n" +
+      "  later row is what stops this coming back every run.\n"
+  );
 }
 
 if (belowBar.length) {
@@ -474,11 +722,17 @@ if (unbanked.length) {
 }
 
 if (cashOff.length) {
-  console.log(`⚠ ${cashOff.length} customer row${cashOff.length === 1 ? "" : "s"} disagree with Whop on cash:\n`);
+  console.log(`⚠ ${cashOff.length} customer row${cashOff.length === 1 ? " disagrees" : "s disagree"} with Whop on cash:\n`);
   for (const m of cashOff) {
+    // "Whop $4,000" used to mean the buyer's lifetime total, beside a figure
+    // that means one call. Both halves now cover the same day, and money that
+    // arrived afterwards is named as what it is rather than folded in.
+    // The date is the tell for a stale row: money that arrived after the row
+    // was last reconciled is the usual reason these two numbers differ.
+    const when = m.lastPaid ? `  (last payment ${m.lastPaid})` : "";
     console.log(
       `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} tracker ${money(m.row.cash).padEnd(9)}` +
-        ` Whop ${money(m.buyer.paid)}${guess(m)}`
+        ` Whop ${money(m.buyer.paid)}${when}${guess(m)}`
     );
     console.log(`      ${m.row.url}`);
   }
@@ -625,6 +879,9 @@ if (applying && (missedCloses.length || cashOff.length || emailOnly.length || re
   }
 
   for (const m of cashOff) {
+    // The total received, into the to-date column. Collected On Call is never
+    // touched here: that one is the workflow's claim about the call itself and
+    // a reconciliation must not overwrite it.
     const properties = { "Cash Collected": { number: m.buyer.paid } };
     if (!m.row.email) properties["Prospect Email"] = { email: m.buyer.email };
     if (await patchRow(m.row, properties, `cash ${money(m.row.cash)} → ${money(m.buyer.paid)}`)) written++;
@@ -649,15 +906,27 @@ if (applying && (missedCloses.length || cashOff.length || emailOnly.length || re
   }
 
   console.log(`\n${written} row${written === 1 ? "" : "s"} corrected. Rerun without --apply to verify.`);
+  if (duplicated.length) {
+    console.log(
+      `\n${duplicated.length} row${duplicated.length === 1 ? " was" : "s were"} deliberately NOT promoted — ` +
+        "the money is already a close on a later call. See the list above; those are edits only a person should make."
+    );
+    process.exit(1);
+  }
   process.exit(0);
 }
 
-// These three are things a person can fix by editing a row. The rest — the
-// deposits, the unmatched customers, the untracked buyers — are context, and
-// failing on them would make this un-runnable rather than useful.
-if (missedCloses.length || cashOff.length || belowBar.length) {
+// These are things a person can fix by editing a row. The rest — the deposits,
+// the unmatched customers, the untracked buyers — are context, and failing on
+// them would make this un-runnable rather than useful.
+//
+// READ BY weekly-checks.mjs: the choice of closing sentence is how the Slack
+// report knows whether to offer `--apply` at all. Offering it when the only
+// finding is one --apply deliberately refuses to write sends somebody to run a
+// command that does nothing. Change the wording here and change it there.
+if (missedCloses.length || cashOff.length || belowBar.length || duplicated.length) {
   console.log(
-    applying
+    applying || !(missedCloses.length || cashOff.length)
       ? "Fix the rows above in Notion, then rerun this."
       : "Rerun with `npm run check:payments -- --apply` to write these corrections into Notion."
   );

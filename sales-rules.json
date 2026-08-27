@@ -1,10 +1,10 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "_README": [
     "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
     "",
     "This file exists because the same question was being answered twice, in two",
-    "languages, in two repositories \u2014 and the two answers drifted apart four",
+    "languages, in two repositories — and the two answers drifted apart four",
     "separate times in a single evening (2026-08-18):",
     "",
     "  1. what counts as a sale       tracker said 'outcome typed on the day',",
@@ -38,6 +38,14 @@
     "why_flat_not_percentage": "Under a percentage bar the same $500 deposit was a sale on a $2,000 deal and not one on a $4,000 deal, which judges the closer by the size of the offer rather than by what they actually banked.",
     "source": "[STATED - Moayad, chat 2026-08-18] 'even if a deposit doesnt pay the rest, its still technically a close unless its under $100 i think then that we shouldnt count as a close.'"
   },
+  "data_starts": {
+    "date": "2026-08-16",
+    "statement": "Nothing before 2026-08-16 is worth reconciling. The reconciliation reports ignore earlier rows; the dashboard still SHOWS the history.",
+    "why": "The tracking was built around this date - the inbox sync began recording conversations on the 16th and the booking form started asking for the Instagram handle on the 18th. Before that there is no route from a conversation to a booking to a payment, so a gap in an older row measures the absence of the system rather than anything anybody did. Chasing those rows is work that cannot come out right.",
+    "what_it_does_NOT_do": "It is not a floor on the dashboard. Revenue, close rate and every period still count the full history, because that money was really earned and really paid. This governs what the CHECKS report, so their lists stay actionable.",
+    "known_gap": "Bookings made on 16 and 17 August carry no Instagram handle - the question went onto the form on the 18th. Two days of bookings are therefore unjoinable to a conversation by design, not by fault.",
+    "source": "[STATED - Moayad, chat 2026-08-24] 'i dont want u to focus on old old calls etc anymore we want to just focus on since we setup the calendar, no matter what we do that data from previous to that is tainted, we just can make sure only since we setup the dash the numbers are clean'"
+  },
   "what_a_payment_proves": {
     "statement": "A payment proves a SALE. It does not prove that a CALL HAPPENED.",
     "why": "Everyone who arrives by the payment route is by definition a buyer, so counting them as a call held puts them on both sides of the close rate and can only push it up. Measured 2026-08-18 on Brey's August: 59.0% against the tracker's 48.6%, and the spread was almost entirely this.",
@@ -59,7 +67,7 @@
       "carries_revenue": false,
       "carries_cash": false,
       "carries_close": false,
-      "statement": "A refunded deal is removed from revenue, from cash collected, and from the close rate \u2014 out of BOTH sides of it, not counted as a loss. The closer did close them; the customer later left, and scoring it as a failed call would make a different claim from the one the refund actually makes, on the closer's record.",
+      "statement": "A refunded deal is removed from revenue, from cash collected, and from the close rate — out of BOTH sides of it, not counted as a loss. The closer did close them; the customer later left, and scoring it as a failed call would make a different claim from the one the refund actually makes, on the closer's record.",
       "source": "[STATED - Moayad, chat 2026-08-18] 'should be removed from revenue and cash collected, should also be removed from close rate.'",
       "cash_needs_no_rule": "The processor reports a refund against the original payment, so refunded money nets to zero before it is ever read as cash. Verified against Whop on 2026-08-18: Vellatino Crawford, final_amount 2000, refunded_amount 2000, read as 0.",
       "outranks_the_arithmetic": "Checked explicitly rather than left to fall out of a status list: a partly-refunded buyer would otherwise be put back by the paid-enough test. A REFUND on the tracker is a statement about the deal and beats what is left of their payments."

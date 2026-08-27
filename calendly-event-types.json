@@ -16,22 +16,22 @@
     "CALENDLY_EVENT_TYPES if that decision needs enforcing, then add it here."
   ],
   "counting_rule_lives_in": "CALENDLY_EVENT_TYPES (env) - currently \"!onboarding,!30 minute meeting\"",
-  "last_reviewed": "2026-08-18",
+  "last_reviewed": "2026-08-19",
   "ruled_on": [
     {
       "name": "Profitability Game Plan Call",
       "verdict": "sales",
-      "note": "the main Game Plan funnel"
+      "note": "ORGANIC funnel - the VSL page of Brey, one of the two brand owners. Self-booked by the lead. NOT the generic main funnel. [STATED - Brey's team, Calendly walkthrough video 2026-08-18]"
     },
     {
       "name": "Profitability Game Plan Call Team",
       "verdict": "sales",
-      "note": "same funnel, team pod"
+      "note": "PAID ADS funnel - the setters' main calendar, described as 'the ad calendar'. Booked MANUALLY by a setter from a name and email the lead sends; no link is sent, so these bookings can never carry a utm tag. Appears in Discord as 'setter booked calls'. [STATED - Brey's team, Calendly walkthrough video 2026-08-18]"
     },
     {
       "name": "Profitability Game Plan Call Team.",
       "verdict": "sales",
-      "note": "duplicate of the above with a trailing dot"
+      "note": "UNRULED. Did not appear in the Shared list during the 2026-08-18 walkthrough and was not explained. Assumed to follow 'Profitability Game Plan Call Team' but nobody has confirmed it - ask Brey's team before building on it."
     },
     {
       "name": "The Funded Blueprint Enrollment Call",
@@ -41,17 +41,17 @@
     {
       "name": "Profitability Game Plan Call Chris",
       "verdict": "sales",
-      "note": "same funnel, Chris's calendar"
+      "note": "PAID ADS funnel - setter override. Used when round robin misallocates (one closer holds more slots, or a specific slot needs booking over) to put the call on Christian directly. Manually booked, so no utm. [STATED - Brey's team, Calendly walkthrough video 2026-08-18]"
     },
     {
       "name": "Profitability Game Plan Call Tpan",
       "verdict": "sales",
-      "note": "same funnel, Tpan's calendar"
+      "note": "PAID ADS funnel - setter override, same purpose as the Chris calendar, booking Tpan directly. Manually booked, so no utm. [STATED - Brey's team, Calendly walkthrough video 2026-08-18]"
     },
     {
       "name": "Profitability Game Plan Call.",
       "verdict": "sales",
-      "note": "duplicate with a trailing dot"
+      "note": "ORGANIC funnel - the VSL page of JP, the other brand owner. The trailing dot is the split between the two VSL pages, NOT a duplicate. Both hosts are the same closer pool, so host does not distinguish them - only the event type does. [STATED - Brey's team, Calendly walkthrough video 2026-08-18]"
     },
     {
       "name": "THE FUNDED BLUEPRINT",
@@ -71,7 +71,7 @@
     {
       "name": "Profitability Game Plan Session",
       "verdict": "sales",
-      "note": "same funnel, named session"
+      "note": "PAID ADS funnel - grouped with the setter-booked, manually-booked calendars in the walkthrough, but its distinct purpose was not explained. Treat the funnel as stated and the role as unknown. [STATED - Brey's team, Calendly walkthrough video 2026-08-18]"
     },
     {
       "name": "Funded Blueprint Onboarding Call",
@@ -84,5 +84,6 @@
       "note": "POST-SALE. All 3 bookings are Kevon Hammond, who was already a customer: 73-min sales call with Tpan 2026-07-27, closed $5,000, paid $4,000 in Whop 2026-07-28. These bookings are 2026-08-12 and 2026-08-18 - two and three weeks AFTER he bought - hosted by Dash Kid, who runs Funded Blueprint Onboarding. 30 min matches onboarding, not the 45/60-min sales calls. Verified against the tracker and Whop directly, 2026-08-18.",
       "caution": "Host role alone does NOT settle these questions: the tracker holds only Tpan and Christian because they are the only closers with call recording connected, so every other sales host is absent from it too. Check the prospect against the tracker and the processor instead."
     }
-  ]
+  ],
+  "funnel_mapping_lives_in": "sales-rules.json -> calendly_funnel_map. The notes here are prose for a human; that block is what code reads."
 }

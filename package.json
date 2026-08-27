@@ -26,6 +26,7 @@
     "check:delivery": "node scripts/check-delivery.mjs",
     "backfill:fathom": "node scripts/backfill-fathom.mjs",
     "backfill:emails": "node scripts/backfill-emails.mjs",
+    "backfill:names": "node scripts/backfill-names.mjs",
     "check:rules": "node scripts/check-rules.mjs",
     "check:weekly": "node scripts/weekly-checks.mjs",
     "check:scheduled": "node scripts/weekly-checks.mjs",
