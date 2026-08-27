@@ -8,7 +8,7 @@
  * for it to be a lie.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { accountKey, cachedRead, cacheSecondsFrom, keepWarm, resetCache } from "../src/lib/live-cache";
+import { accountKey, cachedRead, cacheSecondsFrom, resetCache } from "../src/lib/live-cache";
 
 const WINDOW = { ttlMs: 60_000, maxStaleMs: 600_000 };
 
@@ -148,71 +148,6 @@ describe("cachedRead", () => {
 
   it("keeps the credential out of the key", () => {
     expect(accountKey("whop", "sk_live_supersecret")).not.toContain("supersecret");
-  });
-});
-
-describe("keepWarm", () => {
-  it("re-reads an aged entry with nobody asking, so the next reader never waits", async () => {
-    let value = "first";
-    const load = vi.fn(async () => value);
-
-    await cachedRead("k", load, WINDOW);
-    value = "second";
-    advance(5 * 60_000);
-
-    await keepWarm(4 * 60_000);
-
-    // THE POINT. Without keepWarm this reader gets "first" and pays for the
-    // re-read behind it; the twenty-second load measured in production was
-    // exactly this case with an empty cache instead of an aged one.
-    expect(await cachedRead("k", load, WINDOW)).toBe("second");
-    expect(load).toHaveBeenCalledTimes(2);
-  });
-
-  it("leaves a young entry alone", async () => {
-    const load = vi.fn(async () => "v");
-    await cachedRead("k", load, WINDOW);
-    advance(60_000);
-
-    await keepWarm(4 * 60_000);
-
-    expect(load).toHaveBeenCalledTimes(1);
-  });
-
-  it("warms every account it has seen, not a fixed list", async () => {
-    const a = vi.fn(async () => "a");
-    const b = vi.fn(async () => "b");
-    await cachedRead("client-a", a, WINDOW);
-    await cachedRead("client-b", b, WINDOW);
-    advance(5 * 60_000);
-
-    await keepWarm(4 * 60_000);
-
-    expect(a).toHaveBeenCalledTimes(2);
-    expect(b).toHaveBeenCalledTimes(2);
-  });
-
-  it("keeps the last good value when a warm pass fails, and never throws", async () => {
-    const load = vi
-      .fn<() => Promise<string>>()
-      .mockResolvedValueOnce("good")
-      .mockRejectedValue(new Error("Notion is down"));
-    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    await cachedRead("k", load, WINDOW);
-    advance(5 * 60_000);
-
-    // A timer callback that throws takes the process down. It must not.
-    await keepWarm(4 * 60_000);
-    expect(await cachedRead("k", load, WINDOW)).toBe("good");
-
-    quiet.mockRestore();
-  });
-
-  it("warms nothing when the cache is empty", async () => {
-    await keepWarm(0);
-    // Nothing to assert beyond it not throwing: a server that has just started
-    // and served nobody yet runs this on its first tick.
   });
 });
 

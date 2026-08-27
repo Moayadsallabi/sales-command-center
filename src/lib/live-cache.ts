@@ -49,12 +49,6 @@ type Entry<T> = {
   at: number;
   /** A refresh already running behind a reader; only ever one per key. */
   refreshing: boolean;
-  /**
-   * How to read this again, kept so the entry can be refreshed with nobody
-   * asking. Without it the cache only ever warms in response to a visitor,
-   * which is precisely the case that is slow — see keepWarm() below.
-   */
-  load: () => Promise<T>;
 };
 
 const entries = new Map<string, Entry<unknown>>();
@@ -100,7 +94,7 @@ export async function cachedRead<T>(
 
     const read = load()
       .then((value) => {
-        entries.set(key, { value, at: Date.now(), refreshing: false, load });
+        entries.set(key, { value, at: Date.now(), refreshing: false });
         return value;
       })
       .finally(() => {
@@ -109,10 +103,6 @@ export async function cachedRead<T>(
     firstReads.set(key, read);
     return read;
   }
-
-  // Credentials can be re-resolved between requests, so the newest closure is
-  // the one a background refresh should use.
-  entry.load = load;
 
   const age = Date.now() - entry.at;
   if (age < window.ttlMs) return entry.value;
@@ -144,45 +134,6 @@ export async function cachedRead<T>(
   }
 
   return entry.value;
-}
-
-/**
- * Re-reads anything already in the cache that has aged past `maxAgeMs`.
- *
- * ---------------------------------------------------------------------------
- * WHY A CACHE THAT ONLY WARMS FOR A VISITOR IS STILL SLOW
- *
- * Measured on the live dashboard, 2026-08-27: warm loads 250ms, and the FIRST
- * load after the container restarted 20.9 seconds. Nothing was wrong with the
- * cache — there was simply nothing in it yet, and somebody had to be the one
- * to fill it.
- *
- * That somebody is Moayad, most days. Every deploy restarts the container, and
- * on a week with several deploys a day the person who notices is whoever opens
- * the dashboard next. "It is fast unless you are the first to look at it" is
- * not fast.
- *
- * So the server fills it on a timer instead, and the first human to arrive
- * finds it already full. One at a time rather than all at once: this runs with
- * nobody waiting, so there is no reason to ask three third-party APIs for
- * everything simultaneously.
- */
-export async function keepWarm(maxAgeMs: number): Promise<void> {
-  const now = Date.now();
-  for (const [key, entry] of entries) {
-    if (entry.refreshing || now - entry.at < maxAgeMs) continue;
-    entry.refreshing = true;
-    try {
-      entry.value = await entry.load();
-      entry.at = Date.now();
-    } catch (err) {
-      // Exactly as a reader-triggered refresh fails: the last good value
-      // stands, and stops standing at maxStaleMs.
-      console.error(`[cache] keep-warm of ${key} failed:`, err);
-    } finally {
-      entry.refreshing = false;
-    }
-  }
 }
 
 /** Seconds from an env var, falling back when it is unset or nonsense. */
