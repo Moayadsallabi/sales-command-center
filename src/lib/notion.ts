@@ -8,6 +8,18 @@ import {
   PRIMARY_OBJECTION_COLUMN,
   LEAD_READ_COLUMN,
 } from "./lead-quality";
+import { accountKey, cachedRead, cacheSecondsFrom } from "./live-cache";
+
+/**
+ * How long a set of calls is served before a re-read is started behind the
+ * reader, and how long it may go on being served if those re-reads keep
+ * failing. Sixty seconds is not a new claim about freshness — it is the
+ * interval the dashboard already refreshes itself on, so this changes nothing
+ * about how current the numbers are. It only stops the reader waiting for the
+ * crawl. See live-cache.ts.
+ */
+const DEFAULT_CACHE_SECONDS = 60;
+const MAX_STALE_MS = 10 * 60_000;
 
 /** Why a Notion read failed, in terms the setup screen can explain. */
 export type NotionFailure =
@@ -157,6 +169,9 @@ export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: s
   const apiKey = cfg ? cfg.apiKey : process.env.NOTION_API_KEY;
   const databaseId = cfg ? cfg.databaseId : process.env.NOTION_DATABASE_ID;
 
+  // OUTSIDE THE CACHE ON PURPOSE. A deployment with no credentials must say so
+  // on every render, not once — otherwise the setup notice would depend on
+  // which request happened to arrive first.
   const missing: string[] = [];
   if (!apiKey) missing.push("NOTION_API_KEY");
   if (!databaseId) missing.push("NOTION_DATABASE_ID");
@@ -167,6 +182,21 @@ export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: s
     );
   }
 
+  return cachedRead(
+    // The DATABASE as well as the key: one integration token can be granted
+    // several clients' trackers, and keying on the token alone would serve the
+    // first one's calls to all of them.
+    accountKey("notion", apiKey, databaseId),
+    () => crawlAllCalls(apiKey as string, databaseId as string),
+    {
+      ttlMs: cacheSecondsFrom("NOTION_CACHE_SECONDS", DEFAULT_CACHE_SECONDS) * 1000,
+      maxStaleMs: MAX_STALE_MS,
+    }
+  );
+}
+
+/** Every page of the tracker, read fresh. Callers go through queryAllCalls. */
+async function crawlAllCalls(apiKey: string, databaseId: string): Promise<CallRecord[]> {
   const headers = {
     Authorization: `Bearer ${apiKey}`,
     "Notion-Version": "2022-06-28",

@@ -14,7 +14,20 @@
  * those names are already on the call table, so nothing new is being exposed.
  */
 
+import { accountKey, cachedRead, cacheSecondsFrom } from "./live-cache";
+
 const WHOP_V2 = process.env.WHOP_API_V2_BASE ?? "https://api.whop.com/api/v2";
+
+/**
+ * How long a read of the payment history stands before a re-read is started
+ * behind the reader. The crawl is 50 payments a page and strictly sequential,
+ * so it lengthens by a page every fifty sales — measured at 2.15s across three
+ * pages on 2026-08-27, and it was the single slowest thing on the dashboard.
+ * Sixty seconds matches the refresh this page already runs on. See
+ * live-cache.ts.
+ */
+const DEFAULT_CACHE_SECONDS = 60;
+const MAX_STALE_MS = 10 * 60_000;
 
 export interface PaymentDay {
   /** YYYY-MM-DD the payment was made. */
@@ -57,6 +70,14 @@ export async function queryPayments(cfg?: { apiKey: string | null }): Promise<Wh
   const key = cfg ? cfg.apiKey : process.env.WHOP_API_KEY;
   if (!key) throw new Error("WHOP_API_KEY is not set");
 
+  return cachedRead(accountKey("whop", key), () => crawlPayments(key), {
+    ttlMs: cacheSecondsFrom("WHOP_CACHE_SECONDS", DEFAULT_CACHE_SECONDS) * 1000,
+    maxStaleMs: MAX_STALE_MS,
+  });
+}
+
+/** Every page of the payment history, read fresh. Callers go through queryPayments. */
+async function crawlPayments(key: string): Promise<WhopRead> {
   const days: PaymentDay[] = [];
   const buyers = new Map<string, WhopBuyer>();
 
@@ -73,9 +94,13 @@ export async function queryPayments(cfg?: { apiKey: string | null }): Promise<Wh
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${key}` },
-      // The tile is a running total, not a live feed. A minute of staleness
-      // is invisible; hammering the route on every render is not.
-      next: { revalidate: 60 },
+      // ONE CACHE, AND IT IS OURS. This used to be `next: { revalidate: 60 }`,
+      // which left two layers holding the same answer with different clocks:
+      // a background refresh could be handed a minute-old page by Next and
+      // stamp it as read just now, so "how old is this figure" had two
+      // answers. queryPayments above is the only place that question is
+      // answered now.
+      cache: "no-store",
     });
     if (!res.ok) {
       throw new Error(`Whop refused the payments route (${res.status})`);
