@@ -66,7 +66,7 @@ async function loadCalls(cfg: ClientConfig): Promise<LoadResult> {
  */
 async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<CalendlyState> {
   if (!isCalendlyConfigured(cfg.calendly)) {
-    return { link: null, windowStart: null, failure: null, pending: 0, total: 0 };
+    return { link: null, windowStart: null, failure: null, pending: 0, total: 0, reading: false };
   }
 
   try {
@@ -84,11 +84,12 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
       );
     }
     return {
-      link,
+      link: result.reading ? null : link,
       windowStart: result.window_start,
       failure: null,
       pending: result.pending,
       total: result.total,
+      reading: result.reading,
     };
   } catch (err) {
     if (err instanceof CalendlyError) {
@@ -99,6 +100,7 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
         failure: err.failure,
         pending: 0,
         total: 0,
+        reading: false,
       };
     }
     throw err;
@@ -154,6 +156,7 @@ export default async function Home() {
           failure: null,
           pending: 0,
           total: link?.bookings.length ?? 0,
+          reading: false,
         }}
         brandName={demoCurrent?.name ?? "Funded Blueprint"}
         demo

@@ -86,6 +86,13 @@ export interface CalendlyState {
    * not a small error, it is a different number.
    */
   pending: number;
+  /**
+   * The calendar has not been read yet at all, so `link` is null for a reason
+   * that is neither "not connected" nor "broken". The page falls back to the
+   * recordings and SAYS it is doing so — an unread calendar rendering as an
+   * empty one is the whole fault this flag exists to prevent.
+   */
+  reading: boolean;
   /** Sales bookings in the window, read or not. */
   total: number;
 }

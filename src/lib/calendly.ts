@@ -110,6 +110,15 @@ export interface BookingsResult {
   pending: number;
   /** Sales bookings in the window, whether or not they have been read yet. */
   total: number;
+  /**
+   * The event list has never been read for this account, so `bookings`,
+   * `total` and `pending` are all zero because NOTHING IS KNOWN YET — not
+   * because the calendar is empty.
+   *
+   * Those two must never render the same. A caller seeing this must fall back
+   * to what it can count without the calendar, and say that it is doing so.
+   */
+  reading: boolean;
 }
 
 const API = "https://api.calendly.com";
@@ -758,7 +767,41 @@ export async function queryBookings(
      A DIFFERENT ACCOUNT still waits: `store` holds one at a time, so handing
      over what is in hand there would be one client's bookings under another
      client's name. */
-  if (!store || store.key !== key) {
+  /* A LIST THIS PROCESS HAS NEVER READ IS FETCHED BEHIND THE READER, NOT IN
+     FRONT OF THEM.
+
+     It blocked, and on a cold container that was measured at 71 seconds on the
+     live account: two deployments read the same Calendly account, both restart
+     on every deploy, and both re-read all 533 events at once through one
+     500-a-minute allowance, so they throttle each other. Whoever opened the
+     dashboard first paid for all of it.
+
+     Nothing is lost by not waiting. The page is built on recordings; Calendly
+     supplies the denominator behind them, and the module already has a state
+     for "the set is incomplete, quote no rates off it" — this is that state,
+     one step earlier. `reading` is what stops an unread calendar rendering as
+     an empty one.
+
+     A DIFFERENT account still waits, because `store` holds one at a time and
+     handing over what is in hand there would be one client's bookings under
+     another client's name. */
+  if (!store) {
+    void crawlEventList(token, now, key)
+      .then((fresh) => { if (!store || store.key === fresh.key) store = fresh; })
+      .catch((err) => console.error("[calendly] first event-list read failed:", err));
+    return {
+      bookings: [],
+      window_start: new Date(now.getTime() - lookbackDays() * 864e5).toISOString(),
+      scope: "organization",
+      event_types: wanted,
+      filtered_out: 0,
+      pending: 0,
+      total: 0,
+      reading: true,
+    };
+  }
+
+  if (store.key !== key) {
     store = await crawlEventList(token, now, key);
   } else if (listStale) {
     void crawlEventList(token, now, key)
@@ -794,5 +837,6 @@ export async function queryBookings(
     filtered_out: current.filteredOut,
     pending: neverRead(current).length,
     total: current.events.length,
+    reading: false,
   };
 }

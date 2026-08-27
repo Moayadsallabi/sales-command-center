@@ -434,6 +434,23 @@ export function Dashboard({
   const issues = useMemo(() => {
     const found: { id: string; title: string; body: string }[] = [];
 
+    /* Calendly connected and being read for the first time. Said out loud
+       because the alternative is a page that looks exactly like a client with
+       no calendar connected: every rate counted from recordings, nothing on
+       screen admitting the denominator is missing. It clears itself on the
+       next refresh, which is a minute away at most. */
+    if (calendly.reading) {
+      found.push({
+        id: "calendly-reading",
+        title: "Still reading the calendar",
+        body:
+          "The bookings behind these calls are being read from Calendly now. " +
+          "Until they arrive, everything here is counted from recordings alone, " +
+          "so the show rate and the funnel are missing the people who never " +
+          "turned up. This page refreshes itself every minute.",
+      });
+    }
+
     // Calendly connected but unreadable. The page still works off the
     // recordings, so this says what is missing rather than blocking it.
     if (calendly.failure) {
@@ -470,7 +487,7 @@ export function Dashboard({
     }
 
     return found;
-  }, [calendly.failure, unrated]);
+  }, [calendly.failure, calendly.reading, unrated]);
 
   const titleMotion = usePanelMotion(0);
   const controlsMotion = usePanelMotion(1);
