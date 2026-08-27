@@ -5,10 +5,11 @@ import { biggestCosts, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { AlertTriangle, TrendingDown, TrendingUp, Users, User } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
 import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
+import { GOOD_CALL_SCORE, POOR_SCORE } from "@/lib/stats";
 
 function scoreHex(score: number): string {
-  if (score >= 7.5) return GOLD;
-  if (score >= 6) return AMBER;
+  if (score >= GOOD_CALL_SCORE) return GOLD;
+  if (score >= POOR_SCORE) return AMBER;
   return NEGATIVE;
 }
 

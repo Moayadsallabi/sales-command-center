@@ -11,7 +11,7 @@ import {
 } from "@/lib/types";
 import { DIMENSIONS, GOOD_SCORE, verdictFor } from "@/lib/dimensions";
 import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
-import { POOR_SCORE } from "@/lib/stats";
+import { GOOD_CALL_SCORE, POOR_SCORE } from "@/lib/stats";
 import { LinkedBooking } from "@/lib/bookings";
 import { withTimestamps } from "@/lib/timestamps";
 import { formatMoney } from "@/lib/money";
@@ -28,8 +28,8 @@ import {
 import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
 
 function scoreHex(score: number): string {
-  if (score >= 7.5) return GOLD;
-  if (score >= 6) return AMBER;
+  if (score >= GOOD_CALL_SCORE) return GOLD;
+  if (score >= POOR_SCORE) return AMBER;
   return NEGATIVE;
 }
 

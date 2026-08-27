@@ -22,6 +22,25 @@ export const UNASSIGNED = "Unassigned";
 export const POOR_SCORE = 6;
 
 /**
+ * At or above this, a WHOLE CALL scored well. Gold above it, amber down to
+ * POOR_SCORE, red below that.
+ *
+ * [STATED — Moayad, chat 2026-08-27: "7.5 and above is good"] — asked because
+ * the number was written by hand in four places and one of them said 8, so a
+ * call scored 7.7 showed gold on the leaderboard and amber in the call table.
+ * Same call, two verdicts, and the comment above the leaderboard's copy said
+ * "same thresholds everywhere". A rule typed out four times is four rules that
+ * happen to agree today.
+ *
+ * NOT dimensions.GOOD_SCORE, WHICH IS 7 AND MEANS SOMETHING ELSE: that one is
+ * the cut for a SINGLE PART of a call being done well, and it splits calls into
+ * cohorts for the dimension-impact analysis. Two thresholds on the same 0-10
+ * scale, measuring different things, so they carry different names. Sharing the
+ * name "GOOD_SCORE" between them is how one silently becomes the other.
+ */
+export const GOOD_CALL_SCORE = 7.5;
+
+/**
  * How many scored calls a comparison needs before it is worth showing. Close
  * rates on five calls swing wildly; showing them invites someone to act on
  * noise, so anything below this reports how far off it is instead.

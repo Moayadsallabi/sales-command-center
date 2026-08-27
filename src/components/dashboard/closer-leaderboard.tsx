@@ -1,7 +1,7 @@
 "use client";
 
 import { CallRecord } from "@/lib/types";
-import { closerLeaderboard, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
+import { closerLeaderboard, GOOD_CALL_SCORE, MIN_CALLS_PER_CLOSER, POOR_SCORE } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { formatReporting } from "@/lib/money";
 import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
@@ -10,11 +10,13 @@ import { Panel, PanelHeader } from "./panel";
 /** Leaderboard figures are cross-call totals, so already in one currency. */
 const currency = (value: number) => formatReporting(value);
 
-/** Gold above 7.5, amber 6 to 7.5, red below 6 — same thresholds everywhere. */
+/** Gold at GOOD_SCORE and above, amber down to POOR_SCORE, red below it. The
+    comment here used to say "same thresholds everywhere" and it was not true —
+    the call table's copy started at 8. They read the constants now. */
 function scoreColor(score: number | null): string {
   if (score == null) return "text-zinc-400";
-  if (score >= 7.5) return "text-gold-400";
-  if (score >= 6) return "text-amber-400";
+  if (score >= GOOD_CALL_SCORE) return "text-gold-400";
+  if (score >= POOR_SCORE) return "text-amber-400";
   return "text-[var(--color-negative)]";
 }
 

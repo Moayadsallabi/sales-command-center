@@ -7,6 +7,7 @@ import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
 import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
+import { GOOD_CALL_SCORE, POOR_SCORE } from "@/lib/stats";
 
 /** One tracker row left out of the dashboard, and why. */
 export interface ExcludedNote {
@@ -266,13 +267,13 @@ export function CallTable({
                           style={{
                             width: `${(call.quality_score / 10) * 100}%`,
                             background:
-                              // NOTE: this band starts at 8 while scorecard-panel's
-                              // scoreHex starts at 7.5, so a score of 7.7 is gold on
-                              // one screen and amber on the other. Left as written --
-                              // which threshold is right is a ruling, not a colour fix.
-                              call.quality_score >= 8
+                              // This band started at 8 while every other copy
+                              // started at 7.5, so a call scored 7.7 was gold on the
+                              // leaderboard and amber here. Ruled 7.5 and named in
+                              // stats.ts, so there is one copy left to be wrong.
+                              call.quality_score >= GOOD_CALL_SCORE
                                 ? GOLD
-                                : call.quality_score >= 6
+                                : call.quality_score >= POOR_SCORE
                                 ? AMBER
                                 : NEGATIVE,
                           }}
