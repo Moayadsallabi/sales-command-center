@@ -123,9 +123,54 @@ export async function whoami(cookieHeader: string | null): Promise<Viewer | null
  * Null on ANY failure, so a registry outage degrades to the environment
  * instead of an empty dashboard.
  */
+/**
+ * A client's keys, remembered for a minute.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS CACHED AND `whoami` IS NOT
+ *
+ * Resolving who is looking cost 1.6 SECONDS on every single render, measured
+ * on the live dashboard 2026-08-27 — three sequential calls to the console for
+ * an answer that had not changed. It is the largest single cost on the page
+ * for a signed-in admin, larger than reading Notion.
+ *
+ * This one is safe to remember because it is CONFIGURATION: which Notion
+ * database and which Calendly account this client's numbers come from. Nobody
+ * is admitted or refused by it — the caller has already been told, by whoami,
+ * that they may see this client.
+ *
+ * `whoami` is deliberately NOT cached, and must not be. It is the check, and a
+ * revoked session has to stop working where it is CHECKED rather than a minute
+ * later. That rule is the whole reason the roster work was trustworthy.
+ *
+ * A minute is chosen against the thing that actually changes: keys are edited
+ * on the KPI admin screen, and waiting up to a minute to see a key you just
+ * changed take effect is a fair trade for taking a second off every page load.
+ */
+const CREDENTIAL_TTL_MS = 60_000;
+const credentialCache = new Map<string, { at: number; config: ClientConfig | null }>();
+
+/** Tests, and the admin screen after a key is edited. */
+export function forgetCredentials(): void {
+  credentialCache.clear();
+}
+
 export async function credentialsFor(clientId: string): Promise<ClientConfig | null> {
   const token = process.env.REGISTRY_TOKEN;
   if (!token) return null;
+
+  const known = credentialCache.get(clientId);
+  if (known && Date.now() - known.at < CREDENTIAL_TTL_MS) return known.config;
+
+  const fresh = await readCredentials(clientId, token);
+  // A failure is remembered too, briefly: the fallback path it produces is
+  // already visible on the page as a switch error, and re-asking a console
+  // that just refused on every render helps nobody.
+  credentialCache.set(clientId, { at: Date.now(), config: fresh });
+  return fresh;
+}
+
+async function readCredentials(clientId: string, token: string): Promise<ClientConfig | null> {
 
   try {
     const credRes = await fetch(
@@ -304,7 +349,15 @@ export async function resolveViewing(
   cookieHeader: string | null,
   chosen: string | null
 ): Promise<Viewing> {
-  const me = await whoami(cookieHeader);
+  /* BOTH OF THESE ONLY NEED THE COOKIE, so asking for them one after the other
+     spent a round trip to the console for nothing. Started together they cost
+     one. The role is still checked below before anything is honoured — running
+     the two concurrently changes when the list ARRIVES, never whether it is
+     allowed to be used. */
+  const [me, everyClient] = await Promise.all([
+    whoami(cookieHeader),
+    servableClients(cookieHeader),
+  ]);
   const fallback = () => resolveClientConfig(cookieHeader, me);
 
   // Not an admin: the switcher does not exist, and a pinned id is ignored
@@ -314,7 +367,7 @@ export async function resolveViewing(
     return { config: await fallback(), clients: [], chosen: null, switchError: null };
   }
 
-  const clients = await servableClients(cookieHeader);
+  const clients = everyClient;
   if (!chosen) {
     return { config: await fallback(), clients, chosen: null, switchError: null };
   }

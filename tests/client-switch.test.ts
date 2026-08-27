@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { resolveViewing, servableClients } from "../src/lib/client-config";
+import { resolveViewing, servableClients, credentialsFor, forgetCredentials } from "../src/lib/client-config";
 
 /**
  * THE RULES THAT KEEP ONE CLIENT OUT OF ANOTHER'S CALLS.
@@ -79,6 +79,12 @@ function mockConsole({ who, clients, credentials = {} }: Routes) {
 }
 
 beforeEach(() => {
+  /* CREDENTIALS ARE REMEMBERED FOR A MINUTE, and module state outlives a test.
+     Without this, a case that succeeds leaves its answer behind and the next
+     case's mock is never reached — which is exactly how it failed the first
+     time: the test asserting that a REFUSED switch says so was quietly handed
+     the previous test's success and passed nothing. */
+  forgetCredentials();
   vi.stubEnv("REGISTRY_TOKEN", "internal-token");
   vi.stubEnv("IDENTITY_URL", "https://console.test");
   vi.stubEnv("CLIENT_ID", "brey");
@@ -157,6 +163,42 @@ describe("who may switch client", () => {
     expect(v.config.brandName).toBe("Karan Thind");
     expect(v.config.notion.apiKey).toBe("key-karan");
     expect(v.switchError).toBeNull();
+  });
+});
+
+describe("remembering a client's keys", () => {
+  it("asks the console once, then answers from memory", async () => {
+    const calls = mockConsole({
+      who: ADMIN,
+      clients: [row("karan", "Karan Thind")],
+      credentials: { karan: creds("karan", "Karan Thind") },
+    });
+    const asked = () => calls.filter((u) => u.includes("/api/internal/credentials/")).length;
+
+    await credentialsFor("karan");
+    await credentialsFor("karan");
+    await credentialsFor("karan");
+
+    // Three renders, one question. This was 1.6 seconds of round trips per
+    // render before, and it is the largest single cost the page had.
+    expect(asked()).toBe(1);
+  });
+
+  it("never hands one client's keys to another", async () => {
+    mockConsole({
+      who: ADMIN,
+      clients: [row("karan", "Karan Thind"), row("zennbot", "Zennbot")],
+      credentials: { karan: creds("karan", "Karan Thind"), zennbot: creds("zennbot", "Zennbot") },
+    });
+
+    const a = await credentialsFor("karan");
+    const b = await credentialsFor("zennbot");
+
+    // The cache is keyed per client. If it ever is not, this is the shape the
+    // failure takes: one client's Notion database under the other's name.
+    expect(a?.notion.databaseId).toBe("db-karan");
+    expect(b?.notion.databaseId).toBe("db-zennbot");
+    expect(a?.notion.databaseId).not.toBe(b?.notion.databaseId);
   });
 });
 

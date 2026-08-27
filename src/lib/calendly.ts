@@ -747,7 +747,28 @@ export async function queryBookings(
     store.key !== key ||
     (Date.now() - store.listedAt) / 1000 >= cacheSeconds();
 
-  if (listStale) store = await crawlEventList(token, now, key);
+  /* NOTHING IN HAND MEANS WAITING. A LIST THAT IS MERELY OLD DOES NOT.
+     This blocked on every refresh, and the list is a 500-event crawl that costs
+     seven to eight seconds — so with a five-minute window, somebody paid eight
+     seconds every five minutes, for ever, and which somebody was pure luck.
+     The bookings behind it move when a call is booked or cancelled; a list a
+     few minutes old is not wrong, it is a few minutes old. So it is handed back
+     and refreshed behind the reader, which is what live-cache.ts does for
+     Notion and Whop and what this file should always have done.
+     A DIFFERENT ACCOUNT still waits: `store` holds one at a time, so handing
+     over what is in hand there would be one client's bookings under another
+     client's name. */
+  if (!store || store.key !== key) {
+    store = await crawlEventList(token, now, key);
+  } else if (listStale) {
+    void crawlEventList(token, now, key)
+      .then((fresh) => {
+        // Only if nobody has switched account in the meantime — the crawl that
+        // finishes last must not win over a newer, different one.
+        if (store && store.key === fresh.key) store = fresh;
+      })
+      .catch((err) => console.error("[calendly] event list refresh failed:", err));
+  }
   const current = store as Store;
 
   if (needsRefresh(current, Date.now()).length > 0 && !current.filling) {
