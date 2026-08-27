@@ -82,7 +82,13 @@ export interface FollowUpResult {
 function comparableName(name: string): string | null {
   const cleaned = name
     .toLowerCase()
-    .replace(/[^a-z\s]/g, " ")
+    // DIGITS ARE KEPT. Stripping them turned "Client 1" and "Client 2" into
+    // the same string, so a live follow-up was retired because a DIFFERENT
+    // prospect was called later -- the same fault the "Unknown" guard below
+    // exists to prevent, in a quieter form. Keeping them can only ever make
+    // this matcher refuse a pair it used to accept; an ordinary name carries
+    // no digits, so nothing that legitimately matched stops matching.
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (cleaned.length < 3) return null;
