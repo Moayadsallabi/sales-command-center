@@ -1,5 +1,6 @@
 import { DIMENSIONS, DimensionKey } from "./dimensions";
 import { LEAD_FACTORS, LeadFactorKey, leadScore } from "./lead-quality";
+import { AMBER, CRIMSON, GOLD, NEGATIVE, NEUTRAL } from "./palette";
 
 export interface CallRecord {
   id: string;
@@ -153,13 +154,14 @@ export function weakestLeadFactor(call: CallRecord) {
 }
 
 export const OUTCOME_COLORS: Record<string, string> = {
-  Customer: "#d4af37",
-  "No deal": "#ef4444",
-  "No offer made": "#f59e0b",
+  Customer: GOLD,
+  "No deal": NEGATIVE,
+  "No offer made": AMBER,
   BAMFAM: "#6366f1",
-  "No show": "#6b7280",
-  // Crimson rather than #ef4444 so it stays distinct from "No deal" red.
-  REFUND: "#e11d48",
+  "No show": NEUTRAL,
+  // Crimson rather than the "No deal" red, so the two stay apart in a legend
+  // where they sit next to each other: a refund is not a lost deal.
+  REFUND: CRIMSON,
 };
 
 export const OUTCOMES = [

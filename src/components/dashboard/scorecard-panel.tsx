@@ -25,18 +25,19 @@ import {
   UserSearch,
   CalendarClock,
 } from "lucide-react";
+import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
 
 function scoreHex(score: number): string {
-  if (score >= 7.5) return "#d4af37";
-  if (score >= 6) return "#f59e0b";
-  return "#ef4444";
+  if (score >= 7.5) return GOLD;
+  if (score >= 6) return AMBER;
+  return NEGATIVE;
 }
 
 /** Same three bands as the call score, on the lead's 0–100 scale. */
 function leadHex(score: number): string {
-  if (score >= 75) return "#d4af37";
-  if (score >= 55) return "#f59e0b";
-  return "#ef4444";
+  if (score >= 75) return GOLD;
+  if (score >= 55) return AMBER;
+  return NEGATIVE;
 }
 
 /**

@@ -79,7 +79,12 @@
 :root {
   --background: #09090b;
   --foreground: #fafaf9;
-  --card: #111113;
+  /* ONE FLAT FILL FOR A RAISED SURFACE, matched to the KPI dashboard's
+     --surface. This was #111113, which is the INPUT surface in that system --
+     a step lighter, so it reads as something you can type into. Two dashboards
+     in one product disagreeing about what a card is made of is the drift
+     design-tokens.json exists to catch. */
+  --card: #0f0f12;
   --card-foreground: #fafaf9;
   --popover: #111113;
   --popover-foreground: #fafaf9;
@@ -94,14 +99,18 @@
   --muted-foreground: #a1a1aa;
   --accent: #1a1a1f;
   --accent-foreground: #fafaf9;
-  --destructive: #ef4444;
+  /* THE ONLY RED IS --color-positive's PAIR. This was #ef4444 -- the saturated
+     one the semantic block above says was removed for reading as a traffic
+     light -- and it survived by sitting in a shadcn variable nobody re-read
+     when the pair was chosen. Found 2026-08-27 by the cross-repo token check. */
+  --destructive: #f4776b;
   --border: #ffffff0f;
   --input: #ffffff15;
   --ring: #d4af37;
   --chart-1: #d4af37;
   --chart-2: #6366f1;
   --chart-3: #f59e0b;
-  --chart-4: #ef4444;
+  --chart-4: #f4776b;   /* the same one red, for the same reason */
   --chart-5: #6b7280;
   --radius: 0.75rem;
   --sidebar: #111113;

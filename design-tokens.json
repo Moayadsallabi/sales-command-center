@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "_why": [
+    "The colours every Perceptionism Lab dashboard must agree about, named once.",
+    "",
+    "Three apps deploy separately and cannot read each other at runtime, so each",
+    "keeps its own stylesheet. That duplication is the risk this file covers. On",
+    "2026-08-19 the client dashboard was measured and rebuilt -- a fourth text",
+    "step so the palest shade could stop carrying words, a desaturated good/bad",
+    "pair, one flat card surface. Eight days later the agency screen was still",
+    "running the version that rebuild replaced, because nobody remembered to copy",
+    "it across, and its navigation, filters, column headers and every explanatory",
+    "sentence sat at 4.1:1 -- under the readable floor -- on the screen that",
+    "carries the money.",
+    "",
+    "So the roles are named here and asserted from both sides. A ROLE, not a",
+    "variable name: the two codebases name the same colour differently (--surface",
+    "against --card, --green against --color-positive) and forcing one naming on",
+    "the other would be a rewrite rather than a check. What must not differ is the",
+    "value.",
+    "",
+    "Anything genuinely allowed to differ is NOT in here. A file that lists things",
+    "nobody intends to keep equal is one whose failures get waved through."
+  ],
+
+  "roles": {
+    "page_background": {
+      "value": "#09090b",
+      "note": "The ground everything sits on. Contrast ratios are measured against this."
+    },
+    "card_surface": {
+      "value": "#0f0f12",
+      "note": "One flat fill for every raised surface. Was a white gradient over the page, which needed the page behind it to be doing something -- it is flat dark, so the gradient only greyed the card."
+    },
+    "input_surface": {
+      "value": "#111113",
+      "note": "Inputs, selects, popovers and menus. A step lighter than a card on purpose: it reads as something you can type into rather than something you read."
+    },
+    "text_primary": {
+      "value": "#fafaf9",
+      "note": "Headings, names, figures."
+    },
+    "text_secondary": {
+      "value": "#d4d4d8",
+      "note": "Sentences a person reads in full."
+    },
+    "text_tertiary": {
+      "value": "#a1a1aa",
+      "note": "Labels and captions. 7.8:1 -- the floor for anything carrying words."
+    },
+    "text_decoration": {
+      "value": "#71717a",
+      "note": "SEPARATORS, UNITS, AND A DASH STANDING IN FOR A NUMBER. 4.1:1, under the 4.5:1 readable floor, so it may never carry words. It was the most-used text colour on both dashboards until it was measured."
+    },
+    "border": {
+      "value": "#ffffff0f",
+      "note": "The hairline between surfaces."
+    },
+    "gold_100": { "value": "#faf3dc", "note": "The ramp is complete on purpose: Tailwind emits nothing for a shade that does not exist, so a missing one fails silently and the element inherits the page's foreground." },
+    "gold_200": { "value": "#f5e7b8" },
+    "gold_300": { "value": "#f0d98a" },
+    "gold_400": { "value": "#e5c158" },
+    "gold_500": { "value": "#d4af37", "note": "The brand. Carries no verdict -- it marks what is ours, never whether something is good." },
+    "gold_600": { "value": "#b8942c" },
+    "gold_dim": { "value": "#d4af3733", "note": "Gold at 20%, for a border or a wash." },
+    "positive": {
+      "value": "#6ee7a8",
+      "note": "Deliberately desaturated. A saturated green beside this gold reads as a traffic light and drags the whole page towards dashboard-template."
+    },
+    "negative": {
+      "value": "#f4776b",
+      "note": "The pair to positive, and the ONLY red. #ef4444 is the saturated one both apps removed; where it survives, it survived by being in a variable nobody re-read."
+    },
+    "amber": {
+      "value": "#f59e0b",
+      "note": "Reserved for one thing: how far the page can be trusted. Never a third verdict colour."
+    }
+  },
+
+  "_banished_why": [
+    "Colours the palette REMOVED, which must not reappear as a literal anywhere.",
+    "",
+    "The token check passed while fifteen elements on the Sales Command Center",
+    "still rendered #ef4444: it had been taken out of the variables and left in",
+    "four component files as a typed hex, plus two login pages in the other repo.",
+    "A check that reads only the tokens reports a screen it has not looked at."
+  ],
+  "banished": {
+    "#ef4444": "The saturated red. Use `negative` (#f4776b) -- a saturated red beside this gold reads as a traffic light.",
+    "#34d399": "The saturated green. Use `positive` (#6ee7a8), for the same reason.",
+    "#71717a": "NOT banished as a value -- it is `text_decoration` -- but it may never carry words. Nothing automatic can check that; it is here so the next reader knows."
+  },
+
+  "declared_by": {
+    "perceptionismlabkpis/public/theme.css": {
+      "page_background": ["--bg"],
+      "card_surface": ["--surface"],
+      "input_surface": ["--bg2"],
+      "text_primary": ["--text"],
+      "text_secondary": ["--text2"],
+      "text_tertiary": ["--text3"],
+      "text_decoration": ["--text4"],
+      "border": ["--border"],
+      "gold_100": ["--gold-100"],
+      "gold_200": ["--gold-200"],
+      "gold_300": ["--gold-300"],
+      "gold_400": ["--gold-400"],
+      "gold_500": ["--gold"],
+      "gold_600": ["--gold-600"],
+      "gold_dim": ["--gold-dim"],
+      "positive": ["--green"],
+      "negative": ["--red"],
+      "amber": ["--amber"]
+    },
+    "sales-command-center/src/app/globals.css": {
+      "page_background": ["--background"],
+      "card_surface": ["--card"],
+      "input_surface": ["--popover", "--sidebar"],
+      "text_primary": ["--foreground", "--card-foreground", "--popover-foreground"],
+      "text_tertiary": ["--muted-foreground"],
+      "border": ["--border", "--sidebar-border"],
+      "gold_100": ["--color-gold-100"],
+      "gold_200": ["--color-gold-200"],
+      "gold_300": ["--color-gold-300"],
+      "gold_400": ["--color-gold-400"],
+      "gold_500": ["--color-gold-500", "--color-gold", "--primary", "--ring", "--chart-1"],
+      "gold_600": ["--color-gold-600"],
+      "gold_dim": ["--color-gold-dim"],
+      "positive": ["--color-positive"],
+      "negative": ["--color-negative", "--destructive", "--chart-4"],
+      "amber": ["--chart-3"]
+    }
+  }
+}

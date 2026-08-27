@@ -4,11 +4,12 @@ import { CallRecord } from "@/lib/types";
 import { biggestCosts, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { AlertTriangle, TrendingDown, TrendingUp, Users, User } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
+import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
 
 function scoreHex(score: number): string {
-  if (score >= 7.5) return "#d4af37";
-  if (score >= 6) return "#f59e0b";
-  return "#ef4444";
+  if (score >= 7.5) return GOLD;
+  if (score >= 6) return AMBER;
+  return NEGATIVE;
 }
 
 /**

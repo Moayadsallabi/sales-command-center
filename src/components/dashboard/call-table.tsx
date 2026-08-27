@@ -6,6 +6,7 @@ import { carriesRevenue, collectedToDate, formatMoney, formatReporting } from "@
 import { wasSettledByPayment } from "@/lib/settle";
 import { ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
+import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
 
 /** One tracker row left out of the dashboard, and why. */
 export interface ExcludedNote {
@@ -244,7 +245,7 @@ export function CallTable({
                             style={{
                               width: `${lead}%`,
                               background:
-                                lead >= 75 ? "#d4af37" : lead >= 55 ? "#f59e0b" : "#ef4444",
+                                lead >= 75 ? GOLD : lead >= 55 ? AMBER : NEGATIVE,
                             }}
                           />
                         </div>
@@ -265,11 +266,15 @@ export function CallTable({
                           style={{
                             width: `${(call.quality_score / 10) * 100}%`,
                             background:
+                              // NOTE: this band starts at 8 while scorecard-panel's
+                              // scoreHex starts at 7.5, so a score of 7.7 is gold on
+                              // one screen and amber on the other. Left as written --
+                              // which threshold is right is a ruling, not a colour fix.
                               call.quality_score >= 8
-                                ? "#d4af37"
+                                ? GOLD
                                 : call.quality_score >= 6
-                                ? "#f59e0b"
-                                : "#ef4444",
+                                ? AMBER
+                                : NEGATIVE,
                           }}
                         />
                       </div>
