@@ -18,6 +18,7 @@
 // processor is where the money actually moved.
 
 import { readFileSync } from "node:fs";
+import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
 
 /** Below this, a difference is fees or rounding rather than a mistake. */
 const CASH_TOLERANCE = 50;
@@ -110,22 +111,6 @@ const DATA_STARTS = (() => {
   }
 })();
 
-function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
-    let raw;
-    try {
-      raw = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split("\n")) {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)$/);
-      if (!match) continue;
-      const value = match[2].trim().replace(/^["']|["']$/g, "");
-      if (!(match[1] in process.env)) process.env[match[1]] = value;
-    }
-  }
-}
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -169,7 +154,7 @@ async function readTracker() {
       method: "POST",
       headers: {
         Authorization: `Bearer ${notionKey}`,
-        "Notion-Version": "2022-06-28",
+        "Notion-Version": NOTION_VERSION,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
@@ -842,7 +827,7 @@ async function patchRow(row, properties, described) {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${notionKey}`,
-      "Notion-Version": "2022-06-28",
+      "Notion-Version": NOTION_VERSION,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ properties }),

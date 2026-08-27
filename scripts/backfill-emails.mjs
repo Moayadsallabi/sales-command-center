@@ -39,11 +39,12 @@
 //   - A row that already has an email is never touched, whoever typed it.
 //   - Anything unconfirmed is reported, not written.
 
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
 
 const FATHOM_API = "https://api.fathom.ai/external/v1/meetings";
 /**
@@ -56,22 +57,6 @@ const SLOT_TOLERANCE_MINUTES = 5;
 /** Notion allows roughly three writes a second. */
 const WRITE_PAUSE_MS = 350;
 
-function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
-    let raw;
-    try {
-      raw = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split("\n")) {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)$/);
-      if (!match) continue;
-      const value = match[2].trim().replace(/^["']|["']$/g, "");
-      if (!(match[1] in process.env)) process.env[match[1]] = value;
-    }
-  }
-}
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -650,7 +635,7 @@ for (const f of chosen) {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${notionKey}`,
-      "Notion-Version": "2022-06-28",
+      "Notion-Version": NOTION_VERSION,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ properties }),

@@ -44,9 +44,8 @@
 //   - Two unaccounted speakers is not a name. Those rows are reported for a
 //     human to rule on, never written.
 
-import { readFileSync } from "node:fs";
+import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
 
-const NOTION_VERSION = "2022-06-28";
 const FATHOM_API = "https://api.fathom.ai/external/v1/meetings";
 /** Notion allows roughly three writes a second. */
 const WRITE_PAUSE_MS = 350;
@@ -59,22 +58,6 @@ const SLOT_WINDOW_MS = 45 * 60 * 1000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
-    let raw;
-    try {
-      raw = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split("\n")) {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)$/);
-      if (!match) continue;
-      const value = match[2].trim().replace(/^["']|["']$/g, "");
-      if (!(match[1] in process.env)) process.env[match[1]] = value;
-    }
-  }
-}
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);

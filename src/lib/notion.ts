@@ -199,6 +199,11 @@ export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: s
 async function crawlAllCalls(apiKey: string, databaseId: string): Promise<CallRecord[]> {
   const headers = {
     Authorization: `Bearer ${apiKey}`,
+    // The one other place this string lives is scripts/lib/notion-env.mjs, and
+    // the two have to move together. They are not shared because the app is
+    // bundled and the check scripts are plain node modules -- an .mjs import
+    // here would not survive the build. Two copies, both pointing at each
+    // other, rather than the nine this used to be.
     "Notion-Version": "2022-06-28",
     "Content-Type": "application/json",
   };

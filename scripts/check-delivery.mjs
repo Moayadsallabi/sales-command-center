@@ -33,6 +33,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { readSalesCallFilter, SalesCallFilterError } from "./lib/sales-call-filter.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -82,7 +83,7 @@ do {
     method: "POST",
     headers: {
       Authorization: `Bearer ${notionKey}`,
-      "Notion-Version": "2022-06-28",
+      "Notion-Version": NOTION_VERSION,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ page_size: 100, start_cursor: cursor }),

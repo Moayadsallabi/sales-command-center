@@ -20,27 +20,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
+import { loadEnv } from "./lib/notion-env.mjs";
 
 const DEFAULT_TRUTH = "fixtures/accuracy-truth.json";
 /** How many days apart a booking and the answer key's date may sit. */
 const DAY_TOLERANCE = 1;
 
-function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
-    let raw;
-    try {
-      raw = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split("\n")) {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)$/);
-      if (!match) continue;
-      const value = match[2].trim().replace(/^["']|["']$/g, "");
-      if (!(match[1] in process.env)) process.env[match[1]] = value;
-    }
-  }
-}
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);

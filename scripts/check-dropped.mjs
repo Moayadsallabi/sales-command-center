@@ -26,6 +26,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { readSalesCallFilter, phraseListsIn } from "./lib/sales-call-filter.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -134,7 +135,7 @@ async function trackedShareIds() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${E.NOTION_API_KEY}`,
-          "Notion-Version": "2022-06-28",
+          "Notion-Version": NOTION_VERSION,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),

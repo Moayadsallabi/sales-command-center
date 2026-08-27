@@ -4,8 +4,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
 
-const NOTION_VERSION = "2022-06-28";
 
 const rubric = JSON.parse(
   readFileSync(
@@ -74,22 +74,6 @@ const REQUIRED_PROPS = {
   [rubric.objections.primaryColumn]: "select",
 };
 
-function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
-    let raw;
-    try {
-      raw = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split("\n")) {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)$/);
-      if (!match) continue;
-      const value = match[2].trim().replace(/^["']|["']$/g, "");
-      if (!(match[1] in process.env)) process.env[match[1]] = value;
-    }
-  }
-}
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
