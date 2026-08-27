@@ -83,6 +83,29 @@ async function loadPayments(cfg: ClientConfig): Promise<WhopRead | null> {
   }
 }
 
+/**
+ * Times one step of the render and says so when it was slow.
+ *
+ * There was no way to tell WHERE a slow page went. On 2026-08-27 a first load
+ * measured 132 seconds against the live account while every load after it was
+ * under 300ms, and reading the code produced three plausible culprits and no
+ * way to choose between them. A number in the log settles it in one reload.
+ *
+ * Only slow steps are logged: a line per step per render would drown the log
+ * that matters, and a step that took 40ms is not information.
+ */
+const SLOW_MS = 1500;
+
+async function timed<T>(step: string, work: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  try {
+    return await work();
+  } finally {
+    const took = Date.now() - started;
+    if (took >= SLOW_MS) console.log(`[slow] ${step} took ${took}ms`);
+  }
+}
+
 export default async function Home() {
   // Resolved once per request so the date filter agrees between the server
   // render and hydration — reading the clock in the client component instead
@@ -128,10 +151,10 @@ export default async function Home() {
   // every read below is unambiguously one client's -- rather than each library
   // reaching into the environment and all of them silently agreeing because
   // there has only ever been one client per deployment.
-  const viewing = await currentViewing();
+  const viewing = await timed("identity + credentials", () => currentViewing());
   const cfg: ClientConfig = viewing.config;
 
-  const result = await loadCalls(cfg);
+  const result = await timed("notion calls", () => loadCalls(cfg));
 
   if (!result.ok) return <SetupNotice failure={result.failure} />;
 
@@ -152,8 +175,8 @@ export default async function Home() {
   }
 
   const [calendly, payments] = await Promise.all([
-    loadBookings(kept, cfg),
-    loadPayments(cfg),
+    timed("calendly bookings", () => loadBookings(kept, cfg)),
+    timed("whop payments", () => loadPayments(cfg)),
   ]);
 
   // Matched on the server: the buyer list holds addresses the client has no

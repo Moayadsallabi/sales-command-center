@@ -457,6 +457,41 @@ type Store = {
 
 let store: Store | null = null;
 
+/**
+ * An event-list crawl already running, and which account it is for.
+ *
+ * ---------------------------------------------------------------------------
+ * TWO CALLERS MUST NEVER BOTH CRAWL THE LIST
+ *
+ * `store` is only set once a crawl FINISHES, so anything asking while one is
+ * in flight saw no store, decided the list was stale, and started a second
+ * crawl of the same several hundred events. Two crawls share one rate-limit
+ * allowance, so they drain it, take 429s, and wait out the window — each
+ * refusal costs up to 65 seconds in `request` above.
+ *
+ * Measured 2026-08-27 on the live account: one caller took 18s, two racing
+ * took 132s, and the page was one of the two. It surfaced when the server
+ * started warming this at boot, but it was always reachable — two people
+ * opening the dashboard at the same moment after a restart is the same race.
+ *
+ * The key is carried because sharing a crawl only makes sense when both
+ * callers want the SAME account. A different one waits and starts its own,
+ * which is correct rather than fast, and is the honest behaviour until `store`
+ * holds more than one account at a time.
+ */
+let listing: { key: string; crawl: Promise<Store> } | null = null;
+
+function crawlEventList(token: string, now: Date, key: string): Promise<Store> {
+  if (listing && listing.key === key) return listing.crawl;
+  const crawl = refreshEventList(token, now, key).finally(() => {
+    // Cleared on failure too: a crawl that threw must not be handed to the
+    // next caller as though it were still coming.
+    if (listing && listing.crawl === crawl) listing = null;
+  });
+  listing = { key, crawl };
+  return crawl;
+}
+
 function cacheSeconds(): number {
   const raw = Number(process.env.CALENDLY_CACHE_SECONDS);
   return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_CACHE_SECONDS;
@@ -703,7 +738,7 @@ export async function queryBookings(
     store.key !== key ||
     (Date.now() - store.listedAt) / 1000 >= cacheSeconds();
 
-  if (listStale) store = await refreshEventList(token, now, key);
+  if (listStale) store = await crawlEventList(token, now, key);
   const current = store as Store;
 
   if (needsRefresh(current, Date.now()).length > 0 && !current.filling) {
