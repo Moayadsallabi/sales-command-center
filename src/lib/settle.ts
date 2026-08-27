@@ -86,19 +86,3 @@ export function settle(
 export function wasSettledByPayment(call: CallRecord): boolean {
   return call.recorded_outcome != null && call.recorded_outcome !== call.outcome;
 }
-
-/**
- * How many rows the dashboard is counting differently from the tracker, and
- * what they are worth.
- *
- * Worth saying out loud on the page rather than leaving to be noticed: these
- * are the rows where the two disagree, and each one is a Notion row somebody
- * should correct.
- */
-export function settledSummary(calls: CallRecord[]): { count: number; worth: number } {
-  const settled = calls.filter(wasSettledByPayment);
-  return {
-    count: settled.length,
-    worth: settled.reduce((sum, c) => sum + (c.paid_total ?? 0), 0),
-  };
-}

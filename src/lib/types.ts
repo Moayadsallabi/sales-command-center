@@ -100,11 +100,6 @@ export interface CallRecord {
   offer_evidence: string;
 }
 
-/** True when the call has a full set of dimension scores to render. */
-export function isScored(call: CallRecord): boolean {
-  return DIMENSIONS.every((d) => call.scores[d.key] != null);
-}
-
 /** Mean of a call's dimension scores, or null if it was never scored. */
 export function overallScore(call: CallRecord): number | null {
   const values = DIMENSIONS.map((d) => call.scores[d.key]).filter(
@@ -127,11 +122,6 @@ export function leadQualityScore(call: CallRecord): number | null {
   return leadScore(call.lead);
 }
 
-/** True when enough of the lead was assessed to show a score for it. */
-export function hasLeadScore(call: CallRecord): boolean {
-  return leadQualityScore(call) != null;
-}
-
 /**
  * True when this call was reviewed by a rubric that assessed the lead at all.
  *
@@ -142,15 +132,6 @@ export function hasLeadScore(call: CallRecord): boolean {
  */
 export function hasLeadAssessment(call: CallRecord): boolean {
   return LEAD_FACTORS.some((f) => call.lead[f.key] != null);
-}
-
-/** The lead factor furthest below its own ceiling, for "what was missing". */
-export function weakestLeadFactor(call: CallRecord) {
-  const scored = LEAD_FACTORS.filter((f) => call.lead[f.key] != null);
-  if (scored.length === 0) return null;
-  return scored.reduce((worst, f) =>
-    (call.lead[f.key] as number) / f.max < (call.lead[worst.key] as number) / worst.max ? f : worst
-  );
 }
 
 export const OUTCOME_COLORS: Record<string, string> = {
@@ -172,6 +153,3 @@ export const OUTCOMES = [
   "No show",
   "REFUND",
 ] as const;
-
-/** Outcomes that mean the prospect actually showed up and heard an offer. */
-export const OFFER_MADE_OUTCOMES = new Set(["Customer", "BAMFAM", "No deal", "REFUND"]);

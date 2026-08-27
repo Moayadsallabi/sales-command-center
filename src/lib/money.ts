@@ -53,14 +53,6 @@ function toReporting(amount: number | null, call: CallRecord): number {
 /* --------------------------------------------------------------- what is in */
 
 /**
- * Cash actually taken during the call. This is the closer's number — a deal
- * signed on the call but paid three days later collected nothing on the call.
- */
-export function cashOnCall(call: CallRecord): number | null {
-  return call.collected_on_call;
-}
-
-/**
  * Every payment received for this deal so far. `Cash Collected` is filled in
  * by hand as later payments land; while it is blank, the only money in is
  * whatever was taken on the call itself.
@@ -71,16 +63,8 @@ export function collectedToDate(call: CallRecord): number | null {
 
 /* ------------------------------------------------- converted for totalling */
 
-export function reportingCashOnCall(call: CallRecord): number {
-  return toReporting(cashOnCall(call), call);
-}
-
 export function reportingCollected(call: CallRecord): number {
   return toReporting(collectedToDate(call), call);
-}
-
-export function reportingOutstanding(call: CallRecord): number {
-  return toReporting(call.outstanding, call);
 }
 
 /**

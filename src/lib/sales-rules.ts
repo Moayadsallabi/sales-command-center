@@ -32,5 +32,4 @@ export const REFUND_CARRIES_CASH: boolean = rules.outcomes.refund.carries_cash;
  */
 export const REFUND_CARRIES_CLOSE: boolean = rules.outcomes.refund.carries_close;
 
-export const RULES_VERSION: string = rules.version;
 export { rules };

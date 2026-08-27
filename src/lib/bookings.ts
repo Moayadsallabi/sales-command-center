@@ -23,19 +23,6 @@ const MATCH_TOLERANCE_DAYS = 1;
 /** Below this many hours of notice, a cancellation is a same-day drop. */
 export const LATE_CANCEL_HOURS = 24;
 
-/**
- * How much of the calendar has to be accounted for before a show rate is worth
- * stating as a single number.
- *
- * Every booking with no recording and no cancellation widens the true rate's
- * range by its own share. At 90% accounted for the range is ten points, which
- * is arguable; at 12% it spans almost everything, and quoting the midpoint —
- * or worse, the rate among only the accounted-for calls — would be inventing
- * precision the data does not have.
- */
-export const MIN_COVERAGE_FOR_RATE = 90;
-
-
 export type BookingState =
   /** Still ahead of us. Not a show or a no-show yet, so it counts as neither. */
   | "upcoming"
@@ -508,55 +495,6 @@ export function funnelStats(
 }
 
 /* ---------------------------------------------------------- booking lead time */
-
-/* -------------------------------------------------------------- attribution */
-
-/**
- * Where the booking came from, according to the link they booked through.
- *
- * The tracker's own `Lead Source` is the scorer's reading of what the prospect
- * said on the call, which is a guess made after the fact and only exists for
- * calls that happened. A utm tag on the booking link is a fact, recorded
- * before anyone spoke, and it exists for no-shows too.
- */
-export function bookingSource(booking: BookingRecord): string | null {
-  return booking.tracking.source;
-}
-
-export interface SourceStat {
-  source: string;
-  booked: number;
-  kept: number;
-  noShow: number;
-  showRate: number | null;
-}
-
-/** Booked-versus-showed per utm source, which the call table cannot see. */
-export function sourceStats(bookings: LinkedBooking[]): SourceStat[] {
-  const bySource = new Map<string, LinkedBooking[]>();
-  for (const booking of bookings) {
-    if (booking.state === "upcoming") continue;
-    const source = bookingSource(booking) ?? "Untagged";
-    const bucket = bySource.get(source);
-    if (bucket) bucket.push(booking);
-    else bySource.set(source, [booking]);
-  }
-
-  return [...bySource.entries()]
-    .map(([source, list]) => {
-      const kept = list.filter((b) => b.state === "kept").length;
-      const noShow = list.filter((b) => b.state === "no_show").length;
-      const accounted = kept + noShow;
-      return {
-        source,
-        booked: list.length,
-        kept,
-        noShow,
-        showRate: accounted === 0 ? null : (kept / accounted) * 100,
-      };
-    })
-    .sort((a, b) => b.booked - a.booked);
-}
 
 /**
  * Calls where Calendly's assigned host and the closer credited by the

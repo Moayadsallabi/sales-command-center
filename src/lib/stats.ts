@@ -376,11 +376,6 @@ export function leadImpact(calls: CallRecord[]): LeadImpactResult {
   };
 }
 
-/** Average lead quality across the window, out of LEAD_MAX. */
-export function averageLeadScore(calls: CallRecord[]): number | null {
-  return mean(leadAssessed(calls).map((c) => leadQualityScore(c) as number));
-}
-
 export { LEAD_MAX };
 
 /* ------------------------------------------------------------- objections */
