@@ -14,6 +14,29 @@ import { SetupNotice } from "@/components/dashboard/setup-notice";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Times one step of the render and says so when it was slow.
+ *
+ * There was no way to tell WHERE a slow page went. On 2026-08-27 a first load
+ * measured 132 seconds against the live account while every load after it was
+ * under 300ms, and reading the code produced three plausible culprits and no
+ * way to choose between them. A number in the log settles it in one reload.
+ *
+ * Only slow steps are logged: a line per step per render would drown the log
+ * that matters, and a step that took 40ms is not information.
+ */
+const SLOW_MS = 1500;
+
+async function timed<T>(step: string, work: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  try {
+    return await work();
+  } finally {
+    const took = Date.now() - started;
+    if (took >= SLOW_MS) console.log(`[slow] ${step} took ${took}ms`);
+  }
+}
+
 type LoadResult =
   | { ok: true; calls: CallRecord[] }
   | { ok: false; failure: NotionFailure };
@@ -45,9 +68,21 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
   }
 
   try {
-    const result = await queryBookings(new Date(), cfg.calendly);
+    // Split from the matching below because the two fail slowly for completely
+    // different reasons — one is Calendly over the wire, the other is CPU over
+    // a few hundred bookings — and a single timer around both cannot say which.
+    const result = await timed("calendly read", () => queryBookings(new Date(), cfg.calendly));
+    const matchStarted = Date.now();
+    const link = linkBookings(result.bookings, calls);
+    const matchTook = Date.now() - matchStarted;
+    if (matchTook >= SLOW_MS) {
+      console.log(
+        `[slow] calendly matching took ${matchTook}ms ` +
+          `(${result.bookings.length} bookings against ${calls.length} calls)`
+      );
+    }
     return {
-      link: linkBookings(result.bookings, calls),
+      link,
       windowStart: result.window_start,
       failure: null,
       pending: result.pending,
@@ -80,29 +115,6 @@ async function loadPayments(cfg: ClientConfig): Promise<WhopRead | null> {
   } catch (err) {
     console.error("Whop read failed:", err);
     return null;
-  }
-}
-
-/**
- * Times one step of the render and says so when it was slow.
- *
- * There was no way to tell WHERE a slow page went. On 2026-08-27 a first load
- * measured 132 seconds against the live account while every load after it was
- * under 300ms, and reading the code produced three plausible culprits and no
- * way to choose between them. A number in the log settles it in one reload.
- *
- * Only slow steps are logged: a line per step per render would drown the log
- * that matters, and a step that took 40ms is not information.
- */
-const SLOW_MS = 1500;
-
-async function timed<T>(step: string, work: () => Promise<T>): Promise<T> {
-  const started = Date.now();
-  try {
-    return await work();
-  } finally {
-    const took = Date.now() - started;
-    if (took >= SLOW_MS) console.log(`[slow] ${step} took ${took}ms`);
   }
 }
 
@@ -175,7 +187,7 @@ export default async function Home() {
   }
 
   const [calendly, payments] = await Promise.all([
-    timed("calendly bookings", () => loadBookings(kept, cfg)),
+    loadBookings(kept, cfg),
     timed("whop payments", () => loadPayments(cfg)),
   ]);
 

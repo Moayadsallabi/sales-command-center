@@ -482,8 +482,17 @@ let store: Store | null = null;
 let listing: { key: string; crawl: Promise<Store> } | null = null;
 
 function crawlEventList(token: string, now: Date, key: string): Promise<Store> {
-  if (listing && listing.key === key) return listing.crawl;
-  const crawl = refreshEventList(token, now, key).finally(() => {
+  if (listing && listing.key === key) {
+    console.log("[calendly] joined an event-list crawl already running");
+    return listing.crawl;
+  }
+  const started = Date.now();
+  const crawl = refreshEventList(token, now, key).then((s) => {
+    // Always logged, not only when slow: this is the one Calendly call the page
+    // waits for, so knowing whether a slow render made it is the first question.
+    console.log(`[calendly] event list crawled in ${Date.now() - started}ms (${s.events.length} events)`);
+    return s;
+  }).finally(() => {
     // Cleared on failure too: a crawl that threw must not be handed to the
     // next caller as though it were still coming.
     if (listing && listing.crawl === crawl) listing = null;
