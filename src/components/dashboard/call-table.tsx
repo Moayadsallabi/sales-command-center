@@ -4,6 +4,7 @@ import { CallRecord, OUTCOME_COLORS, leadQualityScore } from "@/lib/types";
 import { leadBandFor } from "@/lib/lead-quality";
 import { carriesRevenue, collectedToDate, formatMoney, formatReporting } from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
+import { shortDate } from "@/lib/periods";
 import { ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
 import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
@@ -155,12 +156,7 @@ export function CallTable({
                   {call.closer ?? <span className="text-zinc-500">—</span>}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] text-zinc-400 tabular-nums">
-                  {call.call_date
-                    ? new Date(call.call_date + "T00:00:00").toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "—"}
+                  {call.call_date ? shortDate(call.call_date) : "—"}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap">
                   <span

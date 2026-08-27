@@ -53,3 +53,6 @@ rubric/skill.local.md
 # generated per-client workflow copies — rebuild with npm run configure:client
 automation/generated/
 rubric/clients/*.local.md
+
+# local dev-server launch config, not part of the app
+.claude/

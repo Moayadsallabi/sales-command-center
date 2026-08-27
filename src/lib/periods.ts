@@ -52,6 +52,26 @@ export const DATE_RANGES: { value: DateRange; label: string }[] = [
  */
 export type DateWindow = { from: string | null; to: string | null };
 
+/**
+ * `2026-08-12` -> `12 Aug`. THE ONLY DATE FORMAT ON THE PAGE.
+ *
+ * Read as UTC and rendered as UTC, on purpose. A call_date is a calendar day
+ * with no time in it, so parsing it without the `Z` hands it to the browser's
+ * own zone and the day can slide either side of midnight depending on who is
+ * looking. Every other date helper in this file makes the same promise.
+ *
+ * en-GB because the audience is: the All Calls table used to render "Aug 27"
+ * in en-US while the header three inches above it said "27 Aug", and it was
+ * also the one date on the page parsed without the guard above.
+ */
+export function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+}
+
 /** `isoDate` minus `days`, as YYYY-MM-DD. Pure — no clock reading. */
 export function daysBefore(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T00:00:00Z`);

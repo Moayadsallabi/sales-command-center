@@ -23,6 +23,7 @@ import {
   monthStart,
   presetWindow,
   previousWindow,
+  shortDate,
   withinWindow,
 } from "@/lib/periods";
 import { Panel, usePanelMotion } from "./panel";
@@ -73,15 +74,6 @@ const SECTIONS: NavSection[] = [
   { id: "calls", label: "All calls", icon: List },
   { id: "data-health", label: "Data health", icon: Activity },
 ];
-
-/** `2026-08-12` -> `12 Aug`, for the line under the range buttons. */
-function shortDate(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
 
 export function Dashboard({
   calls,

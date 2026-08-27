@@ -171,6 +171,22 @@ export default async function Home() {
   const viewing = await timed("identity + credentials", () => currentViewing());
   const cfg: ClientConfig = viewing.config;
 
+  /**
+   * THE PAYMENTS READ STARTS HERE, NOT AFTER NOTION.
+   *
+   * It was sitting in the Promise.all below, which does not begin until the
+   * whole Notion crawl has landed -- and Whop needs nothing from Notion. On
+   * the cold figures recorded in live-cache.ts (Notion 0.84s, Whop 2.15s) that
+   * was three seconds of waiting where the slower of the two, 2.15s, is the
+   * real floor.
+   *
+   * Not awaited yet: the crawl runs while Notion is read, and the Promise.all
+   * further down collects it. loadPayments swallows its own failures and
+   * returns null, so this can never become an unhandled rejection on the early
+   * return below -- which is the trap this shape usually sets.
+   */
+  const paymentsRead = timed("whop payments", () => loadPayments(cfg));
+
   const result = await timed("notion calls", () => loadCalls(cfg));
 
   if (!result.ok) return <SetupNotice failure={result.failure} />;
@@ -193,7 +209,7 @@ export default async function Home() {
 
   const [calendly, payments] = await Promise.all([
     loadBookings(kept, cfg),
-    timed("whop payments", () => loadPayments(cfg)),
+    paymentsRead,
   ]);
 
   // Matched on the server: the buyer list holds addresses the client has no

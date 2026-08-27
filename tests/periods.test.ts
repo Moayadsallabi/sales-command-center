@@ -4,6 +4,7 @@ import {
   monthStart,
   presetWindow,
   previousWindow,
+  shortDate,
   withinWindow,
 } from "../src/lib/periods";
 
@@ -247,5 +248,28 @@ describe("withinWindow", () => {
   it("drops an undated row from a bounded window, and keeps it in an open one", () => {
     expect(withinWindow(null, { from: "2026-08-01", to: "2026-08-19" })).toBe(false);
     expect(withinWindow(null, { from: null, to: null })).toBe(true);
+  });
+});
+
+describe("shortDate", () => {
+  it("renders day-first, the way the rest of the page does", () => {
+    // The All Calls table used to render this one "Aug 27" while the header
+    // above it said "27 Aug".
+    expect(shortDate("2026-08-27")).toBe("27 Aug");
+    expect(shortDate("2026-01-01")).toBe("1 Jan");
+  });
+
+  it("does not slide a day when the reader is west of UTC", () => {
+    // A call_date is a calendar day with no time in it. Parsed without the Z
+    // it would be handed to the browser's own zone, and in New York the 1st
+    // renders as the previous month's last day.
+    const tz = process.env.TZ;
+    try {
+      process.env.TZ = "America/Los_Angeles";
+      expect(shortDate("2026-08-01")).toBe("1 Aug");
+      expect(shortDate("2026-12-31")).toBe("31 Dec");
+    } finally {
+      process.env.TZ = tz;
+    }
   });
 });
