@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 /**
  * Whose dashboard is this request, and what does it take to render it.
  *
@@ -153,6 +154,7 @@ const credentialCache = new Map<string, { at: number; config: ClientConfig | nul
 /** Tests, and the admin screen after a key is edited. */
 export function forgetCredentials(): void {
   credentialCache.clear();
+  clientListCache.clear();
 }
 
 export async function credentialsFor(clientId: string): Promise<ClientConfig | null> {
@@ -259,8 +261,33 @@ export type ServableClient = { id: string; name: string };
  * REFUSES them. That is not a second opinion about who should be listed; it is
  * this list agreeing with the server, so that every name on it can be clicked.
  */
+/**
+ * The switcher's menu, remembered for a minute per visitor.
+ *
+ * Same reasoning as the credential cache above: this is the LIST, not the
+ * permission. Nothing is admitted by appearing on it — clicking a name still
+ * goes through whoami and the credential call, and a client archived in the
+ * last minute fails there with the switch error that already exists.
+ *
+ * Keyed on the cookie so two people never share a menu, and hashed because a
+ * cache key ends up in logs and a session token has no business in one.
+ */
+const CLIENT_LIST_TTL_MS = 60_000;
+const clientListCache = new Map<string, { at: number; clients: ServableClient[] }>();
+
 export async function servableClients(cookieHeader: string | null): Promise<ServableClient[]> {
   if (!cookieHeader) return [];
+
+  const key = createHash("sha256").update(cookieHeader).digest("hex").slice(0, 16);
+  const known = clientListCache.get(key);
+  if (known && Date.now() - known.at < CLIENT_LIST_TTL_MS) return known.clients;
+
+  const fresh = await readServableClients(cookieHeader);
+  clientListCache.set(key, { at: Date.now(), clients: fresh });
+  return fresh;
+}
+
+async function readServableClients(cookieHeader: string): Promise<ServableClient[]> {
   try {
     const res = await fetch(identityBase() + "/api/registry/clients", {
       headers: { Cookie: cookieHeader },

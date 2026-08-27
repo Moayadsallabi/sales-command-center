@@ -165,6 +165,20 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next's own static assets and the favicon.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  /*
+   * Everything except Next's own static assets and the ICONS.
+   *
+   * THE ICONS ARE THE POINT OF THIS LIST, AND IT NAMED ONE FILE THAT DID NOT
+   * EXIST. The exclusion said `favicon.ico` while this app's icons were served
+   * at /icon.svg and /apple-icon.png -- so every icon request from a signed-out
+   * browser got a 401, and a browser that cannot fetch an icon shows whatever
+   * it has instead. On a site behind a login, that is EVERY first visit: the
+   * tab is painted before anyone types a password.
+   *
+   * A real favicon.ico exists now (app/favicon.ico), and the other icon paths
+   * are excluded alongside it rather than assumed.
+   */
+  matcher: [
+    "/((?!_next/static|_next/image|favicon\\.ico|icon\\.svg|apple-icon\\.png|favicon-\\d+\\.png).*)",
+  ],
 };

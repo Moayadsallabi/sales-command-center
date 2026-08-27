@@ -23,9 +23,11 @@ export const dynamic = "force-dynamic";
  * way to choose between them. A number in the log settles it in one reload.
  *
  * Only slow steps are logged: a line per step per render would drown the log
- * that matters, and a step that took 40ms is not information.
+ * that matters, and a step that took 40ms is not information. The bar is 400ms
+ * rather than the 1.5s it started at, because the page is now fast enough that
+ * 1.5s hides everything worth seeing — the costs left are in the hundreds.
  */
-const SLOW_MS = 1500;
+const SLOW_MS = 400;
 
 async function timed<T>(step: string, work: () => Promise<T>): Promise<T> {
   const started = Date.now();

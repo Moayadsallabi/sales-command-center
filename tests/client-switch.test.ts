@@ -184,6 +184,25 @@ describe("remembering a client's keys", () => {
     expect(asked()).toBe(1);
   });
 
+  it("asks for the switcher menu once per visitor, and never shares it", async () => {
+    const calls = mockConsole({
+      who: ADMIN,
+      clients: [row("karan", "Karan Thind")],
+      credentials: {},
+    });
+    const asked = () => calls.filter((u) => u.includes("/api/registry/clients")).length;
+
+    await servableClients("kpi_token=alice");
+    await servableClients("kpi_token=alice");
+    expect(asked()).toBe(1);
+
+    // A DIFFERENT COOKIE IS A DIFFERENT PERSON. If the cache were keyed on
+    // anything coarser, this is the shape of the failure: one admin's client
+    // list handed to whoever asked next.
+    await servableClients("kpi_token=bob");
+    expect(asked()).toBe(2);
+  });
+
   it("never hands one client's keys to another", async () => {
     mockConsole({
       who: ADMIN,
