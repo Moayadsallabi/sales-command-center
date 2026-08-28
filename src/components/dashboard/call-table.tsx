@@ -7,8 +7,7 @@ import { wasSettledByPayment } from "@/lib/settle";
 import { shortDate } from "@/lib/periods";
 import { ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
-import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
-import { GOOD_CALL_SCORE, POOR_SCORE } from "@/lib/stats";
+import { callScoreHex, leadScoreHex } from "@/lib/score-tone";
 
 /** One tracker row left out of the dashboard, and why. */
 export interface ExcludedNote {
@@ -241,8 +240,7 @@ export function CallTable({
                             className="h-full rounded-full transition-all"
                             style={{
                               width: `${lead}%`,
-                              background:
-                                lead >= 75 ? GOLD : lead >= 55 ? AMBER : NEGATIVE,
+                              background: leadScoreHex(lead),
                             }}
                           />
                         </div>
@@ -262,16 +260,12 @@ export function CallTable({
                           className="h-full rounded-full transition-all"
                           style={{
                             width: `${(call.quality_score / 10) * 100}%`,
-                            background:
-                              // This band started at 8 while every other copy
-                              // started at 7.5, so a call scored 7.7 was gold on the
-                              // leaderboard and amber here. Ruled 7.5 and named in
-                              // stats.ts, so there is one copy left to be wrong.
-                              call.quality_score >= GOOD_CALL_SCORE
-                                ? GOLD
-                                : call.quality_score >= POOR_SCORE
-                                ? AMBER
-                                : NEGATIVE,
+                            // This band started at 8 while every other copy
+                            // started at 7.5, so a call scored 7.7 was one
+                            // colour on the leaderboard and another here. There
+                            // are no copies left: every panel that paints a
+                            // score reads score-tone.ts.
+                            background: callScoreHex(call.quality_score),
                           }}
                         />
                       </div>

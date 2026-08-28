@@ -111,6 +111,26 @@ export const LEAD_BANDS: { min: number; label: string }[] = [
   { min: 0, label: "Poor" },
 ];
 
+/**
+ * The two thresholds the bands turn on, read off the bands themselves.
+ *
+ * Both numbers used to be typed again wherever a lead score was coloured — 75
+ * and 55 as bare literals in the call table and the scorecard — so a band could
+ * be renamed or moved here and the colours would keep the old split with
+ * nothing to show for it.
+ */
+function bandMin(label: string): number {
+  const band = LEAD_BANDS.find((b) => b.label === label);
+  if (!band) throw new Error(`No lead band called "${label}"`);
+  return band.min;
+}
+
+/** At or above this, a lead is Strong. */
+export const GOOD_LEAD_SCORE = bandMin("Strong");
+
+/** At or above this but below GOOD_LEAD_SCORE, a lead is Moderate. */
+export const FAIR_LEAD_SCORE = bandMin("Moderate");
+
 export function leadBandFor(score: number): string {
   return LEAD_BANDS.find((b) => score >= b.min)?.label ?? LEAD_BANDS[LEAD_BANDS.length - 1].label;
 }

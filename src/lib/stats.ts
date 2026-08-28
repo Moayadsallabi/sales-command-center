@@ -41,6 +41,23 @@ export const POOR_SCORE = 6;
 export const GOOD_CALL_SCORE = 7.5;
 
 /**
+ * THE GAP BETWEEN TWO CLOSE RATES, AS THE SCREEN SHOWS IT.
+ *
+ * Both comparison panels draw two rounded percentages and then state the
+ * distance between them, and those are two different roundings of one
+ * comparison. The leads panel rounded the raw gap while its bars rounded their
+ * own rates, so a live account read "83%", "29%" and "55 points" — every figure
+ * correct, and no two of them agreeing. Subtracting the rounded pair means the
+ * stated gap is always one the reader can get to from the bars.
+ *
+ * NOT FOR DECIDING ANYTHING. Whether a gap clears the swing from a single call
+ * is judged on the real numbers; this is only what gets printed.
+ */
+export function roundedGap(better: number, worse: number): number {
+  return Math.round(better) - Math.round(worse);
+}
+
+/**
  * How many scored calls a comparison needs before it is worth showing. Close
  * rates on five calls swing wildly; showing them invites someone to act on
  * noise, so anything below this reports how far off it is instead.

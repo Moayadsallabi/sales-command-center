@@ -5,7 +5,7 @@
  * same question differently.
  */
 import { describe, it, expect } from "vitest";
-import { closerLeaderboard, dimensionImpact, biggestCosts } from "../src/lib/stats";
+import { closerLeaderboard, dimensionImpact, biggestCosts, roundedGap } from "../src/lib/stats";
 import { call, scoresAt } from "./helpers";
 
 describe("the closer leaderboard", () => {
@@ -103,5 +103,44 @@ describe("what is costing you", () => {
     // The 1s belong to calls that never happened; they must not drag the
     // average down and invent a weakness nobody has.
     expect(costs[0].average).toBe(4);
+  });
+});
+
+/**
+ * THE THREE NUMBERS IN THE LEADS PANEL, AND WHETHER THEY CAN DISAGREE.
+ *
+ * On a live account the panel read "83%", "29%" and "55 points". Both counts
+ * were right — 10 of 12 is 83.33%, 4 of 14 is 28.57%, and the difference is
+ * 54.76 — but the bars rounded their own rates while the sentence rounded the
+ * raw gap, so the reader was handed a figure the other two numbers on screen
+ * could not produce.
+ *
+ * The fixture is chosen so the two ways of rounding GIVE DIFFERENT ANSWERS. On
+ * rates that land on whole numbers both readings agree and the assertion passes
+ * whichever way the code goes — the unfalsifiable shape CLAUDE.md names.
+ */
+describe("the gap a comparison panel prints", () => {
+  const BETTER = (10 / 12) * 100; // 83.33
+  const WORSE = (4 / 14) * 100; // 28.57
+
+  it("is a fixture where the two roundings really do differ", () => {
+    expect(Math.round(BETTER - WORSE)).toBe(55);
+    expect(roundedGap(BETTER, WORSE)).toBe(54);
+  });
+
+  it("subtracts the rounded pair, so it always matches the bars", () => {
+    expect(roundedGap(BETTER, WORSE)).toBe(
+      Math.round(BETTER) - Math.round(WORSE)
+    );
+  });
+
+  it("keeps the sign when the worse half closes better", () => {
+    expect(roundedGap(WORSE, BETTER)).toBe(-54);
+  });
+
+  it("is zero when both halves round to the same rate", () => {
+    // Two rates a third of a point apart are the same bar on screen, so the
+    // sentence must not claim a one-point gap between them.
+    expect(roundedGap(50.4, 50.1)).toBe(0);
   });
 });

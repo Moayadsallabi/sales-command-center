@@ -6,7 +6,7 @@ import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
 import { callsMissingFxRate, carriesCash, reportingCollected } from "@/lib/money";
 import { PaymentDay } from "@/lib/whop";
-import { Reconciliation } from "@/lib/reconcile";
+import { Reconciliation, windowReconciliation } from "@/lib/reconcile";
 import {
   CalendlyState,
   LinkedBooking,
@@ -65,13 +65,13 @@ import {
  */
 const SECTIONS: NavSection[] = [
   { id: "numbers", label: "The numbers", icon: Gauge },
-  { id: "follow-ups", label: "Follow-ups", icon: PhoneForwarded },
   { id: "closers", label: "Closers", icon: Trophy },
   { id: "costing", label: "What is costing you", icon: AlertTriangle },
   { id: "call-parts", label: "Parts of the call", icon: Coins },
   { id: "leads", label: "What leads are worth", icon: UserSearch },
   { id: "objections", label: "Objections", icon: MessageSquareWarning },
   { id: "calls", label: "All calls", icon: List },
+  { id: "follow-ups", label: "Follow-ups", icon: PhoneForwarded },
   { id: "data-health", label: "Data health", icon: Activity },
 ];
 
@@ -221,6 +221,29 @@ export function Dashboard({
   );
 
   const unrated = useMemo(() => callsMissingFxRate(scoped), [scoped]);
+
+  /**
+   * THE WHOP DISAGREEMENTS, NARROWED TO THE PERIOD ON SCREEN.
+   *
+   * The windowing itself lives in lib/reconcile.ts, where the note explains
+   * which date each half is placed by and why the money stays a lifetime
+   * total. What belongs here is the window: this component owns the date
+   * buttons, so it is the only thing that knows what "this month" means.
+   *
+   * The outcome and source pills are deliberately NOT applied. They narrow to
+   * a kind of call, and this panel's whole subject is rows whose recorded
+   * outcome is wrong — filtering on that field would hide the rows by the very
+   * thing being disputed.
+   */
+  const scopedReconciliation = useMemo(
+    () =>
+      reconciliation === null
+        ? null
+        : windowReconciliation(reconciliation, (date) =>
+            withinWindow(date, visibleWindow)
+          ),
+    [reconciliation, visibleWindow]
+  );
 
   /**
    * What the processor banked in the visible window, next to what the tracker
@@ -706,9 +729,18 @@ export function Dashboard({
       {/* Content */}
       <main className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
         {/* THE ORDER OF THIS PAGE, AND WHY.
-            ANSWER -> ACT -> UNDERSTAND -> RAW -> DATA HEALTH.
+            ANSWER -> UNDERSTAND -> RAW -> ACT -> DATA HEALTH.
 
             The numbers come first. Nothing goes above them.
+
+            The follow-up worklist used to sit second, directly under
+            them. Moayad moved it to the end on 2026-08-28: the page
+            is read top to bottom to find out how the selling is
+            going, and a list of people to chase is what you act on
+            once you know. It is the only panel below that is a to-do
+            rather than a description, so it sits on its own at the
+            foot of the business sections, under the raw call table
+            and above the data-health band.
 
             Two amber panels used to bracket the KPI cards and between them
             take the whole first screen, so every visit opened on a problem
@@ -755,16 +787,9 @@ export function Dashboard({
           />
         </div>
 
-        {/* ACT. The follow-up worklist, above everything that only describes.
-            Reads the unfiltered call list: an unworked follow-up does not stop
-            being owed when the date filter moves. */}
-        <div id="follow-ups" className="scroll-mt-32">
-          <FollowUps order={2} calls={calls} today={today} />
-        </div>
-
         <div id="closers" className="scroll-mt-32">
           <CloserLeaderboard
-            order={3}
+            order={2}
             calls={filtered}
             previousCalls={previous}
             selected={selectedCloser}
@@ -774,7 +799,7 @@ export function Dashboard({
 
         <div id="costing" className="scroll-mt-32">
           <WhatsCostingYou
-            order={4}
+            order={3}
             calls={scoped}
             previousCalls={previousScoped}
             comparisonLabel={comparisonLabel}
@@ -786,24 +811,35 @@ export function Dashboard({
             calls were run; the leads say what they were run on. Reading the
             first without the second is how a traffic problem gets coached. */}
         <div id="call-parts" className="scroll-mt-32">
-          <DimensionImpact order={5} calls={scoped} />
+          <DimensionImpact order={4} calls={scoped} />
         </div>
 
         <div id="leads" className="scroll-mt-32">
-          <LeadImpact order={6} calls={scoped} />
+          <LeadImpact order={5} calls={scoped} />
         </div>
 
         <div id="objections" className="scroll-mt-32">
-          <ObjectionPanel order={7} calls={scoped} />
+          <ObjectionPanel order={6} calls={scoped} />
         </div>
 
         <div id="calls" className="scroll-mt-32">
           <CallTable
-            order={8}
+            order={7}
             calls={scoped}
             onSelect={setOpenCall}
             excluded={excluded}
           />
+        </div>
+
+        {/* ACT. The one panel here that asks you to do something rather than
+            telling you how things went, so it comes after everything that
+            describes and before the band that only says how much of the
+            business this page can see.
+
+            Reads the unfiltered call list: an unworked follow-up does not stop
+            being owed when the date filter moves. */}
+        <div id="follow-ups" className="scroll-mt-32">
+          <FollowUps order={8} calls={calls} today={today} />
         </div>
 
         {/* DATA HEALTH. Everything above describes the business; these
@@ -851,7 +887,17 @@ export function Dashboard({
             booked={funnel?.booked ?? null}
           />
 
-          {reconciliation && <WhopGap order={11} reconciliation={reconciliation} />}
+          {scopedReconciliation && (
+            <WhopGap
+              order={11}
+              reconciliation={scopedReconciliation}
+              windowLabel={
+                visibleWindow.from === null && visibleWindow.to === null
+                  ? null
+                  : windowLabel
+              }
+            />
+          )}
         </section>
       </main>
 

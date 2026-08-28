@@ -11,7 +11,7 @@ import {
 } from "@/lib/types";
 import { DIMENSIONS, GOOD_SCORE, verdictFor } from "@/lib/dimensions";
 import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
-import { GOOD_CALL_SCORE, POOR_SCORE } from "@/lib/stats";
+import { POOR_SCORE } from "@/lib/stats";
 import { LinkedBooking } from "@/lib/bookings";
 import { withTimestamps } from "@/lib/timestamps";
 import { formatMoney } from "@/lib/money";
@@ -25,20 +25,11 @@ import {
   UserSearch,
   CalendarClock,
 } from "lucide-react";
-import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
-
-function scoreHex(score: number): string {
-  if (score >= GOOD_CALL_SCORE) return GOLD;
-  if (score >= POOR_SCORE) return AMBER;
-  return NEGATIVE;
-}
-
-/** Same three bands as the call score, on the lead's 0–100 scale. */
-function leadHex(score: number): string {
-  if (score >= 75) return GOLD;
-  if (score >= 55) return AMBER;
-  return NEGATIVE;
-}
+import {
+  callScoreHex,
+  leadFactorHex,
+  leadScoreHex,
+} from "@/lib/score-tone";
 
 /**
  * The booking behind the call: how it arrived, how long it sat there, and what
@@ -269,7 +260,7 @@ function ScorecardBody({
             <span className="font-mono text-[13px] tabular-nums" title="How the call was run">
               <span
                 className="text-lg font-bold"
-                style={{ color: scoreHex(overall) }}
+                style={{ color: callScoreHex(overall) }}
               >
                 {overall.toFixed(1)}
               </span>
@@ -284,7 +275,7 @@ function ScorecardBody({
               className="font-mono text-[13px] tabular-nums"
               title="How good the lead was, scored separately from the call"
             >
-              <span className="text-lg font-bold" style={{ color: leadHex(lead) }}>
+              <span className="text-lg font-bold" style={{ color: leadScoreHex(lead) }}>
                 {lead}
               </span>
               <span className="text-zinc-400">/{LEAD_MAX}</span>{" "}
@@ -349,7 +340,7 @@ function ScorecardBody({
                     >
                       <span
                         className="mt-px w-6 shrink-0 font-mono text-[15px] font-bold tabular-nums"
-                        style={{ color: scoreHex(score) }}
+                        style={{ color: callScoreHex(score) }}
                       >
                         {score}
                       </span>
@@ -440,7 +431,7 @@ function ScorecardBody({
                               className="h-full rounded-full"
                               style={{
                                 width: `${(score / factor.max) * 100}%`,
-                                background: leadHex((score / factor.max) * 100),
+                                background: leadFactorHex(score, factor.max),
                               }}
                             />
                           </div>
@@ -527,7 +518,7 @@ function ScorecardBody({
                                           className="h-full rounded-full"
                                           style={{
                                             width: `${(score / factor.max) * 100}%`,
-                                            background: leadHex((score / factor.max) * 100),
+                                            background: leadFactorHex(score, factor.max),
                                           }}
                                         />
                                       )}
@@ -595,7 +586,7 @@ function ScorecardBody({
                                   className="h-full rounded-full"
                                   style={{
                                     width: `${(score / 10) * 100}%`,
-                                    background: scoreHex(score),
+                                    background: callScoreHex(score),
                                   }}
                                 />
                               )}
@@ -604,7 +595,7 @@ function ScorecardBody({
                               className="w-6 shrink-0 text-right font-mono text-[13px] tabular-nums"
                               style={{
                                 color:
-                                  score == null ? "#52525b" : scoreHex(score),
+                                  score == null ? "#52525b" : callScoreHex(score),
                               }}
                             >
                               {score ?? "—"}

@@ -1,8 +1,9 @@
 "use client";
 
 import { CallRecord } from "@/lib/types";
-import { closerLeaderboard, GOOD_CALL_SCORE, MIN_CALLS_PER_CLOSER, POOR_SCORE } from "@/lib/stats";
+import { closerLeaderboard, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
+import { callScoreTextClass } from "@/lib/score-tone";
 import { formatReporting } from "@/lib/money";
 import { Trophy, TrendingDown, TrendingUp } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
@@ -10,15 +11,10 @@ import { Panel, PanelHeader } from "./panel";
 /** Leaderboard figures are cross-call totals, so already in one currency. */
 const currency = (value: number) => formatReporting(value);
 
-/** Gold at GOOD_SCORE and above, amber down to POOR_SCORE, red below it. The
-    comment here used to say "same thresholds everywhere" and it was not true —
-    the call table's copy started at 8. They read the constants now. */
-function scoreColor(score: number | null): string {
-  if (score == null) return "text-zinc-400";
-  if (score >= GOOD_CALL_SCORE) return "text-gold-400";
-  if (score >= POOR_SCORE) return "text-amber-400";
-  return "text-[var(--color-negative)]";
-}
+/** Green at a good call score, amber down to POOR_SCORE, red below it — the
+    one ramp, in score-tone.ts. The comment here used to say "same thresholds
+    everywhere" and it was not true: the call table's copy started at 8. */
+const scoreColor = callScoreTextClass;
 
 /** Movement under this is measurement wobble rather than a real change. */
 const TREND_NOISE = 0.3;

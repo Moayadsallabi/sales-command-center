@@ -223,8 +223,71 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     untracked: untracked.length,
     untrackedWorth: untracked.reduce((sum, b) => sum + b.paid, 0),
     untrackedBuyers: untracked,
-    worth:
-      missedCloses.reduce((sum, m) => sum + m.paid, 0) +
-      cashOff.reduce((sum, m) => sum + Math.abs(m.paid - (collectedToDate(m.call) ?? 0)), 0),
+    worth: worthOf(missedCloses, cashOff),
+  };
+}
+
+/**
+ * What the two disagreement lists are worth together.
+ *
+ * A missed close is worth everything that arrived, because none of it is on the
+ * page. A cash-off row is only worth the DIFFERENCE — the deal is already
+ * counted, and only the figure on it is wrong. Adding its full amount would
+ * double-count money the dashboard already has.
+ */
+function worthOf(missedCloses: Disagreement[], cashOff: Disagreement[]): number {
+  return (
+    missedCloses.reduce((sum, m) => sum + m.paid, 0) +
+    cashOff.reduce(
+      (sum, m) => sum + Math.abs(m.paid - (collectedToDate(m.call) ?? 0)),
+      0
+    )
+  );
+}
+
+/**
+ * THE SAME RECONCILIATION, NARROWED TO ONE DATE RANGE.
+ *
+ * The panel that renders this used to ignore the date buttons entirely, on the
+ * reasoning that an unruled payment does not stop being owed when the filter
+ * moves. True, and beside the point: with "This month" selected it listed a
+ * call from 23 July, and nothing on the page told a reader that one panel out
+ * of ten had opted out. [STATED — Moayad, chat 2026-08-28: "u shouldnt be
+ * showing me ones from july, if i have this month clicked it needs to respect
+ * time periods".] Widening the dates brings the older rows back.
+ *
+ * THE TWO HALVES ARE PLACED BY DIFFERENT DATES, BECAUSE THEY COUNT DIFFERENT
+ * THINGS. A disagreement is about a tracker row, so it is placed by its CALL
+ * date — the same date every other filter on the page uses. An untracked buyer
+ * has no call to be placed by, which is exactly what makes them untracked, so
+ * they are placed by their first payment.
+ *
+ * `untrackedWorth` STAYS A LIFETIME TOTAL. A buyer carries what they have paid
+ * in all, not what they paid inside a window, so windowing the list cannot
+ * window the money. The sentence in the panel says "first paid in this period"
+ * and gives the total separately rather than implying it all landed here.
+ *
+ * `keep` is passed in rather than imported so this file stays free of the
+ * date-window machinery — the caller already owns the window on screen.
+ */
+export function windowReconciliation(
+  reconciliation: Reconciliation,
+  keep: (date: string | null | undefined) => boolean
+): Reconciliation {
+  const missedCloses = reconciliation.missedCloses.filter((d) =>
+    keep(d.call.call_date)
+  );
+  const cashOff = reconciliation.cashOff.filter((d) => keep(d.call.call_date));
+  const untrackedBuyers = reconciliation.untrackedBuyers.filter((b) =>
+    keep(b.first)
+  );
+
+  return {
+    missedCloses,
+    cashOff,
+    untracked: untrackedBuyers.length,
+    untrackedWorth: untrackedBuyers.reduce((sum, b) => sum + b.paid, 0),
+    untrackedBuyers,
+    worth: worthOf(missedCloses, cashOff),
   };
 }

@@ -71,6 +71,11 @@
      traffic light and drags the whole page towards dashboard-template. */
   --color-positive: #6ee7a8;
   --color-positive-dim: #6ee7a81f;
+  /* Text that sits ON a positive fill, the green twin of --color-gold-ink.
+     The bars that mean "this half went well" are green rather than gold from
+     2026-08-28, and a label written for a gold bar has no contrast guarantee
+     on a green one. Near-black, cooled towards the fill it sits on. */
+  --color-positive-ink: #08150e;
   --color-negative: #f4776b;
   --color-negative-dim: #f4776b1f;
 }

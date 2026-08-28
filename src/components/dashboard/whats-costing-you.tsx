@@ -4,14 +4,7 @@ import { CallRecord } from "@/lib/types";
 import { biggestCosts, MIN_CALLS_PER_CLOSER } from "@/lib/stats";
 import { AlertTriangle, TrendingDown, TrendingUp, Users, User } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
-import { AMBER, GOLD, NEGATIVE } from "@/lib/palette";
-import { GOOD_CALL_SCORE, POOR_SCORE } from "@/lib/stats";
-
-function scoreHex(score: number): string {
-  if (score >= GOOD_CALL_SCORE) return GOLD;
-  if (score >= POOR_SCORE) return AMBER;
-  return NEGATIVE;
-}
+import { callScoreHex } from "@/lib/score-tone";
 
 /**
  * The change since the comparison period, named rather than called "prev".
@@ -147,7 +140,7 @@ export function WhatsCostingYou({
                 <div className="flex shrink-0 items-baseline gap-3 text-right sm:block">
                   <div
                     className="font-mono text-2xl font-bold tabular-nums"
-                    style={{ color: scoreHex(cost.average) }}
+                    style={{ color: callScoreHex(cost.average) }}
                   >
                     {cost.average.toFixed(1)}
                   </div>

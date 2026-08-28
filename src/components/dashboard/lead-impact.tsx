@@ -1,7 +1,7 @@
 "use client";
 
 import { CallRecord } from "@/lib/types";
-import { LeadBucket, leadImpact } from "@/lib/stats";
+import { LeadBucket, leadImpact, roundedGap } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { UserSearch } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
@@ -22,6 +22,22 @@ export function LeadImpact({
   order?: number;
 }) {
   const result = leadImpact(calls);
+
+  /**
+   * ROUNDED ONCE, SO THE THREE NUMBERS ON SCREEN AGREE.
+   *
+   * The bars round each close rate and the sentence rounded the raw gap, which
+   * are two different roundings of the same comparison: 83.33% against 28.57%
+   * rendered as "83%", "29%" and "55 points", and 83 minus 29 is 54. Nothing
+   * was wrong with the arithmetic — the reader was being shown one figure the
+   * other two could not produce. The panel one section up already worked this
+   * way; this one did not.
+   *
+   * `result.conclusive` is deliberately left alone. Whether the gap clears the
+   * swing from a single call is a judgement about the real numbers, not about
+   * the rounded ones.
+   */
+  const shownGap = roundedGap(result.better.closeRate, result.worse.closeRate);
 
   return (
     <Panel order={order}>
@@ -84,7 +100,7 @@ export function LeadImpact({
               label="Better half"
               sub={`above ${result.splitAt}/${LEAD_MAX}`}
               bucket={result.better}
-              tone="gold"
+              tone="good"
             />
             <Row
               label="Worse half"
@@ -98,8 +114,8 @@ export function LeadImpact({
             {result.conclusive ? (
               <>
                 Your better leads close{" "}
-                <span className="font-medium text-gold-300">
-                  {Math.abs(Math.round(result.gap))} points
+                <span className="font-medium text-[var(--color-positive)]">
+                  {Math.abs(shownGap)} points
                 </span>{" "}
                 {result.gap >= 0 ? "more often" : "less often"} than your worse
                 ones.{" "}
@@ -120,7 +136,7 @@ export function LeadImpact({
               <>
                 The two halves are within{" "}
                 <span className="font-medium text-zinc-200">
-                  {Math.abs(Math.round(result.gap))} points
+                  {Math.abs(shownGap)} points
                 </span>{" "}
                 of each other, which one call landing the other way would erase.
                 On this window, lead quality is not what is deciding your close
@@ -158,7 +174,7 @@ function Row({
   label: string;
   sub: string;
   bucket: LeadBucket;
-  tone: "gold" | "grey";
+  tone: "good" | "grey";
 }) {
   const rate = Math.round(bucket.closeRate);
 
@@ -186,14 +202,14 @@ function Row({
         >
           <div
             className={`absolute inset-y-0 left-0 rounded ${
-              tone === "gold" ? "bg-gold-500/80" : "bg-zinc-500/45"
+              tone === "good" ? "bg-[var(--color-positive)]/80" : "bg-zinc-500/45"
             }`}
             style={{ width: `${Math.max(rate, 1)}%` }}
           />
           <span
             className={`absolute inset-y-0 flex items-center justify-end whitespace-nowrap text-[11px] ${
-              inside && tone === "gold"
-                ? "font-medium text-[var(--color-gold-ink)]"
+              inside && tone === "good"
+                ? "font-medium text-[var(--color-positive-ink)]"
                 : "text-zinc-100"
             }`}
             style={

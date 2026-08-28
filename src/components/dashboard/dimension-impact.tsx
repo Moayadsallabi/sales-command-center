@@ -1,7 +1,7 @@
 "use client";
 
 import { CallRecord } from "@/lib/types";
-import { DimensionImpact as Impact, dimensionImpact } from "@/lib/stats";
+import { DimensionImpact as Impact, dimensionImpact, roundedGap } from "@/lib/stats";
 import { GOOD_SCORE } from "@/lib/dimensions";
 import { Coins } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
@@ -118,12 +118,15 @@ export function DimensionImpact({
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-zinc-400">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-gold-500/80" />
+              <span className="h-2 w-2 rounded-sm bg-[var(--color-positive)]/80" />
               Scored {GOOD_SCORE} or better
             </span>
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-sm bg-zinc-500/45" />
               Scored below {GOOD_SCORE}
+            </span>
+            <span>
+              The small figure is how far one call would move that gap.
             </span>
             <span className="ml-auto">
               Only parts with enough calls on both sides are shown.
@@ -139,7 +142,11 @@ function ImpactRow({ impact }: { impact: Impact }) {
   // Rounded once, so the two rates and the gap between them always agree.
   const good = Math.round(impact.goodCloseRate);
   const poor = Math.round(impact.poorCloseRate);
-  const gap = good - poor;
+  const gap = roundedGap(impact.goodCloseRate, impact.poorCloseRate);
+  // How far the smaller of the two groups moves if one call in it had gone the
+  // other way. Rounded here rather than in stats.ts, because the unrounded
+  // figure is what decides `conclusive` and that must not follow the display.
+  const swing = Math.round(impact.swing);
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-3">
@@ -155,15 +162,18 @@ function ImpactRow({ impact }: { impact: Impact }) {
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <Bar
           width={good}
-          className="bg-gold-500/80"
+          // GREEN, NOT GOLD. This bar is the half of the calls where the part
+          // went well, which is a verdict — and gold is the brand, not a
+          // verdict (see palette.ts). It read as gold until 2026-08-28.
+          className="bg-[var(--color-positive)]/80"
           // WAS `text-gold-200/70`, WHICH WAS NOT A COLOUR.
           // The gold ramp started at 300, so Tailwind emitted no rule for it
           // and the label inherited the page's near-white foreground — white
-          // text on a gold bar, where dark-on-gold was intended. The shade
-          // exists now, but the label uses the dedicated ink token instead:
-          // what this needs is guaranteed contrast against gold, which is a
-          // different job from being a light step on the ramp.
-          labelClassName="text-[var(--color-gold-ink)] font-medium"
+          // text on a gold bar, where dark-on-gold was intended. The label uses
+          // a dedicated ink token instead: what this needs is guaranteed
+          // contrast against the fill, which is a different job from being a
+          // light step on a ramp.
+          labelClassName="text-[var(--color-positive-ink)] font-medium"
           label={`${good}% closed — ${impact.goodCloses} of ${impact.goodCalls}`}
           title={`${impact.goodCloses} of the ${impact.goodCalls} calls where this scored ${GOOD_SCORE} or better ended as a customer`}
         />
@@ -179,23 +189,39 @@ function ImpactRow({ impact }: { impact: Impact }) {
         />
       </div>
 
+      {/* WHAT REPLACED "100% vs 42%" HERE, AND WHY.
+          That line restated the two bars beside it — both already carry their
+          own rate and their own call count — so the widest column on the row
+          was spending itself on nothing. In its place is the one number the
+          panel was keeping to itself: how far a single call landing the other
+          way would move this gap.
+
+          It is the sample size, said as a consequence rather than as a count.
+          Reading the room leads the panel at +58 on NINE calls, and Holding
+          their nerve sits in "Too close to call" at +11 while a +5 above it
+          does not — both of which look arbitrary until you can see that one
+          call is worth 11 points on the first and 20 on the second. The
+          verdict now explains itself on the row that carries it. */}
       <span
-        className="flex shrink-0 items-baseline justify-between gap-2 text-right sm:w-[104px] sm:block"
+        className="flex shrink-0 items-baseline justify-between gap-2 text-right sm:w-[132px] sm:block"
         title={
           impact.conclusive
-            ? `Closed ${good}% of the time when this went well against ${poor}% when it did not`
-            : `${good}% against ${poor}%, a gap of ${gap} — smaller than the ${Math.round(impact.swing)} one call landing the other way would move it`
+            ? `Closed ${good}% of the time when this went well against ${poor}% when it did not — a gap of ${gap}, wider than the ${swing} one call landing the other way would move it`
+            : `${good}% against ${poor}%, a gap of ${gap} — smaller than the ${swing} one call landing the other way would move it`
         }
       >
         <span
           className={`font-mono text-[15px] font-medium tabular-nums sm:block ${
-            impact.conclusive ? "text-gold-400" : "text-zinc-300"
+            impact.conclusive ? "text-[var(--color-positive)]" : "text-zinc-300"
           }`}
         >
           {gap > 0 ? `+${gap}` : `${gap}`}
         </span>
         <span className="text-[11px] leading-tight text-zinc-400 sm:block">
-          {good}% vs {poor}%
+          {/* Past about 150 calls in the smaller group this rounds to zero,
+              and "one call moves it 0" reads as a broken figure rather than as
+              a group big enough that one call barely matters. */}
+          {swing === 0 ? "one call moves it <1" : `one call moves it ${swing}`}
         </span>
       </span>
     </div>

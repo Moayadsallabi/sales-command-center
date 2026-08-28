@@ -30,9 +30,25 @@ const SHOWN = 8;
  */
 export function WhopGap({
   reconciliation,
+  windowLabel,
   order = 0,
 }: {
+  /**
+   * Already narrowed to the period on screen by the caller — see the note on
+   * `scopedReconciliation` in dashboard.tsx for which date each half is
+   * placed by, and why the outcome and source pills are not applied.
+   */
   reconciliation: Reconciliation;
+  /**
+   * The dates that narrowing produced, said on the page rather than implied —
+   * or null when the range is open at both ends and nothing was narrowed.
+   *
+   * NULL RATHER THAN THE WORDS "Every call on record". This started as a string
+   * compared against that exact phrase, which is a join on display copy: reword
+   * the label in dashboard.tsx and this panel silently reads "Only rows dated
+   * inside Every call on record", with nothing failing.
+   */
+  windowLabel: string | null;
   order?: number;
 }) {
   const { missedCloses, cashOff, untracked, untrackedWorth } = reconciliation;
@@ -78,9 +94,9 @@ export function WhopGap({
 
       {clean ? (
         <p className="t-body text-zinc-300">
-          Every prospect who paid is marked Customer, and every customer&apos;s cash
-          figure matches what the processor banked. Nothing is being counted
-          differently from how it was recorded.
+          Every prospect who paid in this period is marked Customer, and every
+          customer&apos;s cash figure matches what the processor banked. Nothing
+          in these dates is being counted differently from how it was recorded.
         </p>
       ) : (
         <>
@@ -141,16 +157,32 @@ export function WhopGap({
 
       {/* The standing explanation moved into the info popover. This stays on
           screen because it is a live count, not a rule. */}
+      {/* WHAT THIS SENTENCE COUNTS, SAID IN THE SENTENCE. These buyers are
+          placed by their FIRST payment, because an untracked buyer has no call
+          to be placed by. The money is their lifetime total, which is a wider
+          population than the date range — so the sentence says "first paid
+          here" and states the total separately, rather than reading as though
+          all of it landed inside these dates. */}
       {untracked > 0 && (
         <p className="mt-4 max-w-[80ch] t-body text-zinc-300">
           <span className="font-medium text-zinc-100">
-            {untracked} buyers paid {formatReporting(untrackedWorth)}{" "}
-            with no call on this tracker at all.
+            {untracked} {untracked === 1 ? "buyer" : "buyers"} first paid in
+            this period with no call on this tracker at all.
           </span>{" "}
           That is the coverage gap rather than a typing gap — those calls were
-          never recorded, never reached the automation, or never happened.
+          never recorded, never reached the automation, or never happened. They
+          have paid {formatReporting(untrackedWorth)} between them to date.
         </p>
       )}
+
+      {/* Nine panels above this one narrow to the date buttons. Saying that
+          this one does too is cheaper than letting a reader wonder why a row
+          they remember is missing. */}
+      <p className="mt-4 text-[11px] text-zinc-400">
+        {windowLabel === null
+          ? "Every call on record."
+          : `Only rows dated inside ${windowLabel}. Widen the dates to see older ones.`}
+      </p>
     </Panel>
   );
 }
