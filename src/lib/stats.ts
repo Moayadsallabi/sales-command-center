@@ -58,6 +58,20 @@ export function roundedGap(better: number, worse: number): number {
 }
 
 /**
+ * A swing at or above this is worth saying out loud rather than leaving to a
+ * small figure in the corner of a row.
+ *
+ * Swing is 100 divided by the smaller of the two groups, so ten points means
+ * TEN CALLS OR FEWER on one side. A row can lead its panel by a mile and still
+ * rest on nine calls — that was Reading the room at +58 — and the sentence at
+ * the top of the panel has to say so, or it reads as a settled finding.
+ *
+ * Lives here rather than in the component because it is a statement about the
+ * numbers, not about how they are drawn.
+ */
+export const SWING_WORTH_SAYING = 10;
+
+/**
  * How many scored calls a comparison needs before it is worth showing. Close
  * rates on five calls swing wildly; showing them invites someone to act on
  * noise, so anything below this reports how far off it is instead.

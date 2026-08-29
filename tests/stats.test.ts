@@ -5,7 +5,13 @@
  * same question differently.
  */
 import { describe, it, expect } from "vitest";
-import { closerLeaderboard, dimensionImpact, biggestCosts, roundedGap } from "../src/lib/stats";
+import {
+  closerLeaderboard,
+  dimensionImpact,
+  biggestCosts,
+  roundedGap,
+  SWING_WORTH_SAYING,
+} from "../src/lib/stats";
 import { call, scoresAt } from "./helpers";
 
 describe("the closer leaderboard", () => {
@@ -142,5 +148,33 @@ describe("the gap a comparison panel prints", () => {
     // Two rates a third of a point apart are the same bar on screen, so the
     // sentence must not claim a one-point gap between them.
     expect(roundedGap(50.4, 50.1)).toBe(0);
+  });
+});
+
+/**
+ * WHEN A LEADING ROW IS THIN ENOUGH TO SAY SO.
+ *
+ * The parts-of-the-call panel opens by naming its widest conclusive gap, and
+ * adds "it rests on N calls" when that row is thin. Thin is expressed as a
+ * swing threshold rather than a call count, because swing is what the row
+ * already shows — but the two have to mean the same thing, and this is where
+ * that is pinned. Reading the room led a live account at +58 on nine calls;
+ * without the caveat the sentence reads as settled.
+ */
+describe("the threshold for caveating the panel's own answer", () => {
+  const swingFor = (smallestBucket: number) => Math.round(100 / smallestBucket);
+
+  it("fires at ten calls on the smaller side, and not at eleven", () => {
+    expect(swingFor(10)).toBeGreaterThanOrEqual(SWING_WORTH_SAYING);
+    expect(swingFor(11)).toBeLessThan(SWING_WORTH_SAYING);
+  });
+
+  it("fires on the nine-call row this rule was written for", () => {
+    expect(swingFor(9)).toBe(11);
+    expect(swingFor(9)).toBeGreaterThanOrEqual(SWING_WORTH_SAYING);
+  });
+
+  it("stays quiet on a group big enough to trust", () => {
+    expect(swingFor(45)).toBeLessThan(SWING_WORTH_SAYING);
   });
 });

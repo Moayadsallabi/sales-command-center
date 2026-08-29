@@ -1,10 +1,11 @@
 "use client";
 
 import { CallRecord } from "@/lib/types";
-import { LeadBucket, leadImpact, roundedGap } from "@/lib/stats";
+import { leadImpact, roundedGap } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { UserSearch } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
+import { GapRow, GapScale } from "./gap-row";
 
 /**
  * Close rate on this account's better leads against its worse ones.
@@ -13,7 +14,18 @@ import { Panel, PanelHeader } from "./panel";
  * they were given, and it is the panel that decides which conversation to have:
  * a close rate that barely moves between the two halves is a selling problem,
  * and one that swings hard is a traffic problem the closers cannot fix.
+ *
+ * TWO NUMBERS, SAID BEFORE THEY ARE DRAWN. This panel spent a full card on a
+ * comparison with exactly two figures in it: two full-width bars, a paragraph
+ * restating them, and two footnotes. The finding now leads, in one sentence
+ * carrying both rates and the distance between them, and the row below is the
+ * same comparison as the panel above it draws — one axis, two dots, a line
+ * whose length is the gap. See gap-row.tsx.
  */
+
+/** Matches the parts-of-the-call panel, so the two read as one idea. */
+const GRID = "168px 1fr 132px";
+
 export function LeadImpact({
   calls,
   order = 0,
@@ -24,27 +36,25 @@ export function LeadImpact({
   const result = leadImpact(calls);
 
   /**
-   * ROUNDED ONCE, SO THE THREE NUMBERS ON SCREEN AGREE.
+   * ROUNDED ONCE, SO THE NUMBERS ON SCREEN AGREE.
    *
-   * The bars round each close rate and the sentence rounded the raw gap, which
-   * are two different roundings of the same comparison: 83.33% against 28.57%
-   * rendered as "83%", "29%" and "55 points", and 83 minus 29 is 54. Nothing
-   * was wrong with the arithmetic — the reader was being shown one figure the
-   * other two could not produce. The panel one section up already worked this
-   * way; this one did not.
-   *
-   * `result.conclusive` is deliberately left alone. Whether the gap clears the
-   * swing from a single call is a judgement about the real numbers, not about
-   * the rounded ones.
+   * The rates the dots sit on and the gap stated in the sentence are two
+   * roundings of one comparison: 83.33% against 28.57% rendered as "83%",
+   * "29%" and "55 points", and 83 minus 29 is 54. `result.conclusive` is
+   * deliberately left on the raw numbers — whether a gap clears the swing from
+   * a single call is a judgement about the real figures, not the printed ones.
    */
+  const betterRate = Math.round(result.better.closeRate);
+  const worseRate = Math.round(result.worse.closeRate);
   const shownGap = roundedGap(result.better.closeRate, result.worse.closeRate);
+  const swing = Math.round(result.swing);
 
   return (
     <Panel order={order}>
       <PanelHeader
         icon={UserSearch}
         title="What the leads are worth"
-        subtitle="How often your better half of leads closed, against your worse half."
+        subtitle="Where your close rate sits on your better half of leads, against your worse half."
         info={
           <>
             <p>
@@ -95,34 +105,23 @@ export function LeadImpact({
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Row
-              label="Better half"
-              sub={`above ${result.splitAt}/${LEAD_MAX}`}
-              bucket={result.better}
-              tone="good"
-            />
-            <Row
-              label="Worse half"
-              sub={`${result.splitAt}/${LEAD_MAX} and below`}
-              bucket={result.worse}
-              tone="grey"
-            />
-          </div>
-
-          <p className="max-w-[70ch] text-[13px] leading-relaxed text-zinc-400">
+          <p className="max-w-[74ch] t-body text-zinc-300">
+            Your better half of leads closed{" "}
+            <span className="font-medium text-zinc-100">{betterRate}%</span> of
+            the time. Your worse half closed{" "}
+            <span className="font-medium text-zinc-100">{worseRate}%</span>
             {result.conclusive ? (
               <>
-                Your better leads close{" "}
+                {" "}
+                — a gap of{" "}
                 <span className="font-medium text-[var(--color-positive)]">
                   {Math.abs(shownGap)} points
-                </span>{" "}
-                {result.gap >= 0 ? "more often" : "less often"} than your worse
-                ones.{" "}
-                {result.gap >= 0 ? (
+                </span>
+                .{" "}
+                {shownGap >= 0 ? (
                   <>
                     That gap is the ceiling on what better coaching alone can buy
-                    you — the rest is upstream, in who is booking calls.
+                    you; the rest is upstream, in who is booking calls.
                   </>
                 ) : (
                   <>
@@ -134,98 +133,49 @@ export function LeadImpact({
               </>
             ) : (
               <>
-                The two halves are within{" "}
-                <span className="font-medium text-zinc-200">
-                  {Math.abs(shownGap)} points
-                </span>{" "}
-                of each other, which one call landing the other way would erase.
-                On this window, lead quality is not what is deciding your close
-                rate — so the room to improve is on the calls themselves.
+                {" "}
+                — {Math.abs(shownGap)} points apart, which one call landing the
+                other way would erase. On this window, lead quality is not what
+                is deciding your close rate, so the room to improve is on the
+                calls themselves.
               </>
             )}
           </p>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-zinc-400">
-            {/* Says which calls, not just how many. This count and the
-                objection panel's are both "assessed" and are not the same set:
-                a lead needs four scored factors to have a score at all, while
-                an objection only needs the call to have been reviewed. Two
-                different numbers under one word read as an error. */}
-            <span>
-              {result.assessed} {result.assessed === 1 ? "call" : "calls"} with a
-              lead score in this window
-            </span>
-            <span className="ml-auto">
-              Split at your own median, so both halves always have calls in them.
-            </span>
+          <div>
+            <GapScale gridTemplate={GRID} />
+            <GapRow
+              gridTemplate={GRID}
+              label="Better against worse"
+              sublabel={`split at ${result.splitAt}/${LEAD_MAX}`}
+              goodRate={betterRate}
+              goodCalls={result.better.calls}
+              poorRate={worseRate}
+              poorCalls={result.worse.calls}
+              gap={shownGap}
+              swing={swing}
+              conclusive={result.conclusive}
+              title={
+                `${result.better.closes} of the ${result.better.calls} leads scoring ` +
+                `above ${result.splitAt} closed (${betterRate}%) · ` +
+                `${result.worse.closes} of the ${result.worse.calls} scoring ` +
+                `${result.splitAt} or below closed (${worseRate}%)`
+              }
+            />
           </div>
+
+          {/* Says which calls, not just how many. This count and the objection
+              panel's are both "assessed" and are not the same set: a lead needs
+              four scored factors to have a score at all, while an objection only
+              needs the call to have been reviewed. Two different numbers under
+              one word read as an error. */}
+          <p className="pt-1 text-[11px] text-zinc-400">
+            {result.assessed} {result.assessed === 1 ? "call has" : "calls have"}{" "}
+            a lead score in this window, split at your own median so both halves
+            always have calls in them.
+          </p>
         </div>
       )}
     </Panel>
-  );
-}
-
-function Row({
-  label,
-  sub,
-  bucket,
-  tone,
-}: {
-  label: string;
-  sub: string;
-  bucket: LeadBucket;
-  tone: "good" | "grey";
-}) {
-  const rate = Math.round(bucket.closeRate);
-
-  const inside = rate >= 45;
-
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-      <span className="shrink-0 text-[13px] text-zinc-200 sm:w-[140px] sm:text-zinc-300">
-        {label}
-        <span className="ml-1.5 text-[11px] text-zinc-400 sm:ml-0 sm:block">
-          {sub}
-        </span>
-      </span>
-
-      {/* Both bars run 0–100% of the same width from the same origin, so the
-          overhang between them is the gap without anyone doing arithmetic.
-
-          The count used to live inside the fill at whatever width the fill
-          happened to be, so on a short bar it spilled onto the dark track in a
-          colour chosen for gold. It follows the end of the bar now. */}
-      <div className="min-w-0 flex-1">
-        <div
-          className="relative h-5 rounded bg-white/[0.03]"
-          title={`${bucket.closes} of these ${bucket.calls} calls ended as a customer`}
-        >
-          <div
-            className={`absolute inset-y-0 left-0 rounded ${
-              tone === "good" ? "bg-[var(--color-positive)]/80" : "bg-zinc-500/45"
-            }`}
-            style={{ width: `${Math.max(rate, 1)}%` }}
-          />
-          <span
-            className={`absolute inset-y-0 flex items-center justify-end whitespace-nowrap text-[11px] ${
-              inside && tone === "good"
-                ? "font-medium text-[var(--color-positive-ink)]"
-                : "text-zinc-100"
-            }`}
-            style={
-              inside
-                ? { left: 0, width: `${Math.max(rate, 1)}%`, paddingRight: 8 }
-                : { left: `calc(${Math.max(rate, 1)}% + 8px)` }
-            }
-          >
-            {bucket.closes} of {bucket.calls} closed
-          </span>
-        </div>
-      </div>
-
-      <span className="shrink-0 text-right font-mono text-[15px] tabular-nums text-zinc-200 sm:w-11 sm:text-[13px]">
-        {rate}%
-      </span>
-    </div>
   );
 }

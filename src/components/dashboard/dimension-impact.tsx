@@ -1,22 +1,30 @@
 "use client";
 
 import { CallRecord } from "@/lib/types";
-import { DimensionImpact as Impact, dimensionImpact, roundedGap } from "@/lib/stats";
+import {
+  DimensionImpact as Impact,
+  dimensionImpact,
+  roundedGap,
+  SWING_WORTH_SAYING,
+} from "@/lib/stats";
 import { GOOD_SCORE } from "@/lib/dimensions";
 import { Coins } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
+import { GapLegend, GapRow, GapScale } from "./gap-row";
 
 /**
  * Close rate when each part of the call went well against when it did not,
  * measured on this account's own calls. Everything else on the dashboard
  * asserts that these scores matter; this is the panel that shows it.
  *
- * The two rates share one axis so the overhang between them *is* the gap —
- * side-by-side bars in separate tracks cannot be compared by eye. Each bar is
- * labelled with the calls behind it rather than a bare percentage, because on
- * buckets of six or seven a percentage reads far more precisely than it
- * deserves to.
+ * The rows are dumbbells rather than pairs of bars — see gap-row.tsx for what
+ * that changed and why. What lives here is the reading of them: which row is
+ * the answer, and whether it is thin enough to need saying out loud.
  */
+
+/** The three columns, declared once so the rows and the axis cannot drift. */
+const GRID = "168px 1fr 132px";
+
 export function DimensionImpact({
   calls,
   order = 0,
@@ -25,28 +33,28 @@ export function DimensionImpact({
   order?: number;
 }) {
   const result = dimensionImpact(calls);
-  const conclusive = result.impacts.filter((i) => i.conclusive);
-  const inconclusive = result.impacts.filter((i) => !i.conclusive);
+  // Already sorted conclusive-first, widest gap down, by dimensionImpact.
+  const best = result.impacts.find((i) => i.conclusive) ?? null;
 
   return (
     <Panel order={order}>
       <PanelHeader
         icon={Coins}
         title="Which parts of the call move your close rate"
-        subtitle="How often you closed when each part went well, against when it did not."
+        subtitle="Where your close rate sits when each part went well, against when it did not."
         info={
           <>
             <p>
               Each row splits your scored calls in two — the calls where this
               part scored {GOOD_SCORE} or better, and the calls where it scored
-              below {GOOD_SCORE} — then shows how often you closed in each
-              group.
+              below {GOOD_SCORE} — then plots how often you closed in each
+              group on the same 0–100% axis.
             </p>
             <p>
-              The length of each bar is that group&rsquo;s close rate, and the
-              number on the right is how far apart the two rates are. Both bars
-              run from the same origin across the same width, so the gold
-              bar&rsquo;s overhang past the grey one is the gap itself.
+              The line between the two dots is the gap, so the longest line is
+              the part that moves your close rate most. The dot is sized by how
+              many calls are behind it: a small dot is a thin sample, however
+              far apart the two ends are.
             </p>
             <p>
               A wide gap is a pattern worth drilling, not proof: a strong
@@ -82,205 +90,105 @@ export function DimensionImpact({
         </div>
       ) : (
         <div className="space-y-4">
-          {conclusive.length > 0 && (
-            <div className="space-y-2">
-              {conclusive.map((impact) => (
+          <Answer best={best} />
+
+          <div>
+            <GapScale gridTemplate={GRID} />
+            <div className="space-y-0.5">
+              {result.impacts.map((impact) => (
                 <ImpactRow key={impact.dimension.key} impact={impact} />
               ))}
             </div>
-          )}
-
-          {/* NOT DIMMED TO HALF ANY MORE.
-              These rows were wrapped in `opacity-50`, on top of text that was
-              already low-contrast, and the result was three of four rows
-              reading as noise — indistinguishable from disabled, or loading,
-              or a rendering fault. A state that means something has to be
-              said, not faded: the heading names it, and the rows themselves
-              stay legible so the numbers behind the verdict can be checked. */}
-          {inconclusive.length > 0 && (
-            <div>
-              <p className="mb-2 t-body text-zinc-400">
-                <span className="font-medium text-zinc-200">
-                  {conclusive.length > 0
-                    ? "Too close to call"
-                    : "Nothing separates yet"}
-                </span>{" "}
-                — the gap here is smaller than the swing from a single call
-                landing the other way, so there is no pattern to read.
-              </p>
-              <div className="space-y-2">
-                {inconclusive.map((impact) => (
-                  <ImpactRow key={impact.dimension.key} impact={impact} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-[11px] text-zinc-400">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-[var(--color-positive)]/80" />
-              Scored {GOOD_SCORE} or better
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm bg-zinc-500/45" />
-              Scored below {GOOD_SCORE}
-            </span>
-            <span>
-              The small figure is how far one call would move that gap.
-            </span>
-            <span className="ml-auto">
-              Only parts with enough calls on both sides are shown.
-            </span>
           </div>
+
+          <GapLegend
+            poorLabel={`Scored below ${GOOD_SCORE}`}
+            goodLabel={`Scored ${GOOD_SCORE} or better`}
+            note="Only parts with enough calls on both sides are shown."
+          />
         </div>
       )}
     </Panel>
   );
 }
 
-function ImpactRow({ impact }: { impact: Impact }) {
-  // Rounded once, so the two rates and the gap between them always agree.
-  const good = Math.round(impact.goodCloseRate);
-  const poor = Math.round(impact.poorCloseRate);
-  const gap = roundedGap(impact.goodCloseRate, impact.poorCloseRate);
-  // How far the smaller of the two groups moves if one call in it had gone the
-  // other way. Rounded here rather than in stats.ts, because the unrounded
-  // figure is what decides `conclusive` and that must not follow the display.
-  const swing = Math.round(impact.swing);
+/**
+ * THE PANEL'S OWN ANSWER, BEFORE THE EVIDENCE FOR IT.
+ *
+ * A ranked list makes the reader infer the takeaway from the ordering. Saying
+ * it costs one sentence and is the fastest thing on the page. It names the
+ * widest conclusive gap, gives both rates so the sentence stands on its own,
+ * and — where the row rests on ten calls or fewer — says so in the same breath
+ * rather than leaving the caveat to a small figure further right.
+ *
+ * THE "NOTHING SEPARATES YET" CASE IS A REAL ANSWER, not an empty state. Every
+ * part landing inside its own swing means call quality is not what is deciding
+ * this period, which is worth reading as plainly as a winner would be. It also
+ * replaces the "Too close to call" heading that used to sit mid-list: with the
+ * rows drawn dotted, the state is visible on the row itself.
+ */
+function Answer({ best }: { best: Impact | null }) {
+  if (!best) {
+    return (
+      <p className="max-w-[74ch] border-l-2 border-zinc-700 pl-3.5 t-body text-zinc-300">
+        <span className="font-medium text-zinc-100">
+          Nothing separates yet.
+        </span>{" "}
+        Every part below sits inside the swing from a single call landing the
+        other way, so none of them is deciding your close rate on this period.
+      </p>
+    );
+  }
+
+  const good = Math.round(best.goodCloseRate);
+  const poor = Math.round(best.poorCloseRate);
+  const smallest = Math.min(best.goodCalls, best.poorCalls);
+  const thin = Math.round(best.swing) >= SWING_WORTH_SAYING;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-      <span
-        className="shrink-0 truncate text-[13px] font-medium text-zinc-200 sm:w-[140px] sm:font-normal sm:text-zinc-300"
-        title={impact.dimension.plainQuestion}
-      >
-        {impact.dimension.plainName}
-      </span>
-
-      {/* One axis, one origin. Both bars run 0–100% of the same width, so the
-          gold bar's overhang past the grey one is the gap, at a glance. */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <Bar
-          width={good}
-          // GREEN, NOT GOLD. This bar is the half of the calls where the part
-          // went well, which is a verdict — and gold is the brand, not a
-          // verdict (see palette.ts). It read as gold until 2026-08-28.
-          className="bg-[var(--color-positive)]/80"
-          // WAS `text-gold-200/70`, WHICH WAS NOT A COLOUR.
-          // The gold ramp started at 300, so Tailwind emitted no rule for it
-          // and the label inherited the page's near-white foreground — white
-          // text on a gold bar, where dark-on-gold was intended. The label uses
-          // a dedicated ink token instead: what this needs is guaranteed
-          // contrast against the fill, which is a different job from being a
-          // light step on a ramp.
-          labelClassName="text-[var(--color-positive-ink)] font-medium"
-          label={`${good}% closed — ${impact.goodCloses} of ${impact.goodCalls}`}
-          title={`${impact.goodCloses} of the ${impact.goodCalls} calls where this scored ${GOOD_SCORE} or better ended as a customer`}
-        />
-        <Bar
-          width={poor}
-          // zinc-500 text on a zinc-600/60 fill measured about 1.1:1 — the
-          // label was legible only if you already knew what it said. Lighter
-          // text, and enough fill behind it to sit on.
-          className="bg-zinc-500/45"
-          labelClassName="text-zinc-100"
-          label={`${poor}% closed — ${impact.poorCloses} of ${impact.poorCalls}`}
-          title={`${impact.poorCloses} of the ${impact.poorCalls} calls where this scored below ${GOOD_SCORE} ended as a customer`}
-        />
-      </div>
-
-      {/* WHAT REPLACED "100% vs 42%" HERE, AND WHY.
-          That line restated the two bars beside it — both already carry their
-          own rate and their own call count — so the widest column on the row
-          was spending itself on nothing. In its place is the one number the
-          panel was keeping to itself: how far a single call landing the other
-          way would move this gap.
-
-          It is the sample size, said as a consequence rather than as a count.
-          Reading the room leads the panel at +58 on NINE calls, and Holding
-          their nerve sits in "Too close to call" at +11 while a +5 above it
-          does not — both of which look arbitrary until you can see that one
-          call is worth 11 points on the first and 20 on the second. The
-          verdict now explains itself on the row that carries it. */}
-      <span
-        className="flex shrink-0 items-baseline justify-between gap-2 text-right sm:w-[132px] sm:block"
-        title={
-          impact.conclusive
-            ? `Closed ${good}% of the time when this went well against ${poor}% when it did not — a gap of ${gap}, wider than the ${swing} one call landing the other way would move it`
-            : `${good}% against ${poor}%, a gap of ${gap} — smaller than the ${swing} one call landing the other way would move it`
-        }
-      >
-        <span
-          className={`font-mono text-[15px] font-medium tabular-nums sm:block ${
-            impact.conclusive ? "text-[var(--color-positive)]" : "text-zinc-300"
-          }`}
-        >
-          {gap > 0 ? `+${gap}` : `${gap}`}
-        </span>
-        <span className="text-[11px] leading-tight text-zinc-400 sm:block">
-          {/* Past about 150 calls in the smaller group this rounds to zero,
-              and "one call moves it 0" reads as a broken figure rather than as
-              a group big enough that one call barely matters. */}
-          {swing === 0 ? "one call moves it <1" : `one call moves it ${swing}`}
-        </span>
-      </span>
-    </div>
+    <p className="max-w-[74ch] border-l-2 border-[var(--color-positive)] pl-3.5 t-body text-zinc-300">
+      <span className="font-medium text-zinc-100">
+        {best.dimension.plainName}
+      </span>{" "}
+      is the part that moves your close rate most — {good}% of those calls
+      closed against {poor}% of the rest.
+      {thin && (
+        <>
+          {" "}
+          It rests on{" "}
+          <span className="font-medium text-zinc-100">{smallest} calls</span>,
+          so treat it as a lead to chase rather than a finding.
+        </>
+      )}
+    </p>
   );
 }
 
-/**
- * A bar whose label sits inside it when there is room, and just past its end
- * when there is not.
- *
- * The label used to be pinned 8px from the left of the TRACK, whatever the bar
- * was doing. On a 20% bar with a 120px label most of the text hung over the
- * empty part of the track — which is why colouring it for the fill it was
- * supposedly sitting on could never work, in either direction. Dark ink on
- * gold is unreadable off the end of a gold bar, and light text on the track is
- * unreadable on top of one.
- *
- * So the label moves with the bar and takes its colour from where it lands.
- */
-const LABEL_FITS_INSIDE = 45;
-
-function Bar({
-  width,
-  className,
-  label,
-  labelClassName,
-  title,
-}: {
-  width: number;
-  className: string;
-  label: string;
-  /** Applied only when the label ends up on top of the fill. */
-  labelClassName: string;
-  title: string;
-}) {
-  const inside = width >= LABEL_FITS_INSIDE;
+function ImpactRow({ impact }: { impact: Impact }) {
+  // Rounded once, so the rates the dots sit on and the gap between them always
+  // agree — see roundedGap in stats.ts for the fault that rule exists for.
+  const good = Math.round(impact.goodCloseRate);
+  const poor = Math.round(impact.poorCloseRate);
+  const part = impact.dimension.plainName.toLowerCase();
 
   return (
-    <div className="relative h-5 rounded bg-white/[0.03]" title={title}>
-      <div
-        className={`absolute inset-y-0 left-0 rounded ${className}`}
-        style={{ width: `${width}%` }}
-      />
-      {/* ALWAYS AT THE END OF THE BAR, INSIDE IT OR JUST PAST IT.
-          Anchoring the label to the left of the TRACK put it in a different
-          place on every row. Anchored to the bar, the eye reads down a ragged
-          edge that means something — where each bar stops. */}
-      <span
-        className={`absolute inset-y-0 flex items-center justify-end whitespace-nowrap font-mono text-[11px] tabular-nums ${
-          inside ? labelClassName : "text-zinc-200"
-        }`}
-        style={
-          inside
-            ? { left: 0, width: `${width}%`, paddingRight: 8 }
-            : { left: `calc(${width}% + 8px)` }
-        }
-      >
-        {label}
-      </span>
-    </div>
+    <GapRow
+      gridTemplate={GRID}
+      label={impact.dimension.plainName}
+      sublabel={`${impact.goodCalls} vs ${impact.poorCalls} calls`}
+      goodRate={good}
+      goodCalls={impact.goodCalls}
+      poorRate={poor}
+      poorCalls={impact.poorCalls}
+      gap={roundedGap(impact.goodCloseRate, impact.poorCloseRate)}
+      swing={Math.round(impact.swing)}
+      conclusive={impact.conclusive}
+      title={
+        `${impact.goodCloses} of the ${impact.goodCalls} calls where ${part} ` +
+        `scored ${GOOD_SCORE} or better closed (${good}%) · ` +
+        `${impact.poorCloses} of the ${impact.poorCalls} where it scored below ` +
+        `${GOOD_SCORE} closed (${poor}%)`
+      }
+    />
   );
 }
