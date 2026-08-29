@@ -11,6 +11,7 @@ import { ClientConfig, VIEWING_COOKIE } from "@/lib/client-config";
 import { currentViewing } from "@/lib/viewing-request";
 import { cookies } from "next/headers";
 import { SetupNotice } from "@/components/dashboard/setup-notice";
+import { SwitchRefused } from "@/components/dashboard/switch-refused";
 
 export const dynamic = "force-dynamic";
 
@@ -169,6 +170,20 @@ export default async function Home() {
   // reaching into the environment and all of them silently agreeing because
   // there has only ever been one client per deployment.
   const viewing = await timed("identity + credentials", () => currentViewing());
+
+  // A pinned client that could not be opened. Nothing is read and nothing is
+  // rendered — not the deployment's own calls under the pinned name, which is
+  // what the old fallback-plus-banner did. See Viewing.config in client-config.
+  if (!viewing.config) {
+    return (
+      <SwitchRefused
+        message={
+          viewing.switchError ??
+          "The pinned client could not be opened, and the registry did not say why."
+        }
+      />
+    );
+  }
   const cfg: ClientConfig = viewing.config;
 
   /**
@@ -227,7 +242,6 @@ export default async function Home() {
   return (
     <Dashboard
       brandName={cfg.brandName}
-      switchError={viewing.switchError}
       calls={calls}
       today={today}
       calendly={calendly}

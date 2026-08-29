@@ -10,9 +10,11 @@ import { resolveViewing, servableClients, credentialsFor, forgetCredentials } fr
  * holding it is the Lab.
  *
  * The second thing asserted here is quieter and matters as much: when a switch
- * cannot be completed, the page must SAY so. Falling back silently renders the
- * deployment's own client under the heading of the one that was asked for, and
- * a number attached to the wrong name is worse than a missing number.
+ * cannot be completed, the page must render NOTHING — config comes back null
+ * and the refusal is the whole page. It used to fall back to the deployment's
+ * own client with a banner, and the banner was not enough: Moayad read his own
+ * tracker's numbers under Karan Thind's name in the bar on 2026-08-28. A
+ * number attached to the wrong name is worse than a missing number.
  */
 
 const ADMIN = { authenticated: true, role: "admin", client_id: null, client_name: null };
@@ -105,7 +107,7 @@ describe("who may switch client", () => {
     const v = await resolveViewing("kpi_token=x", null);
 
     expect(v.clients).toEqual([]);
-    expect(v.config.clientId).toBe("karan");
+    expect(v.config?.clientId).toBe("karan");
   });
 
   it("IGNORES a client's pinned cookie rather than honouring it", async () => {
@@ -122,8 +124,8 @@ describe("who may switch client", () => {
     const v = await resolveViewing("kpi_token=x", "brey");
 
     expect(v.chosen).toBeNull();
-    expect(v.config.clientId).toBe("karan");
-    expect(v.config.brandName).toBe("Karan Thind");
+    expect(v.config?.clientId).toBe("karan");
+    expect(v.config?.brandName).toBe("Karan Thind");
   });
 
   it("never asks for the pinned client's credentials on a client session", async () => {
@@ -146,7 +148,7 @@ describe("who may switch client", () => {
     const v = await resolveViewing("kpi_token=x", null);
 
     expect(v.clients.map((c) => c.name)).toEqual(["Funded Blueprint", "Karan Thind"]);
-    expect(v.config.source).toBe("environment");
+    expect(v.config?.source).toBe("environment");
     expect(v.switchError).toBeNull();
   });
 
@@ -160,8 +162,8 @@ describe("who may switch client", () => {
     const v = await resolveViewing("kpi_token=x", "karan");
 
     expect(v.chosen).toBe("karan");
-    expect(v.config.brandName).toBe("Karan Thind");
-    expect(v.config.notion.apiKey).toBe("key-karan");
+    expect(v.config?.brandName).toBe("Karan Thind");
+    expect(v.config?.notion.apiKey).toBe("key-karan");
     expect(v.switchError).toBeNull();
   });
 });
@@ -221,8 +223,8 @@ describe("remembering a client's keys", () => {
   });
 });
 
-describe("a switch that cannot be completed says so", () => {
-  it("does not silently render the deployment's own client instead", async () => {
+describe("a switch that cannot be completed renders nothing, and says why", () => {
+  it("never renders the deployment's own client instead", async () => {
     // Listed, so the switcher offered it — and then the credential call fails.
     mockConsole({
       who: ADMIN,
@@ -234,9 +236,10 @@ describe("a switch that cannot be completed says so", () => {
 
     expect(v.switchError).toContain("Karan Thind");
     expect(v.chosen).toBeNull();
-    // It DID fall back — that part is fine. What matters is that it is named.
-    expect(v.config.source).toBe("environment");
-    expect(v.config.brandName).toBe("Funded Blueprint");
+    // THE POINT. The old behaviour fell back to the environment client with a
+    // banner, and the fallback's numbers rendered under the pinned client's
+    // name in the bar. Null is what makes the page show the refusal alone.
+    expect(v.config).toBeNull();
   });
 
   it("refuses a client that has dropped off the list, before asking for keys", async () => {
@@ -248,8 +251,52 @@ describe("a switch that cannot be completed says so", () => {
 
     const v = await resolveViewing("kpi_token=x", "karan");
 
+    expect(v.config).toBeNull();
     expect(v.switchError).toContain("no longer one it can open");
     expect(calls.some((u) => u.includes("credentials/karan"))).toBe(false);
+  });
+
+  it("names the real reason when the pinned client has no tracker", async () => {
+    // Karan's actual state on 2026-08-28: on the bar's roster (he has a KPI
+    // sheet and a login) but with no Notion tracker, so this dashboard cannot
+    // serve him. "No tracker connected" is a state; the old wording — archived
+    // or disconnected — read as a fault.
+    mockConsole({
+      who: ADMIN,
+      clients: [row("brey", "Funded Blueprint"), row("karan", "Karan Thind", { notion: false })],
+    });
+
+    const v = await resolveViewing("kpi_token=x", "karan");
+
+    expect(v.config).toBeNull();
+    expect(v.switchError).toContain("Karan Thind");
+    expect(v.switchError).toContain("no sales tracker connected");
+  });
+
+  it("blames the console, not the client, when the roster never loaded", async () => {
+    // The console is down. The pinned client is probably fine — a message
+    // saying they were archived or disconnected sends whoever reads it to the
+    // wrong place to fix it.
+    // whoami answers admin; /api/registry/clients refuses → the roster never loads.
+    mockConsole({ who: ADMIN });
+
+    const v = await resolveViewing("kpi_token=x", "karan");
+
+    expect(v.config).toBeNull();
+    expect(v.switchError).toContain("console could not be reached");
+    expect(v.switchError).not.toContain("archived");
+  });
+
+  it("names archived as archived", async () => {
+    mockConsole({
+      who: ADMIN,
+      clients: [row("brey", "Funded Blueprint"), row("propfolio", "Propfolio", { status: "archived" })],
+    });
+
+    const v = await resolveViewing("kpi_token=x", "propfolio");
+
+    expect(v.config).toBeNull();
+    expect(v.switchError).toContain("Propfolio is archived");
   });
 });
 

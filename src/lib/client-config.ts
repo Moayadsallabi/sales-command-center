@@ -21,6 +21,13 @@ import { createHash } from "crypto";
  *
  * It also means the demo mode, local development and the Lab's own deployment
  * need no registry at all.
+ *
+ * THE ONE PLACE THE FALLBACK IS FORBIDDEN: an admin's pinned client that
+ * cannot be opened. Falling back there rendered this deployment's own calls
+ * under the pinned client's name in the bar — seen live 2026-08-28, Moayad's
+ * own tracker rendered while the bar said Karan Thind — and a banner above
+ * wrong numbers does not make them right to read. A refused pin renders the
+ * refusal and nothing else; see `resolveViewing`.
  */
 
 /**
@@ -242,6 +249,29 @@ export async function configFromRegistry(
 export type ServableClient = { id: string; name: string };
 
 /**
+ * A client the switcher must refuse, and the sentence saying why.
+ *
+ * Kept beside the servable list rather than thrown away, because the pinned
+ * cookie can name one of these — the bar's picker offers every client the LAB
+ * serves, and not all of them have a sales tracker. Without the reason, the
+ * refusal could only say "no longer one it can open", which reads as a fault
+ * when the truth is "this client never had a tracker".
+ */
+type ClosedClient = { id: string; name: string; reason: string };
+
+type Roster = {
+  clients: ServableClient[];
+  closed: ClosedClient[];
+  /**
+   * False when the console did not answer. An empty roster that LOADED means
+   * "no servable clients"; an empty one that did not means "we cannot say" —
+   * and a refusal that blames the client for what was an outage sends whoever
+   * reads it to the wrong place to fix it.
+   */
+  loaded: boolean;
+};
+
+/**
  * THE ADMIN'S CLIENT LIST, AND ONLY THE ADMIN'S.
  *
  * Guarded at the console, not here. `/api/registry/clients` already answers 403
@@ -273,28 +303,33 @@ export type ServableClient = { id: string; name: string };
  * cache key ends up in logs and a session token has no business in one.
  */
 const CLIENT_LIST_TTL_MS = 60_000;
-const clientListCache = new Map<string, { at: number; clients: ServableClient[] }>();
+const clientListCache = new Map<string, { at: number; roster: Roster }>();
 
-export async function servableClients(cookieHeader: string | null): Promise<ServableClient[]> {
-  if (!cookieHeader) return [];
+async function rosterFor(cookieHeader: string | null): Promise<Roster> {
+  if (!cookieHeader) return { clients: [], closed: [], loaded: false };
 
   const key = createHash("sha256").update(cookieHeader).digest("hex").slice(0, 16);
   const known = clientListCache.get(key);
-  if (known && Date.now() - known.at < CLIENT_LIST_TTL_MS) return known.clients;
+  if (known && Date.now() - known.at < CLIENT_LIST_TTL_MS) return known.roster;
 
-  const fresh = await readServableClients(cookieHeader);
-  clientListCache.set(key, { at: Date.now(), clients: fresh });
+  const fresh = await readRoster(cookieHeader);
+  clientListCache.set(key, { at: Date.now(), roster: fresh });
   return fresh;
 }
 
-async function readServableClients(cookieHeader: string): Promise<ServableClient[]> {
+export async function servableClients(cookieHeader: string | null): Promise<ServableClient[]> {
+  return (await rosterFor(cookieHeader)).clients;
+}
+
+async function readRoster(cookieHeader: string): Promise<Roster> {
+  const nothing: Roster = { clients: [], closed: [], loaded: false };
   try {
     const res = await fetch(identityBase() + "/api/registry/clients", {
       headers: { Cookie: cookieHeader },
       cache: "no-store",
       signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return [];   // 403 for a client session, and that is the point
+    if (!res.ok) return nothing;   // 403 for a client session, and that is the point
     const body = await res.json();
     const rows: Array<{
       id: string;
@@ -304,16 +339,34 @@ async function readServableClients(cookieHeader: string): Promise<ServableClient
       integrations?: Array<{ provider: string; configured: boolean }>;
     }> = body?.clients ?? [];
 
-    return rows
-      // Archived only. Internal is the LAB'S OWN account -- its own sales calls,
-      // the ones Moayad looks at most -- and refusing it meant this dashboard
-      // could be pointed at every client except us. Nothing about isolation
-      // rests on that flag; the admin check above is what carries it.
-      .filter((c) => c.status !== "archived")
-      .filter((c) => (c.integrations ?? []).some((i) => i.provider === "notion" && i.configured))
-      .map((c) => ({ id: c.id, name: c.name }));
+    const roster: Roster = { clients: [], closed: [], loaded: true };
+    for (const c of rows) {
+      // Archived is refused before the tracker is even considered: the
+      // credentials endpoint refuses archived clients, so listing one would
+      // offer a name that cannot be clicked. Internal is the LAB'S OWN account
+      // -- its own sales calls, the ones Moayad looks at most -- and refusing
+      // it meant this dashboard could be pointed at every client except us.
+      // Nothing about isolation rests on that flag; the admin check above is
+      // what carries it.
+      if (c.status === "archived") {
+        roster.closed.push({
+          id: c.id,
+          name: c.name,
+          reason: `${c.name} is archived, so their sales dashboard is no longer served.`,
+        });
+      } else if (!(c.integrations ?? []).some((i) => i.provider === "notion" && i.configured)) {
+        roster.closed.push({
+          id: c.id,
+          name: c.name,
+          reason: `${c.name} has no sales tracker connected, so there is no sales dashboard to open for them.`,
+        });
+      } else {
+        roster.clients.push({ id: c.id, name: c.name });
+      }
+    }
+    return roster;
   } catch {
-    return [];
+    return nothing;
   }
 }
 
@@ -346,20 +399,24 @@ export async function resolveClientConfig(
 export const VIEWING_COOKIE = "lab_client";
 
 export type Viewing = {
-  /** The credentials every read on the page goes through. */
-  config: ClientConfig;
+  /**
+   * The credentials every read on the page goes through — or NULL when an
+   * admin's pinned client was refused, in which case the page renders the
+   * refusal in `switchError` and nothing else.
+   *
+   * It used to fall back to the deployment's own client with a banner saying
+   * so, and the banner was not enough: the page still showed one account's
+   * calls, cash and closers under another name in the bar. Moayad hit exactly
+   * that on 2026-08-28 — his own tracker rendered while the bar said Karan
+   * Thind. A number attached to the wrong name is worse than a missing number,
+   * so now nothing renders at all.
+   */
+  config: ClientConfig | null;
   /** Who this visitor may switch to. EMPTY for everyone who is not an admin. */
   clients: ServableClient[];
   /** The client currently pinned by the switcher, when one is. */
   chosen: string | null;
-  /**
-   * Set when a pinned client could not be opened.
-   *
-   * It exists so the page can SAY so. Falling back silently would render the
-   * deployment's own client under a heading the admin believes says somebody
-   * else — one client's numbers read as another's, which is the single worst
-   * outcome this file is arranged to prevent.
-   */
+  /** Why the pinned client could not be opened. Set exactly when config is null. */
   switchError: string | null;
 };
 
@@ -381,9 +438,9 @@ export async function resolveViewing(
      one. The role is still checked below before anything is honoured — running
      the two concurrently changes when the list ARRIVES, never whether it is
      allowed to be used. */
-  const [me, everyClient] = await Promise.all([
+  const [me, roster] = await Promise.all([
     whoami(cookieHeader),
-    servableClients(cookieHeader),
+    rosterFor(cookieHeader),
   ]);
   const fallback = () => resolveClientConfig(cookieHeader, me);
 
@@ -394,35 +451,48 @@ export async function resolveViewing(
     return { config: await fallback(), clients: [], chosen: null, switchError: null };
   }
 
-  const clients = everyClient;
+  const clients = roster.clients;
   if (!chosen) {
     return { config: await fallback(), clients, chosen: null, switchError: null };
   }
 
-  // A pinned client that has since been archived, had its tracker removed, or
-  // was never on the list. Checked before the credential call so the answer
-  // comes from the same list the switcher offered, rather than from a 403.
+  // A PIN THAT CANNOT BE HONOURED RENDERS NOTHING. Every refusal below answers
+  // config: null rather than falling back to the deployment's own client —
+  // the fallback is for "nobody in particular is pinned", never for "somebody
+  // is pinned and cannot be opened", because the bar keeps naming the pinned
+  // client over whatever the page renders.
+
+  // Not on the servable list. When the registry told us why — no tracker, or
+  // archived — say that, by name; those are different states and only one of
+  // them is a fault. Checked before the credential call so the answer comes
+  // from the same list the switcher offered, rather than from a 403.
   const named = clients.find((c) => c.id === chosen);
   if (!named) {
+    const closed = roster.closed.find((c) => c.id === chosen);
     return {
-      config: await fallback(),
+      config: null,
       clients,
       chosen: null,
       switchError:
-        "The client this dashboard was pointed at is no longer one it can open — " +
-        "archived, or their sales tracker has been disconnected.",
+        closed?.reason ??
+        // An unloaded roster is an OUTAGE, not a verdict on the client — a
+        // message blaming the client for a console that did not answer sends
+        // whoever reads it to the wrong place to fix it.
+        (roster.loaded
+          ? "The client this dashboard was pointed at is no longer one it can open — " +
+            "archived, or their sales tracker has been disconnected."
+          : "The console could not be reached to say whose dashboard this is. " +
+            "Reload in a moment — the pinned client is probably fine."),
     };
   }
 
   const cfg = await credentialsFor(chosen);
   if (!cfg) {
     return {
-      config: await fallback(),
+      config: null,
       clients,
       chosen: null,
-      switchError:
-        `${named.name}'s dashboard could not be opened: the registry did not return their keys. ` +
-        "Every number below belongs to whoever this deployment is named after, not to them.",
+      switchError: `${named.name}'s dashboard could not be opened: the registry did not return their keys.`,
     };
   }
 

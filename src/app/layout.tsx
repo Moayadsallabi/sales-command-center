@@ -44,6 +44,9 @@ async function whoThisPageIsAbout(): Promise<string | null> {
     return DEMO_CLIENTS.find((c) => c.id === chosen)?.name ?? "Funded Blueprint";
   }
   const viewing = await currentViewing();
+  // A refused pin renders no client at all, so the bar is told nobody — naming
+  // the deployment's own client here would put its name over a refusal screen.
+  if (!viewing.config) return null;
   return viewing.config.brandName ?? process.env.NEXT_PUBLIC_BRAND_NAME?.trim() ?? null;
 }
 

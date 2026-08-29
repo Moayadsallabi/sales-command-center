@@ -40,7 +40,6 @@ import { ObjectionPanel } from "./objection-panel";
 import { ScorecardPanel } from "./scorecard-panel";
 import { LiveIndicator } from "./live-indicator";
 import { NavSection, SectionNav, useSectionNav } from "./section-nav";
-import { SwitchFailure } from "./switch-failure";
 import { SalesCommandMark } from "@/components/brand/logo";
 import {
   Activity,
@@ -84,7 +83,6 @@ export function Dashboard({
   excluded = [],
   demo = false,
   brandName: brandNameProp,
-  switchError = null,
 }: {
   calls: CallRecord[];
   today: string;
@@ -102,8 +100,6 @@ export function Dashboard({
    * deployments render exactly as they do today.
    */
   brandName?: string | null;
-  /** Set when a pinned client could not be opened, so the page can say so. */
-  switchError?: string | null;
   /** Present only when Whop is connected. Null keeps the tracker's figure. */
   payments?: PaymentDay[] | null;
   /** Rows where the processor and the tracker disagree. Null without Whop. */
@@ -770,10 +766,6 @@ export function Dashboard({
         {/* Each section below is wrapped in an id the rail links to, and
             `scroll-mt` is what keeps its heading clear of the sticky header
             when it is jumped to rather than scrolled to. */}
-        {/* The one thing allowed above the numbers, because it says the
-            numbers are not whose the header says they are. */}
-        {switchError && <SwitchFailure message={switchError} />}
-
         <div id="numbers" className="scroll-mt-32">
           <KPICards
             calls={scoped}
