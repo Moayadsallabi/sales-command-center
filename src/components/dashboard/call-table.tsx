@@ -237,7 +237,7 @@ export function CallTable({
                       <div className="flex items-center gap-2">
                         <div className="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                           <div
-                            className="h-full rounded-full transition-all"
+                            className="h-full rounded-full transition-[width,background-color] duration-300"
                             style={{
                               width: `${lead}%`,
                               background: leadScoreHex(lead),
@@ -257,7 +257,7 @@ export function CallTable({
                     <div className="flex items-center gap-2">
                       <div className="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all"
+                          className="h-full rounded-full transition-[width,background-color] duration-300"
                           style={{
                             width: `${(call.quality_score / 10) * 100}%`,
                             // This band started at 8 while every other copy

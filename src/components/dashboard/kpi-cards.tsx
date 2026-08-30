@@ -378,9 +378,29 @@ function Tile({
         },
       };
 
+  /**
+   * ONE PIXEL OF LIFT ON HOVER, and it has to be framer-motion's rather than a
+   * Tailwind `hover:-translate-y-px`. This element's transform is already
+   * owned by the entrance animation above, which leaves its own inline value
+   * on the node — and an inline style beats a class, so the CSS version would
+   * simply never fire. `whileHover` goes through the same animator, so the two
+   * compose instead of fighting.
+   *
+   * It is a transform, so the compositor handles it: nothing else on the page
+   * moves and no layout is recalculated.
+   *
+   * The timing rides INSIDE the hover state rather than sitting beside it as a
+   * `transition` prop, which would replace the entrance transition spread in
+   * above and cost every tile its stagger.
+   */
+  const hover = still
+    ? undefined
+    : { y: -1, transition: { duration: 0.18, ease: "easeOut" as const } };
+
   return (
     <motion.div
       {...motionProps}
+      whileHover={hover}
       className={cn(
         "group relative flex flex-col overflow-hidden rounded-xl border border-white/[0.06] p-4 transition-colors duration-200 hover:border-white/[0.12]",
         span,

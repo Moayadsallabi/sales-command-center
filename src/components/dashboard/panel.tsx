@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -157,6 +157,24 @@ function InfoButton({
 }) {
   const [open, setOpen] = useState(false);
   const id = useId();
+  const still = useReducedMotion();
+
+  /**
+   * A tenth of a second of fade and a 4px rise, and no more than that.
+   *
+   * The panel it explains is already on screen; this is a note arriving beside
+   * it, not a page transition. Long enough to see where it came from, short
+   * enough that a second click to dismiss it never has to wait. Opacity and
+   * transform only, so nothing around it is re-laid out.
+   */
+  const pop = still
+    ? {}
+    : {
+        initial: { opacity: 0, y: -4, scale: 0.98 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        exit: { opacity: 0, y: -4, scale: 0.98 },
+        transition: { duration: 0.12, ease: "easeOut" as const },
+      };
 
   return (
     <span className="relative shrink-0">
@@ -176,19 +194,36 @@ function InfoButton({
         <Info className="h-2.5 w-2.5" strokeWidth={2.5} />
       </button>
 
+      {/* Clicking anywhere else closes it. Sits under the popover but over
+          everything else, so the first click outside is a dismissal rather
+          than an accidental filter change.
+
+          Outside the AnimatePresence below, and deliberately: the dismissal
+          surface has to disappear on the click, not a tenth of a second after
+          it, or the same click that closes the note is also swallowed by a
+          backdrop that is still on its way out. */}
       {open && (
-        <>
-          {/* Clicking anywhere else closes it. Sits under the popover but over
-              everything else, so the first click outside is a dismissal
-              rather than an accidental filter change. */}
-          <button
-            type="button"
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          <div
+        <button
+          type="button"
+          aria-hidden
+          tabIndex={-1}
+          onClick={() => setOpen(false)}
+          className="fixed inset-0 z-40 cursor-default"
+        />
+      )}
+
+      {/* One keyed child, not a fragment. AnimatePresence tracks its direct
+          children by key to know what is leaving; a fragment is one opaque
+          child to it and the exit animation never runs. */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="info"
+            {...pop}
+            // The transform origin is the button it grew out of, so the rise
+            // reads as the note unfolding from the icon rather than drifting
+            // in from somewhere off to the left.
+            style={{ transformOrigin: "top left" }}
             id={id}
             role="dialog"
             aria-label={`How to read ${title}`}
@@ -207,9 +242,9 @@ function InfoButton({
               </button>
             </div>
             <div className="space-y-2 t-body text-zinc-300">{children}</div>
-          </div>
-        </>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </span>
   );
 }

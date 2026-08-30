@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -161,6 +162,7 @@ export function SectionNav({
 }) {
   const active = useActiveSection(sections);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const still = useReducedMotion();
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -184,7 +186,17 @@ export function SectionNav({
     setDrawerOpen(false);
   }, []);
 
-  const list = (
+  /**
+   * THE RAIL'S LINKS, and the gold marker that says which section you are in.
+   *
+   * `scope` namespaces the marker's `layoutId`, and it is not decoration: the
+   * desktop rail and the phone drawer both render this list, and on a narrow
+   * screen the desktop one is still in the document — merely `display: none`.
+   * Two live elements sharing one layoutId make framer-motion animate the
+   * marker between two rails that are not both on screen, which reads as the
+   * highlight vanishing. One id per rail, so each animates within itself.
+   */
+  const renderList = (scope: string) => (
     <ul className="flex flex-col gap-0.5">
       {sections.map((s) => {
         const Icon = s.icon;
@@ -212,14 +224,35 @@ export function SectionNav({
             >
               {/* The bar is what makes the current section readable at a
                   glance in the collapsed rail, where the label is gone and a
-                  gold icon on its own is easy to miss. */}
-              <span
-                aria-hidden
-                className={cn(
-                  "absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-r-full bg-gold-500 transition-opacity",
-                  on ? "opacity-100" : "opacity-0"
-                )}
-              />
+                  gold icon on its own is easy to miss.
+
+                  It used to exist on every link and cross-fade between them,
+                  which at a glance looks like one bar blinking out and another
+                  blinking in somewhere else. Now there is exactly ONE bar and
+                  it travels: framer-motion matches the old position to the new
+                  by `layoutId` and animates between them, so scrolling down
+                  the page slides the marker down the rail.
+
+                  Centred with `top` rather than `-translate-y-1/2`, because
+                  the layout animation writes this element's transform itself
+                  and a Tailwind translate class would be overwritten mid-move. */}
+              {on &&
+                (still ? (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-[calc(50%-0.5rem)] h-4 w-[2px] rounded-r-full bg-gold-500"
+                  />
+                ) : (
+                  <motion.span
+                    aria-hidden
+                    layoutId={`${scope}-section-marker`}
+                    className="absolute left-0 top-[calc(50%-0.5rem)] h-4 w-[2px] rounded-r-full bg-gold-500"
+                    // Stiff and well damped: it arrives with the scroll rather
+                    // than trailing it, and never overshoots into the link
+                    // above or below.
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                ))}
               <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
               <span className={cn("truncate", collapsed && "lg:hidden")}>
                 {s.label}
@@ -266,7 +299,7 @@ export function SectionNav({
           {!collapsed && (
             <div className="px-2.5 pb-1.5 t-label text-zinc-500">Sections</div>
           )}
-          {list}
+          {renderList("rail")}
         </div>
       </nav>
 
@@ -280,16 +313,48 @@ export function SectionNav({
         <Menu className="h-4 w-4" strokeWidth={1.5} />
       </button>
 
-      {drawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
+      {/* The drawer SLIDES IN FROM THE EDGE IT LIVES ON, which is the whole
+          reason it animates at all: appearing instantly, a full-height panel
+          over the page is indistinguishable from the page having navigated
+          somewhere. A fifth of a second of travel says it came in over the
+          top and will go back. The dimming behind it fades on the same beat.
+
+          `exit` is why this is wrapped in AnimatePresence rather than driven
+          by a class — React would otherwise remove the drawer from the page
+          the instant it closes and there would be nothing left to animate. */}
+      <AnimatePresence>
+        {drawerOpen && (
+        // Keyed because AnimatePresence tracks its direct children by key to
+        // know which one is leaving; it then holds this whole subtree in the
+        // page until the two exits inside it have finished.
+        <div key="sections-drawer" className="fixed inset-0 z-50 lg:hidden">
+          <motion.button
             type="button"
             aria-label="Close sections"
             onClick={() => setDrawerOpen(false)}
+            {...(still
+              ? {}
+              : {
+                  initial: { opacity: 0 },
+                  animate: { opacity: 1 },
+                  exit: { opacity: 0 },
+                  transition: { duration: 0.18 },
+                })}
             className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm"
           />
-          <nav
+          <motion.nav
             aria-label="Sections"
+            {...(still
+              ? {}
+              : {
+                  initial: { x: "-100%" },
+                  animate: { x: 0 },
+                  exit: { x: "-100%" },
+                  transition: {
+                    duration: 0.2,
+                    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+                  },
+                })}
             className="shell-offset-top absolute inset-y-0 left-0 flex w-[15rem] flex-col border-r border-white/[0.06] bg-[#0b0b0e]"
           >
             <div className="flex h-[57px] shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
@@ -304,11 +369,12 @@ export function SectionNav({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-2">
-              {list}
+              {renderList("drawer")}
             </div>
-          </nav>
+          </motion.nav>
         </div>
-      )}
+        )}
+      </AnimatePresence>
     </>
   );
 }
