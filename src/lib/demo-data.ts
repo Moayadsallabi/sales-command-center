@@ -379,6 +379,7 @@ function buildCall({
         : Math.round((scored.reduce((s, v) => s + v, 0) / scored.length) * 10) / 10,
     duration: noShow ? 0 : 32 + Math.floor(rand() * 30),
     recording_url: "https://example.com/demo-recording",
+    recording_id: 900_000 + i,
     summary: `Sample call with ${NAMES[i % NAMES.length]}. This row is demo data, not a real call.`,
     scores,
     lead,

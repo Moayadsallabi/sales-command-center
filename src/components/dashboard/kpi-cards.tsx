@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
 import { Sparkline } from "./sparkline";
 import { SourceNote, SourceLegend, Source } from "./source-note";
+import { recordedNoteFor, cashNoteFor, CashBank } from "@/lib/tile-notes";
 import { Delta } from "./delta";
 import { CallRecord } from "@/lib/types";
 import { FunnelStats } from "@/lib/bookings";
@@ -48,16 +49,7 @@ interface KPICardsProps {
    * is what the closers wrote down for the same window. Null keeps the tile
    * on the tracker figure.
    */
-  bank?: {
-    collected: number;
-    trackerLogged: number;
-    /** The processor's total for the previous window. Null without one. */
-    previousCollected: number | null;
-    /** Buyers who first paid inside this window with no call anywhere. */
-    missedCount: number;
-    /** What those buyers have paid to date — lifetime, not window. */
-    missedWorth: number;
-  } | null;
+  bank?: CashBank | null;
   /** Day-by-day cash for the visible window, from whichever source the tile uses. */
   cashSeries?: SeriesPoint[];
   /** Calls in view priced in another currency with no FX rate set. */
@@ -85,13 +77,27 @@ export function KPICards({
    * honest figure is a range forty points wide, and a range is not a number
    * anyone can act on. What the calendar can say plainly is how much of it
    * reached this page at all, so that is what sits under Recorded instead.
+   *
+   * AND IT SAID IT AS A RATE UNTIL 1 SEPTEMBER 2026, WHICH PUT THE SHOW RATE
+   * BACK — as the worst possible estimate of it. The note read "218 booked in
+   * this window, 14% produced a recording" directly beneath a tile reading 76.
+   * Both figures were computed correctly and no two readings of them agree:
+   * 76 out of 218 is 35%, not 14%.
+   *
+   * `heldRate` is `kept / booked`, and neither half means what the sentence
+   * implied. `kept` counts BOOKINGS THE MATCHER COULD TIE to a recording —
+   * about 31 of the 76 that exist, because most tracker rows carry no prospect
+   * email — so the numerator measured the join, not the business. And `booked`
+   * includes every cancellation, which in August was 110 of the 218. A reader
+   * was told that 86% of their calendar went nowhere; the truth is that half of
+   * it cancelled and three quarters of the rest was recorded.
+   *
+   * So the note states the two counts Calendly actually owns and stops. No
+   * division, because there is no denominator here that both halves share:
+   * bookings are counted by the calendar and recordings by the tracker, and
+   * putting a percent sign between them is the whole fault.
    */
-  const recordedNote =
-    funnel && funnel.booked > 0 && funnel.heldRate != null
-      ? `${funnel.booked} booked in this window, ${Math.round(
-          funnel.heldRate
-        )}% produced a recording`
-      : "every call that reached the tracker";
+  const recordedNote = recordedNoteFor(funnel);
 
   /**
    * With Whop connected the tile shows the money that actually moved, and the
@@ -100,41 +106,7 @@ export function KPICards({
    * processor. Inside the tolerance the note stays quiet: fees and rounding
    * are not a discrepancy anyone should be sent to chase.
    */
-  const cash = ((): { source: Source; note: string } => {
-    // WHICH SOURCE THIS NUMBER CAME FROM, ALWAYS SAID.
-    //
-    // With Whop connected and nothing filtered, this tile shows what the
-    // processor banked. The moment any filter narrows the view the processor's
-    // figure cannot follow it — Whop knows nothing about closers or outcomes —
-    // so the tile falls back to what the closers logged. That is the right
-    // fallback and the wrong silence: the number changed source, and for a
-    // while it said so only in the case where it did not change.
-    //
-    // The dot in front of the note now carries this too, so the change of
-    // source is visible before the sentence is read.
-    if (bank === null) {
-      return {
-        source: "tracker",
-        note: payments
-          ? "Whop's figure covers the whole business, so it cannot follow a filter"
-          : "logged by closers after the call",
-      };
-    }
-    const gap = bank.collected - bank.trackerLogged;
-    if (Math.abs(gap) < 50)
-      return { source: "whop", note: "matches what closers logged" };
-    return {
-      source: "whop",
-      note:
-        gap > 0
-          ? `closers logged ${formatReporting(
-              bank.trackerLogged
-            )}, so ${formatReporting(gap)} has no call behind it`
-          : `closers logged ${formatReporting(
-              bank.trackerLogged
-            )}, ${formatReporting(-gap)} of that isn't in Whop`,
-    };
-  })();
+  const cash = cashNoteFor(bank, payments);
 
   // WHAT THIS FIGURE CANNOT SEE, SAID NEXT TO IT.
   //

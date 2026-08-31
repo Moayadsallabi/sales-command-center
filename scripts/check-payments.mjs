@@ -19,9 +19,16 @@
 
 import { readFileSync } from "node:fs";
 import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+// ONE MATCHER, SHARED WITH THE DASHBOARD. It used to be a second copy here and
+// the two drifted apart on live data; `scripts/lib/buyer-match.mjs` opens with
+// what each divergence cost.
+import {
+  matchBuyers,
+  buyerHaystacks,
+  nameScore,
+  CASH_TOLERANCE,
+} from "./lib/buyer-match.mjs";
 
-/** Below this, a difference is fees or rounding rather than a mistake. */
-const CASH_TOLERANCE = 50;
 /**
  * What a deposit has to reach before the call counts as a sale.
  *
@@ -35,10 +42,6 @@ const CASH_TOLERANCE = 50;
  * Set to 0 to switch this check off.
  */
 const MIN_DEPOSIT = 100;
-/** Short names collide. A fallback match needs a token at least this long. */
-const MIN_NAME_TOKEN = 3;
-/** Below this a token only counts as a whole word, never buried in another. */
-const MIN_SUBSTRING_TOKEN = 5;
 const WHOP_V2 = process.env.WHOP_API_V2_BASE ?? "https://api.whop.com/api/v2";
 
 /**
@@ -289,93 +292,12 @@ async function readPayments() {
 
 /* ----------------------------------------------------------------- matching */
 
-const normalise = (s) => (s ?? "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
-
-/**
- * A short name only counts as a whole word. Without that rule "Tee" matches
- * "steel" and the fallback starts inventing customers; with it, "Tee" still
- * finds "Tee Dory". Longer tokens are allowed to sit inside a word, because
- * that is how usernames are built — "beshensky" inside "bbeshensky".
+/*
+ * Nothing is implemented here any more. `scripts/lib/buyer-match.mjs` holds the
+ * whole rule — the email join, the name fallback, the two-signal floor, the tie
+ * refusal and the best-first assignment — and `src/lib/reconcile.ts` imports
+ * that same file, so the report and the page cannot answer differently again.
  */
-function tokenHits(tokens, text) {
-  const padded = ` ${text} `;
-  return tokens.filter((t) =>
-    padded.includes(` ${t} `) || (t.length >= MIN_SUBSTRING_TOKEN && text.includes(t))
-  ).length;
-}
-
-/**
- * Email is the only join anyone should trust, and most rows do not have one —
- * a prospect who was never a guest on the calendar invite leaves the column
- * blank. So there is a fallback on name, and everything it produces is
- * reported as a guess rather than a finding. A wrong guess here would send
- * someone to edit the wrong prospect's row, which is worse than a gap.
- *
- * Every candidate pair is scored before any of them is accepted, because
- * matching row by row lets whichever row happens to come first take a payment
- * that belongs to a better match further down: a row reading "Daniel" claims
- * Jeremy Daniel's payment, and the real Jeremy Daniel row is then reported as
- * a customer who never paid. Scoring first and assigning best-first means the
- * two-token match wins and the one-token match is left unmatched, which is the
- * honest answer.
- */
-/**
- * How well a row's name fits one buyer's text. Kept as its own function
- * because the duplicate-close guard further down has to ask exactly the same
- * question of rows this matcher has already turned away, and two copies of a
- * matching rule drift.
- */
-function nameScore(name, text) {
-  const full = normalise(name);
-  const tokens = full.split(/\s+/).filter((t) => t.length >= MIN_NAME_TOKEN);
-  if (tokens.length === 0 || !text) return 0;
-  const hits = tokenHits(tokens, text);
-  // A buyer carrying the whole name outranks one sharing a single word.
-  return hits === 0 ? 0 : hits + (text.includes(full) ? 1 : 0);
-}
-
-function scoreCandidates(row, buyers, haystacks) {
-  if (row.email && buyers.has(row.email)) {
-    return [{ buyer: buyers.get(row.email), score: Infinity, certain: true }];
-  }
-
-  return haystacks
-    .map(({ buyer, text }) => ({ buyer, score: nameScore(row.name, text), certain: false }))
-    // Two signals, never one. A single shared word off a two-word name is not
-    // a weak match, it is a different person: "Barron ace" scored a hit on
-    // "Ace Acosta" and reported his $4,000 against Barron's call, and "Jon
-    // gonzalez" took Robinson Gonzalez's $562. Both were the only candidate, so
-    // nothing else caught them. A one-word row name is unaffected — the whole
-    // name is then the token, so a genuine hit scores two on its own.
-    .filter((c) => c.score >= 2)
-    .sort((a, b) => b.score - a.score);
-}
-
-/** Best-first assignment, skipping any row whose two best candidates tie. */
-function matchAll(rows, buyers, haystacks) {
-  const pairs = [];
-  for (const row of rows) {
-    const ranked = scoreCandidates(row, buyers, haystacks);
-    if (ranked.length === 0) continue;
-    // A tie means two different people fit equally well and nothing here can
-    // tell them apart. Reporting a gap beats sending someone to the wrong row.
-    if (ranked.length > 1 && ranked[0].score === ranked[1].score) continue;
-    pairs.push({ row, ...ranked[0] });
-  }
-
-  pairs.sort((a, b) => b.score - a.score);
-
-  const byRow = new Map();
-  const takenBuyers = new Set();
-  for (const pair of pairs) {
-    if (byRow.has(pair.row) || takenBuyers.has(pair.buyer.email)) continue;
-    byRow.set(pair.row, pair);
-    takenBuyers.add(pair.buyer.email);
-  }
-  return byRow;
-}
-
-/* ------------------------------------------------------------------ compare */
 
 const allTracker = await readTracker();
 const buyers = await readPayments();
@@ -432,10 +354,7 @@ if (beforeCutoff.length) {
 const banked = [...buyers.values()].reduce((sum, b) => sum + b.paid, 0);
 console.log(`Whop:    ${buyers.size} buyers, ${money(banked)} collected\n`);
 
-const haystacks = [...buyers.values()].map((buyer) => ({
-  buyer,
-  text: normalise(`${buyer.billing} ${buyer.name} ${buyer.email.split("@")[0]}`),
-}));
+const haystacks = buyerHaystacks(buyers.values());
 
 /**
  * A NO-SHOW THAT LATER PAID IS NOT A CALL THAT HAPPENED.
@@ -451,12 +370,16 @@ const haystacks = [...buyers.values()].map((buyer) => ({
  * It also frees a buyer who no-showed once and then turned up to match the
  * call they actually attended.
  *
- * The same rule, for the same reason, is in src/lib/reconcile.ts. These two
- * matchers are deliberately kept in step; a test covers the library side.
+ * The same rule, for the same reason, is in src/lib/reconcile.ts — which now
+ * imports the very same matcher this file does, so "kept in step" is a fact
+ * about the module graph rather than a promise in a comment.
  */
 const considered = tracker.filter((row) => row.outcome !== "No show");
 
-const matches = matchAll(considered, buyers, haystacks);
+const matches = matchBuyers(considered, buyers.values(), {
+  emailOf: (row) => row.email,
+  nameOf: (row) => row.name,
+});
 const claimed = new Set([...matches.values()].map((m) => m.buyer.email));
 
 const missedCloses = [];

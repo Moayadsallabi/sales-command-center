@@ -66,6 +66,9 @@ export function call(over: Partial<CallRecord> = {}): CallRecord {
     quality_score: null,
     duration: null,
     recording_url: null,
+    // Unique per fixture call, so a test that builds several never trips the
+    // duplicate collapse by accident and wonders where its rows went.
+    recording_id: 100_000 + seq,
     summary: "",
     scores: blankScores(),
     lead: blankLead(),
@@ -87,10 +90,22 @@ export function call(over: Partial<CallRecord> = {}): CallRecord {
   };
 }
 
+/**
+ * `name` DEFAULTS TO A HANDLE, AND `billing` TO THE EMPTY STRING, ON PURPOSE.
+ *
+ * That is the shape a real Whop buyer arrives in: the display name is usually
+ * a handle ("kokitosh", "liamb48") and the person's actual name is only on the
+ * billing fields. The old default here was a tidy "A Buyer" in `name`, so every
+ * fixture matched on the field a live account almost never fills in — which is
+ * why the tests stayed green through the whole period the page was matching
+ * "John Jones" to a different John. A test that wants a name to match should
+ * put it in `billing`, the way the processor does.
+ */
 export function buyer(over: Partial<WhopBuyer> = {}): WhopBuyer {
   return {
     email: "buyer@example.com",
-    name: "A Buyer",
+    name: "abuyer99",
+    billing: "",
     paid: 2000,
     payments: 1,
     first: "2026-08-10",

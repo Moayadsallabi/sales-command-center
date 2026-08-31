@@ -61,6 +61,19 @@ export interface CallRecord {
   quality_score: number | null;
   duration: number | null;
   recording_url: string | null;
+  /**
+   * Fathom's own id for the recording, and the only thing that says two rows
+   * are the same CALL rather than two calls that look alike.
+   *
+   * Read because the workflow's duplicate check is a query followed by a write
+   * with nothing between them: when Fathom delivers the webhook twice, both
+   * runs look, both see nothing, and both write. That happened three times in
+   * August 2026 — 26th, 27th and 30th — each pair created inside the same
+   * minute and each scored separately, so one call arrived twice with two
+   * different quality scores. `dedupeByRecording` in lib/notion.ts is the net
+   * under it; see there for why the net lives in the reader.
+   */
+  recording_id: number | null;
   summary: string;
 
   /** Per-dimension scores, 1-10. Null when the call predates the scorecard. */

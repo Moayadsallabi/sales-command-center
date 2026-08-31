@@ -1,4 +1,4 @@
-import { queryAllCalls, NotionError, NotionFailure } from "@/lib/notion";
+import { queryAllCalls, dedupeByRecording, NotionError, NotionFailure } from "@/lib/notion";
 import { queryBookings, isCalendlyConfigured, CalendlyError } from "@/lib/calendly";
 import { queryPayments, isWhopConfigured, WhopRead } from "@/lib/whop";
 import { linkBookings, CalendlyState } from "@/lib/bookings";
@@ -206,13 +206,32 @@ export default async function Home() {
 
   if (!result.ok) return <SetupNotice failure={result.failure} />;
 
+  // The same recording written twice, collapsed before anything counts rows.
+  // The workflow's own duplicate check cannot close the race that produces
+  // these — see dedupeByRecording — and every figure on this page counts rows,
+  // so this has to happen upstream of all of them rather than in each panel.
+  const { kept: unique, duplicates } = dedupeByRecording(result.calls);
+  if (duplicates.length > 0) {
+    console.log(
+      `Collapsed ${duplicates.length} recording(s) written to the tracker more than once: ` +
+        duplicates
+          .map(
+            (d) =>
+              `${d.kept.name || "Unknown"} (${d.kept.call_date ?? "no date"}, recording ${
+                d.kept.recording_id
+              }, ${d.dropped.length + 1} rows)`
+          )
+          .join(", ")
+    );
+  }
+
   // Rows that belong to another offer, dropped before anything else sees them.
   // A closer who sells two products books both into one tracker, so a row can
   // be filled in correctly and still not be this client's business. Doing it
   // here — ahead of bookings, reconciliation and settlement — is what stops an
   // excluded call being matched to a booking, or turned back into a win by a
   // payment. See excluded-calls.json for why it is a list and not a rule.
-  const { kept, excluded } = partitionCalls(result.calls);
+  const { kept, excluded } = partitionCalls(unique);
   if (excluded.length > 0) {
     console.log(
       `Excluded ${excluded.length} call(s) that belong to another offer: ` +
@@ -251,6 +270,11 @@ export default async function Home() {
         name: e.call.name || "Unknown",
         call_date: e.call.call_date,
         reason: e.entry.reason ?? "",
+      }))}
+      duplicates={duplicates.map((d) => ({
+        name: d.kept.name || "Unknown",
+        call_date: d.kept.call_date,
+        copies: d.dropped.length + 1,
       }))}
     />
   );

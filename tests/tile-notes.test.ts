@@ -1,0 +1,113 @@
+/**
+ * THE SENTENCES UNDER THE TILES, WHICH ARE FIGURES TOO.
+ *
+ * Both faults here were in prose rather than in a metric, which is why nothing
+ * caught them: the numbers each note quoted were computed correctly, and no two
+ * of them could be reconciled by the person reading them. A sentence that
+ * states a number is a number, and gets asserted like one.
+ */
+import { describe, it, expect } from "vitest";
+import { recordedNoteFor, cashNoteFor } from "../src/lib/tile-notes";
+import type { FunnelStats } from "../src/lib/bookings";
+
+const funnel = (over: Partial<FunnelStats> = {}): FunnelStats =>
+  ({
+    booked: 0,
+    canceled: 0,
+    kept: 0,
+    noShow: 0,
+    unrecorded: 0,
+    upcoming: 0,
+    showRate: null,
+    showRateRange: null,
+    coverage: null,
+    heldRate: null,
+    lateCancels: 0,
+    canceledAfterStart: 0,
+    canceledByInvitee: 0,
+    canceledByHost: 0,
+    medianCancelNotice: null,
+    callsWithoutBooking: 0,
+    matchedByName: 0,
+    matchedByFirstNameOnly: 0,
+    ...over,
+  }) as FunnelStats;
+
+describe("the note under Recorded", () => {
+  it("states counts the calendar owns and never a rate", () => {
+    // LIVE, August 2026. It read "218 booked in this window, 14% produced a
+    // recording" under a tile showing 76 recordings. 76 of 218 is 35%. The 14%
+    // was `kept / booked` — bookings the MATCHER could tie to a recording, over
+    // a denominator that included every cancellation — so it measured the join
+    // and was read as the business.
+    const note = recordedNoteFor(funnel({ booked: 218, canceled: 110, kept: 31, heldRate: 14.2 }));
+    expect(note).toBe("218 booked in this window, 110 cancelled");
+    expect(note).not.toContain("%");
+  });
+
+  it("says nothing about bookings when the calendar is not connected", () => {
+    expect(recordedNoteFor(null)).toBe("every call that reached the tracker");
+    expect(recordedNoteFor(funnel({ booked: 0 }))).toBe("every call that reached the tracker");
+  });
+});
+
+describe("the note under Cash Collected", () => {
+  it("states a gap the reader can get to from the two figures printed", () => {
+    // LIVE, August 2026: $88,848.66 banked against $52,247.38 logged.
+    //
+    // Every figure was rounded correctly on its own, and the tile read $88,849,
+    // $52,247 and a gap of "$36,601" — because the gap was the rounded RAW
+    // difference, 36,601.28. A reader subtracting the two figures in front of
+    // them gets 36,602, and there was nothing on the page to reconcile the two.
+    // The printed gap is now that subtraction.
+    const { note } = cashNoteFor(
+      {
+        collected: 88848.66,
+        trackerLogged: 52247.38,
+        previousCollected: null,
+        missedCount: 0,
+        missedWorth: 0,
+      },
+      true
+    );
+    expect(note).toContain("closers logged $52,247");
+    expect(note).toContain("$36,602 has no call behind it");
+    // The old, unreconcilable figure.
+    expect(note).not.toContain("$36,601");
+  });
+
+  it("words itself the other way when the tracker is ahead of the processor", () => {
+    const { note } = cashNoteFor(
+      {
+        collected: 1000,
+        trackerLogged: 4000,
+        previousCollected: null,
+        missedCount: 0,
+        missedWorth: 0,
+      },
+      true
+    );
+    expect(note).toContain("$3,000 of that isn't in Whop");
+  });
+
+  it("stays quiet inside the tolerance, where a gap is fees rather than a mistake", () => {
+    const { note, source } = cashNoteFor(
+      {
+        collected: 1020,
+        trackerLogged: 1000,
+        previousCollected: null,
+        missedCount: 0,
+        missedWorth: 0,
+      },
+      true
+    );
+    expect(source).toBe("whop");
+    expect(note).toBe("matches what closers logged");
+  });
+
+  it("says the figure changed source when a filter narrows the view", () => {
+    const { source, note } = cashNoteFor(null, true);
+    expect(source).toBe("tracker");
+    expect(note).toContain("cannot follow a filter");
+  });
+});

@@ -31,7 +31,7 @@ import { KPICards } from "./kpi-cards";
 import { CoverageAlarm } from "./coverage-alarm";
 import { WhopGap } from "./whop-gap";
 import { FollowUps } from "./follow-ups";
-import { CallTable, ExcludedNote } from "./call-table";
+import { CallTable, ExcludedNote, DuplicateNote } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
 import { WhatsCostingYou } from "./whats-costing-you";
 import { DimensionImpact } from "./dimension-impact";
@@ -81,6 +81,7 @@ export function Dashboard({
   payments = null,
   reconciliation = null,
   excluded = [],
+  duplicates = [],
   demo = false,
   brandName: brandNameProp,
 }: {
@@ -111,6 +112,7 @@ export function Dashboard({
    * a stale list nowhere to show.
    */
   excluded?: ExcludedNote[];
+  duplicates?: DuplicateNote[];
   demo?: boolean;
 }) {
   const [dateRange, setDateRange] = useState<DateRange>("month");
@@ -820,6 +822,7 @@ export function Dashboard({
             calls={scoped}
             onSelect={setOpenCall}
             excluded={excluded}
+            duplicates={duplicates}
           />
         </div>
 

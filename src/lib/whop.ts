@@ -40,6 +40,18 @@ export interface WhopBuyer {
   /** Lower-cased, and the only join key the tracker and the processor share. */
   email: string;
   name: string;
+  /**
+   * The name on the card, which is the only real one.
+   *
+   * `name` above is the processor's display name and is usually a handle —
+   * "kokitosh", "liamb48", "stonyartisan82" — which matches nothing on a call
+   * row. The billing name is the person ("George Segovia", "Liam Beauchamps")
+   * and rides on every payment. Not fetching it is why this dashboard matched
+   * "John Jones" to a different John who paid $500 in June while the real John
+   * Jones's $3,000 sat unclaimed, and why four genuine cash gaps never
+   * appeared on the page at all. See `scripts/lib/buyer-match.mjs`.
+   */
+  billing: string;
   /** Everything they have paid, net of refunds. */
   paid: number;
   /** How many separate payments make that up. */
@@ -135,13 +147,22 @@ async function crawlPayments(key: string): Promise<WhopRead> {
       const email = String(user.email ?? "").trim().toLowerCase();
       if (!email) continue;
 
+      const billing = [p.billing_first_name, p.billing_last_name]
+        .filter((part): part is string => typeof part === "string" && part.trim() !== "")
+        .join(" ");
+
       const existing = buyers.get(email) ?? {
         email,
         name: String(user.name || user.username || ""),
+        billing: "",
         paid: 0,
         payments: 0,
         first: day,
       };
+      // Kept from whichever payment carries one: a buyer's later renewals can
+      // come through with the billing fields empty, and a name that arrived on
+      // their first payment is still their name.
+      if (!existing.billing && billing) existing.billing = billing;
       existing.paid += net;
       existing.payments += 1;
       if (!existing.first || day < existing.first) existing.first = day;

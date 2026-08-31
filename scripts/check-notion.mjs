@@ -239,6 +239,64 @@ console.log(
   `✓ Query works — ${count}${query.body.has_more ? "+" : ""} row${count === 1 ? "" : "s"} readable`
 );
 
+/*
+ * 5. IS THE SAME CALL ON THE TRACKER TWICE?
+ *
+ * The workflow asks Notion whether a recording is already logged before it
+ * writes, and that check cannot win a race: two deliveries of one Fathom
+ * webhook both look, both see nothing, and both write. It happened three times
+ * in August 2026 and nothing said so — a second copy of a real call looks
+ * exactly like a real call, so it quietly inflated calls recorded, calls taken,
+ * the close-rate denominator, cash and the average score together.
+ *
+ * The dashboard now collapses these when it reads (`dedupeByRecording`), so the
+ * numbers are right either way. This is the other half: the rows are still in
+ * Notion, a person has to archive them, and nothing would ever have mentioned
+ * them. Reported, never a failure — the page is not wrong because of them.
+ *
+ * Reads every page rather than the first hundred: a duplicate is exactly as
+ * likely on row 300, and reporting "no duplicates" having looked at a quarter
+ * of the tracker is the kind of half-true this repo keeps paying for.
+ */
+const seen = new Map();
+let cursor;
+do {
+  const page = await call(`databases/${id}/query`, {
+    method: "POST",
+    body: JSON.stringify({ page_size: 100, start_cursor: cursor }),
+  });
+  if (!page.ok) break;
+  for (const row of page.body.results ?? []) {
+    const rid = row.properties?.["Recording ID"]?.number;
+    if (rid == null) continue;
+    const entry = seen.get(rid) ?? [];
+    entry.push({
+      id: row.id,
+      name: (row.properties?.Name?.title ?? []).map((t) => t.plain_text).join("") || "Unknown",
+      date: row.properties?.["Call Date"]?.date?.start ?? "no date",
+    });
+    seen.set(rid, entry);
+  }
+  cursor = page.body.has_more ? page.body.next_cursor : undefined;
+} while (cursor);
+
+const duplicated = [...seen.entries()].filter(([, rows]) => rows.length > 1);
+if (duplicated.length === 0) {
+  console.log("✓ Every recording appears on the tracker once");
+} else {
+  console.log(
+    `\n⚠ ${duplicated.length} recording${duplicated.length === 1 ? " is" : "s are"} on the tracker more than once.` +
+      "\n  The dashboard counts each of them once, so its figures are right. These are the\n" +
+      "  rows to archive in Notion, newest copy or oldest — they are the same call:\n"
+  );
+  for (const [rid, rows] of duplicated) {
+    console.log(`  ${rows[0].date}  ${rows[0].name}  — recording ${rid}, ${rows.length} rows`);
+    for (const row of rows) {
+      console.log(`      https://www.notion.so/${row.id.replace(/-/g, "")}`);
+    }
+  }
+}
+
 // An empty dropdown is a hard failure rather than a warning: unlike a missing
 // column, which reads as blank and loses one field, it rejects the whole write
 // and the call never lands at all.

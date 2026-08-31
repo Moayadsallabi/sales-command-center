@@ -16,10 +16,18 @@ export interface ExcludedNote {
   reason: string;
 }
 
+/** One recording the tracker holds more than once, and how many rows it has. */
+export interface DuplicateNote {
+  name: string;
+  call_date: string | null;
+  copies: number;
+}
+
 export function CallTable({
   calls,
   onSelect,
   excluded = [],
+  duplicates = [],
   order = 0,
 }: {
   calls: CallRecord[];
@@ -32,6 +40,14 @@ export function CallTable({
    * makes a stale one noticeable.
    */
   excluded?: ExcludedNote[];
+  /**
+   * Recordings the tracker holds more than once, collapsed to one row before
+   * anything counted them. Named for the same reason as the exclusions above:
+   * a filter nobody can see is a filter nobody checks — and unlike the
+   * exclusions, this one moves on its own, so a count that starts creeping is
+   * the first sign the webhook is being delivered twice more often.
+   */
+  duplicates?: DuplicateNote[];
   order?: number;
 }) {
   const sorted = [...calls].sort((a, b) => {
@@ -45,13 +61,21 @@ export function CallTable({
       <div className="p-5 pb-0">
         <PanelHeader
           title="All calls"
-          subtitle={
-            excluded.length > 0
-              ? `Click a row to open its scorecard. ${excluded.length} tracker ${
-                  excluded.length === 1 ? "row is" : "rows are"
-                } left out as another offer's business.`
-              : "Click a row to open its scorecard."
-          }
+          subtitle={[
+            "Click a row to open its scorecard.",
+            excluded.length > 0 &&
+              `${excluded.length} tracker ${
+                excluded.length === 1 ? "row is" : "rows are"
+              } left out as another offer's business.`,
+            duplicates.length > 0 &&
+              `${duplicates.length} ${
+                duplicates.length === 1 ? "recording was" : "recordings were"
+              } written to the tracker twice and ${
+                duplicates.length === 1 ? "is" : "are"
+              } counted once.`,
+          ]
+            .filter(Boolean)
+            .join(" ")}
           right={
             <span className="font-mono text-[13px] tabular-nums text-zinc-400">
               {sorted.length}

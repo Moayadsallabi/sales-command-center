@@ -195,6 +195,75 @@ export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: s
   );
 }
 
+/** A row kept, and the row (or rows) of the same recording dropped behind it. */
+export interface DuplicateRecording {
+  kept: CallRecord;
+  dropped: CallRecord[];
+}
+
+/**
+ * ONE ROW PER RECORDING.
+ *
+ * The workflow already checks Notion for the recording's id before writing,
+ * and it is not enough: the check is a read followed by a write with nothing
+ * holding the gap, so two deliveries of the same Fathom webhook both look,
+ * both see nothing, and both write. Three of Brey's August calls arrived that
+ * way — 26, 27 and 30 August, each pair created inside the same minute — and
+ * two of the pairs were scored separately, so the same call carried two
+ * different quality scores.
+ *
+ * WHY THE NET IS HERE AND NOT ONLY IN THE WORKFLOW. Notion has no unique
+ * constraint to lean on, so no arrangement of those two calls can be made
+ * atomic; the race can be narrowed and not closed. Every figure on this page
+ * counts rows, so a duplicate inflates calls recorded, calls taken, the
+ * close-rate denominator, cash and the average score all at once — and does it
+ * quietly, because a second copy of a real call looks exactly like a real call.
+ * Reading the tracker is the one place every number passes through.
+ *
+ * WHICH COPY SURVIVES. The most complete one, because the pairs are not always
+ * identical — a redelivery can arrive after somebody has typed an outcome onto
+ * the first row. Ties break on the page id so the answer does not depend on
+ * the order Notion returned.
+ *
+ * A row with no recording id is never a duplicate of anything: `null` is the
+ * absence of the key, not a value they can share.
+ */
+export function dedupeByRecording(calls: CallRecord[]): {
+  kept: CallRecord[];
+  duplicates: DuplicateRecording[];
+} {
+  const completeness = (c: CallRecord): number =>
+    [c.outcome, c.quality_score, c.prospect_email, c.price_closed, c.cash_collected, c.closer]
+      .filter((v) => v != null && v !== "").length;
+
+  const groups = new Map<number, CallRecord[]>();
+  const kept: CallRecord[] = [];
+  for (const call of calls) {
+    if (call.recording_id == null) {
+      kept.push(call);
+      continue;
+    }
+    const group = groups.get(call.recording_id);
+    if (group) group.push(call);
+    else groups.set(call.recording_id, [call]);
+  }
+
+  const duplicates: DuplicateRecording[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      kept.push(group[0]);
+      continue;
+    }
+    const ranked = [...group].sort(
+      (a, b) => completeness(b) - completeness(a) || a.id.localeCompare(b.id)
+    );
+    kept.push(ranked[0]);
+    duplicates.push({ kept: ranked[0], dropped: ranked.slice(1) });
+  }
+
+  return { kept, duplicates };
+}
+
 /** Every page of the tracker, read fresh. Callers go through queryAllCalls. */
 async function crawlAllCalls(apiKey: string, databaseId: string): Promise<CallRecord[]> {
   const headers = {
@@ -262,6 +331,7 @@ async function crawlAllCalls(apiKey: string, databaseId: string): Promise<CallRe
         quality_score: extractNumber(props["Quality Score"]),
         duration: extractNumber(props["Duration (min)"]),
         recording_url: extractUrl(props["Recording URL"]),
+        recording_id: extractNumber(props["Recording ID"]),
         summary: extractRichText(props.Summary),
         scores: extractScores(props),
         lead: extractLead(props),
