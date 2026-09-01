@@ -200,6 +200,51 @@ try {
   fail(`dedupe query body: ${err.message}`);
 }
 
+/*
+ * THE SECOND CHECK, AND THAT IT STILL GUARDS THE WRITE.
+ *
+ * The first one runs before the scoring, so between it and the Notion write sit
+ * five nodes including the Claude call — tens of seconds in which a second
+ * delivery of the same webhook looks, sees nothing, and writes too. Three of
+ * Brey's August 2026 calls landed twice exactly that way, two of them carrying
+ * different quality scores because each run scored the call separately.
+ *
+ * These pin the shape rather than the behaviour, because the fault was never in
+ * a node — it was in the DISTANCE between two of them. A rewire that put the
+ * write back next to the first check would leave every expression here valid.
+ */
+try {
+  const body = JSON.parse(
+    evalExpr(nodeByName["Still New?"].parameters.jsonBody, dedupeScope)
+  );
+  if (body.filter?.property !== "Recording ID" || body.filter?.number?.equals !== mockDirect.recording_id)
+    fail("the second dedupe query does not filter on Recording ID");
+  else pass("the second dedupe query filters on Recording ID");
+} catch (err) {
+  fail(`second dedupe query body: ${err.message}`);
+}
+
+const leadsTo = (from) =>
+  (workflow.connections[from]?.main ?? []).flat().map((c) => c.node);
+
+if (leadsTo("Claude Analysis").includes("Parse AI Response")) {
+  fail("the scored call goes straight to the write with no second duplicate check");
+} else if (!leadsTo("Claude Analysis").includes("Still New?")) {
+  fail("the scored call does not reach the second duplicate check");
+} else {
+  pass("the scored call passes a second duplicate check after scoring");
+}
+
+// And that the check's YES branch is the one that writes. A guard wired to the
+// wrong branch writes every duplicate and drops every genuine call, which is
+// the same shape of mistake and worse.
+const writeOnce = workflow.connections["Write Once?"]?.main ?? [];
+if ((writeOnce[0] ?? []).some((c) => c.node === "Parse AI Response")) {
+  pass("only a call with no row already on the tracker carries on to the write");
+} else {
+  fail("the second check's true branch does not carry on to the write");
+}
+
 const isNewExpr = nodeByName["Is New Call?"].parameters.conditions.conditions[0].leftValue;
 try {
   const fresh = evalExpr(isNewExpr, { $json: { results: [] }, $: () => ({}) });
@@ -259,7 +304,12 @@ const withThinking = {
   ],
 };
 try {
-  const parsed = evalExpr(parseExpr, { $json: withThinking, $: () => ({}) });
+  // Claude's reply now reaches the parser by node name: a duplicate check sits
+  // between them, so $json at the parser is that check's response.
+  const parsed = evalExpr(parseExpr, {
+    $json: {},
+    $: () => ({ item: { json: withThinking } }),
+  });
   if (parsed.outcome !== "Customer") fail("parser returned the wrong object");
   else pass("parser skips the thinking block and finds the text block");
 } catch (err) {
@@ -267,7 +317,7 @@ try {
 }
 
 try {
-  evalExpr(parseExpr, { $json: { stop_reason: "refusal", content: [] }, $: () => ({}) });
+  evalExpr(parseExpr, { $json: {}, $: () => ({ item: { json: { stop_reason: "refusal", content: [] } } }) });
   fail("parser silently accepted a refusal instead of erroring");
 } catch {
   pass("parser errors on a refusal rather than writing an empty row");
@@ -275,15 +325,17 @@ try {
 
 /* --------------------------------------------------------- 4. Notion body */
 
-const notionScope = {
-  $json: { ai: mockAi },
+const aiFrom = (ai) => ({
+  $json: { ai },
   $: (name) => {
     if (name === "Extract Direct Fields") return { item: { json: mockDirect } };
     if (name === "Load Rubric")
       return { item: { json: { rubric_version: rubric.version } } };
     throw new Error(`unexpected node reference: ${name}`);
   },
-};
+});
+
+const notionScope = aiFrom(mockAi);
 
 let notionBody;
 try {
@@ -435,7 +487,7 @@ if (notionBody) {
 function bodyFor(overrides) {
   const ai = { ...mockAi, ...overrides };
   return JSON.parse(
-    evalExpr(nodeByName["Write to Notion"].parameters.jsonBody, { ...notionScope, $json: { ai } })
+    evalExpr(nodeByName["Write to Notion"].parameters.jsonBody, aiFrom(ai))
   );
 }
 
@@ -670,7 +722,7 @@ if (workflow.active !== false) fail("workflow ships with active: true");
 else pass("workflow ships inactive with no credentials embedded");
 
 // A transient Claude or Notion error must not lose the call.
-const needRetry = ["Already Logged?", "Claude Analysis", "Write to Notion", "Log No-Show"];
+const needRetry = ["Already Logged?", "Still New?", "Claude Analysis", "Write to Notion", "Log No-Show"];
 const noRetry = needRetry.filter((n) => nodeByName[n]?.retryOnFail !== true);
 if (noRetry.length) fail(`nodes without retryOnFail: ${noRetry.join(", ")}`);
 else pass("every external call retries on failure");

@@ -329,7 +329,7 @@
             {
               "id": "parse-ai",
               "name": "ai",
-              "value": "={{ (() => { if ($json.stop_reason === 'refusal') { throw new Error('Claude declined to score this call. stop_reason: refusal.'); } if ($json.stop_reason === 'max_tokens') { throw new Error('Claude ran out of output budget before finishing the scorecard (stop_reason: max_tokens, ' + ($json.usage ? $json.usage.output_tokens : '?') + ' output tokens). The JSON is truncated, so nothing was written. Re-run this execution; if it repeats, the model is looping on one field.'); } const block = ($json.content ?? []).find(b => b.type === 'text'); if (!block) { throw new Error('No text block in the Claude response. stop_reason: ' + $json.stop_reason); } const raw = block.text; try { return JSON.parse(raw); } catch (e) { throw new Error('Claude returned text that is not valid JSON (' + raw.length + ' chars, stop_reason: ' + $json.stop_reason + '): ' + e.message); } })() }}",
+              "value": "={{ (() => { if ($('Claude Analysis').item.json.stop_reason === 'refusal') { throw new Error('Claude declined to score this call. stop_reason: refusal.'); } if ($('Claude Analysis').item.json.stop_reason === 'max_tokens') { throw new Error('Claude ran out of output budget before finishing the scorecard (stop_reason: max_tokens, ' + ($('Claude Analysis').item.json.usage ? $('Claude Analysis').item.json.usage.output_tokens : '?') + ' output tokens). The JSON is truncated, so nothing was written. Re-run this execution; if it repeats, the model is looping on one field.'); } const block = ($('Claude Analysis').item.json.content ?? []).find(b => b.type === 'text'); if (!block) { throw new Error('No text block in the Claude response. stop_reason: ' + $('Claude Analysis').item.json.stop_reason); } const raw = block.text; try { return JSON.parse(raw); } catch (e) { throw new Error('Claude returned text that is not valid JSON (' + raw.length + ' chars, stop_reason: ' + $('Claude Analysis').item.json.stop_reason + '): ' + e.message); } })() }}",
               "type": "object"
             }
           ]
@@ -344,7 +344,7 @@
         1360,
         -208
       ],
-      "notes": "Finds the text block by type rather than taking content[0] — with thinking enabled the first block is a thinking block."
+      "notes": "Reads Claude's reply from the node that made it, not from $json. The duplicate check sits between them, so $json here is a Notion query response — see 'Still New?'."
     },
     {
       "parameters": {
@@ -530,6 +530,87 @@
       "maxTries": 3,
       "waitBetweenTries": 5000,
       "notes": "The call still gets a row — outcome, closer, date, recording link — just no scorecard."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.notion.com/v1/databases/YOUR_NOTION_DATABASE_ID/query",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Notion-Version",
+              "value": "2022-06-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: { property: 'Recording ID', number: { equals: $('Extract Direct Fields').item.json.recording_id } }, page_size: 1 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000016",
+      "name": "Still New?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1248,
+        -32
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "notes": "THE SECOND LOOK, AND THE ONE THAT ACTUALLY GUARDS THE WRITE.\n\n'Already Logged?' runs five nodes earlier, before the scoring. Between it and the Notion write sits the Claude call, which takes tens of seconds — so two deliveries of one Fathom webhook both looked, both saw nothing, and both wrote. That is not theory: three of Brey's August 2026 calls landed twice that way (26th, 27th, 30th), each pair created inside the same minute, and two of the pairs carried DIFFERENT quality scores because each run scored the call separately.\n\nAsking again here shrinks the window from a whole scoring call to the gap between two adjacent nodes. It does not close it — Notion has no unique constraint to make check-and-write atomic, so nothing arranged in this workflow can. The dashboard collapses any that still get through when it reads (dedupeByRecording), and `npm run check:notion` names them so a person can archive the extra row.\n\nThe earlier check is kept: it skips an expensive Claude call on an obvious redelivery, which this one is too late to do."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "still-no-existing-row",
+              "leftValue": "={{ ($json.results ?? []).length === 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000017",
+      "name": "Write Once?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        -32
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a1000000-0000-4000-8000-000000000018",
+      "name": "Duplicate — Written While Scoring",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1584,
+        96
+      ],
+      "notes": "The other delivery of this same webhook finished first. Ending here is the whole point: the call is already on the tracker, scored, and writing again would double it in calls recorded, calls taken, the close-rate denominator, cash and the average score at once."
     }
   ],
   "connections": {
@@ -610,7 +691,7 @@
       "main": [
         [
           {
-            "node": "Parse AI Response",
+            "node": "Still New?",
             "type": "main",
             "index": 0
           }
@@ -669,6 +750,35 @@
         [
           {
             "node": "Log No-Show",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still New?": {
+      "main": [
+        [
+          {
+            "node": "Write Once?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Once?": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Duplicate — Written While Scoring",
             "type": "main",
             "index": 0
           }
