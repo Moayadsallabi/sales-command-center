@@ -379,8 +379,20 @@ code or the variables when an address is added or moved.
 
 ### The scheduled check
 
-`npm run check:scheduled` runs the payments reconciliation and posts one
-plain-English summary to Slack. It is meant to run on a schedule, not by hand.
+`npm run check:scheduled` runs the payments reconciliation, the delivery
+checks and the identification check, and posts one plain-English summary to
+Slack. It is meant to run on a schedule, not by hand.
+
+**Identification** is the newest of them, and the only one measuring a habit
+rather than the software. `Prospect Email` is the key every join runs on, and
+the workflow can only take it from an external guest on the calendar invite —
+so a call booked without the prospect on it arrives tied to nothing, silently.
+Nothing errors; the joins just do not happen, and the dashboard shows revenue
+with no call beside calls with no revenue. On Brey's account it went from none
+missing in June to 35% of August, which is a booking-process change rather than
+drift. `npm run check:identified` reports it on its own, over the last fourteen
+days — a rolling window, because a lifetime figure is dragged down by rows that
+predate any fix and would read "no better" while the habit was working.
 
 It does **not** run `check:accuracy`. That one grades the matcher against a
 closer's tracking sheet the repo cannot ship — and against a frozen answer key,

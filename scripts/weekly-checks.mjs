@@ -231,6 +231,63 @@ function arrivalSection(delivery, dropped) {
   return lines;
 }
 
+/**
+ * Whether recent calls can be tied to anything else at all.
+ *
+ * `Prospect Email` is the key every join runs on, and the workflow can only
+ * take it from an external guest on the calendar invite. It is not a software
+ * fault when it is missing — no error is raised, the joins simply do not
+ * happen — so nothing would ever mention it. On Brey's account it went from 0%
+ * missing in June to 35% in August, and the ask went to the team on 1 September
+ * 2026. This is how anyone finds out whether it took.
+ *
+ * IT ONLY BREAKS SILENCE WHEN THE RATE IS BAD, not every day it is imperfect.
+ * A rate that is over the bar and STAYS over it is the same finding as
+ * yesterday, so the report goes quiet on it exactly the way it goes quiet on a
+ * payment row nobody has fixed yet — and speaks once when it clears.
+ *
+ * A window too small to judge is reported as unknown rather than as clean: a
+ * quiet week is not evidence of a habit taking.
+ */
+function identifiedSection({ code, output }) {
+  if (code === 2) {
+    return {
+      mustFix: ["the identification check could not run"],
+      lines: ["🚨 *Identification* — the check could not run, so whether recent calls can be tied to a payment is UNKNOWN."],
+    };
+  }
+
+  const missing = (output.match(/missing it\s+:\s+(\d+)/) || [])[1];
+  const total = (output.match(/Calls in the last \d+ days: (\d+)/) || [])[1];
+  const pct = (output.match(/\((\d+)%\)/) || [])[1];
+  const anonymous = (output.match(/no name either\s+:\s+(\d+)/) || [])[1];
+
+  if (output.includes("Too few calls in this window to judge")) {
+    return { mustFix: [], lines: [`• *Identification* — only ${total ?? "a few"} call(s) in the window, too few to judge.`] };
+  }
+
+  if (code === 1) {
+    const lines = [
+      `⚠️ *Identification* — ${missing} of ${total} recent calls (${pct}%) arrived with no prospect email, so nothing can tie them to a payment, a booking or an ad.`,
+    ];
+    if (Number(anonymous) > 0) {
+      lines.push(`  • ${anonymous} of those carry no name either — nothing can recover who they were.`);
+    }
+    lines.push(
+      "  • The address comes from a guest on the calendar invite: book through the Calendly link, put the prospect on the invite, and reschedule rather than recreate."
+    );
+    // The identifier stays the same while the problem persists, on purpose —
+    // that is what keeps this quiet between the day it starts and the day it
+    // clears. Including the percentage here would re-post on every wobble.
+    return { mustFix: ["recent calls arriving with no prospect email"], lines };
+  }
+
+  return {
+    mustFix: [],
+    lines: [`✅ *Identification* — ${total} recent call(s), ${100 - Number(pct || 0)}% carrying an address that ties them to their money.`],
+  };
+}
+
 async function postAlert(text) {
   const url = process.env.OPS_ALERT_WEBHOOK;
   if (!url) {
@@ -285,11 +342,33 @@ const delivery = await runScript("check-delivery.mjs", ["--client", CLIENT, "--s
 const dropped = await runScript("check-dropped.mjs", ["--client", CLIENT, "--since", twoWeeksAgo()]);
 const arrivalLines = arrivalSection(delivery, dropped);
 
+const identified = identifiedSection(await runScript("check-identified.mjs"));
+
 const previous = ALWAYS_REPORT ? null : readState(STATE_DIR);
 // A reopened claim is a must-fix in its own right: it is a number that is
 // currently wrong in the client's tracker, which is exactly what this report
 // exists to break silence about.
-const verdict = decide({ mustFix: pay.mustFix || !claimsHold, previous, now: Date.now() });
+//
+// AND IT NEVER DID, until 2026-09-01. This read `pay.mustFix || !claimsHold`,
+// and `pay.mustFix` is always an array — an empty array is truthy in
+// JavaScript, so the expression returned it every time and the `!claimsHold`
+// half could not run. The comment above described behaviour the line had never
+// had. Nothing failed, which is the whole problem: a reopened claim quietly
+// did not break silence, and a report whose job is to speak up stayed quiet
+// about the one thing it names as most urgent.
+//
+// Every contributor is now a STRING IN ONE ARRAY, because that is the shape
+// `decide` fingerprints. A boolean folded in with `||` cannot be fingerprinted
+// and cannot be seen to have gone missing.
+const verdict = decide({
+  mustFix: [
+    ...pay.mustFix,
+    ...(claimsHold ? [] : ["a money claim has been reopened"]),
+    ...identified.mustFix,
+  ],
+  previous,
+  now: Date.now(),
+});
 
 // The coverage check (check-accuracy) is deliberately NOT run here.
 //
@@ -316,6 +395,8 @@ const report = [
   ...claimLines,
   "",
   ...arrivalLines,
+  "",
+  ...identified.lines,
   "",
   reasonLine(verdict.reason, verdict.daysSince),
 ].join("\n");
