@@ -50,3 +50,16 @@ export declare function matchBuyers<T, B extends MatchableBuyer>(
   buyers: Iterable<B>,
   accessors: MatchAccessors<T>
 ): Map<T, BuyerMatch<B>>;
+
+/** How much a name match is worth, judged against the deal price on the row. */
+export type Corroboration = "certain" | "corroborated" | "differs" | "unpriced";
+
+export declare const CORROBORATION: Record<Corroboration, Corroboration>;
+/** Weakest first — the order a person should work them in. */
+export declare const CORROBORATION_ORDER: Corroboration[];
+export declare function corroborationOf(
+  certain: boolean,
+  price: number | null | undefined,
+  paid: number
+): Corroboration;
+export declare function corroborationLabel(grade: Corroboration): string;

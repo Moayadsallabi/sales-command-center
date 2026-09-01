@@ -26,6 +26,10 @@ import {
   matchBuyers,
   buyerHaystacks,
   nameScore,
+  corroborationOf,
+  corroborationLabel,
+  CORROBORATION,
+  CORROBORATION_ORDER,
   CASH_TOLERANCE,
 } from "./lib/buyer-match.mjs";
 
@@ -549,7 +553,32 @@ const untracked = [...buyers.values()]
 
 /* ------------------------------------------------------------------- report */
 
-const guess = (m) => (m.certain ? "" : "  [matched on name, check before editing]");
+/*
+ * HOW MUCH THE NAME MATCH IS WORTH, not just that there was one.
+ *
+ * Every non-email match used to carry the same flat "[matched on name, check
+ * before editing]", so the row resting on nothing but a first name looked
+ * exactly like the one whose deal price agrees to the dollar with what the
+ * buyer banked. A warning that fires on everything gets read as decoration.
+ * The deal price is independent of both the matcher and the cash test, so it
+ * is a real second opinion where it exists. See buyer-match.mjs.
+ */
+const grade = (m) => corroborationOf(m.certain, m.row.priceClosed, m.buyer.paid);
+const guess = (m) => {
+  const label = corroborationLabel(grade(m));
+  return label ? `  [${label}]` : "";
+};
+
+/** Weakest evidence first — the order these are worth working in. */
+const byConfidence = (a, b) => {
+  const rank = CORROBORATION_ORDER.indexOf(grade(a)) - CORROBORATION_ORDER.indexOf(grade(b));
+  return rank !== 0 ? rank : String(a.row.date ?? "").localeCompare(String(b.row.date ?? ""));
+};
+missedCloses.sort(byConfidence);
+cashOff.sort(byConfidence);
+
+/** How many rows in a list have no second source behind them at all. */
+const unpricedIn = (list) => list.filter((m) => grade(m) === CORROBORATION.unpriced).length;
 
 if (missedCloses.length) {
   const worth = missedCloses.reduce((sum, m) => sum + m.buyer.paid, 0);
@@ -630,7 +659,15 @@ if (unbanked.length) {
 }
 
 if (cashOff.length) {
-  console.log(`⚠ ${cashOff.length} customer row${cashOff.length === 1 ? " disagrees" : "s disagree"} with Whop on cash:\n`);
+  const bare = unpricedIn(cashOff);
+  console.log(
+    `⚠ ${cashOff.length} customer row${cashOff.length === 1 ? " disagrees" : "s disagree"} with Whop on cash` +
+      // Named because it is the only part of this list a person has to judge:
+      // the rest carry a deal price that already agrees with the payment.
+      (bare
+        ? `, ${bare} of them resting on the name alone — those are listed first:\n`
+        : ":\n")
+  );
   for (const m of cashOff) {
     // "Whop $4,000" used to mean the buyer's lifetime total, beside a figure
     // that means one call. Both halves now cover the same day, and money that

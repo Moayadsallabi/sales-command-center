@@ -19,6 +19,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { reconcile } from "../src/lib/reconcile";
 import { call, buyer } from "./helpers";
+import { corroborationOf, corroborationLabel } from "../scripts/lib/buyer-match.mjs";
 
 const root = resolve(__dirname, "..");
 const read = (p: string) => readFileSync(resolve(root, p), "utf8");
@@ -126,5 +127,77 @@ describe("there is one matcher", () => {
     // The single line whose absence caused four wrong figures.
     expect(read("scripts/lib/buyer-match.mjs")).toContain("buyer.billing");
     expect(read("src/lib/whop.ts")).toContain("billing_first_name");
+  });
+});
+
+describe("how much a name match is worth", () => {
+  /*
+   * Every non-email match used to carry one flat label, so the row resting on
+   * nothing but a first name read exactly like the one whose deal price agrees
+   * to the dollar with what the buyer banked. The deal price is independent of
+   * both the matcher and the cash test, which is what makes it a second opinion
+   * rather than a restatement.
+   */
+  it("calls an email match certain and says nothing about it", () => {
+    const result = reconcile(
+      [call({ name: "Ron Smith", outcome: "Customer", collected_on_call: 100, prospect_email: "ron@x.com" })],
+      [buyer({ email: "ron@x.com", billing: "RON RON", paid: 750 })]
+    );
+    expect(result.cashOff[0].corroboration).toBe("certain");
+    expect(corroborationLabel(result.cashOff[0].corroboration)).toBe("");
+  });
+
+  it("corroborates a name match whose deal price agrees with what was banked", () => {
+    // LIVE, 30 August 2026. Priced 4,800; banked 4,800; the "480" in Collected
+    // On Call is a missing zero. Two unrelated facts agreeing about who this is.
+    const result = reconcile(
+      [call({ name: "George Segovia", outcome: "Customer", collected_on_call: 480, price_closed: 4800 })],
+      [buyer({ email: "kokitosh25@icloud.com", name: "kokitosh", billing: "George Segovia", paid: 4800 })]
+    );
+    expect(result.cashOff[0].corroboration).toBe("corroborated");
+  });
+
+  it("marks a name match with no price on the row as resting on the name alone", () => {
+    // The shape BOTH August mistakes had: an open call carrying no price and no
+    // cash, so nothing on the row could agree or disagree with the payment.
+    // Often legitimate — a prospect who says no and pays on Friday looks like
+    // this — but it is the weakest evidence here, so it is named as such.
+    const result = reconcile(
+      [call({ name: "Some Prospect", outcome: "BAMFAM", price_closed: null })],
+      [buyer({ email: "s@x.com", billing: "Some Prospect", paid: 2000 })]
+    );
+    expect(result.missedCloses[0].corroboration).toBe("unpriced");
+    expect(corroborationLabel(result.missedCloses[0].corroboration)).toContain("nothing to check");
+  });
+
+  it("does not call a differing price a contradiction", () => {
+    // A deal priced at 4,000 against 400 banked is a customer paying in
+    // instalments as often as it is a wrong match.
+    expect(corroborationOf(false, 4000, 400)).toBe("differs");
+    // And short enough to survive the truncating cell it renders in.
+    for (const g of ["corroborated", "differs", "unpriced"] as const) {
+      expect(corroborationLabel(g).length).toBeLessThanOrEqual(40);
+    }
+    expect(corroborationLabel("differs")).toContain("price differs");
+  });
+
+  it("puts the rows needing a person at the top of the list", () => {
+    const priced = call({
+      name: "Priced Row", outcome: "Customer", collected_on_call: 10,
+      price_closed: 4800, call_date: "2026-08-01",
+    });
+    const bare = call({
+      name: "Bare Row", outcome: "Customer", collected_on_call: 10,
+      price_closed: null, call_date: "2026-08-29",
+    });
+    const result = reconcile(
+      [priced, bare],
+      [
+        buyer({ email: "a@x.com", billing: "Priced Row", paid: 4800 }),
+        buyer({ email: "b@x.com", billing: "Bare Row", paid: 2000 }),
+      ]
+    );
+    // Later date, but weaker evidence — so it leads.
+    expect(result.cashOff.map((d) => d.call.name)).toEqual(["Bare Row", "Priced Row"]);
   });
 });

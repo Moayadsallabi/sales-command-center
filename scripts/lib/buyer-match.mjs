@@ -169,3 +169,94 @@ export function matchBuyers(items, buyers, { emailOf, nameOf }) {
   }
   return byItem;
 }
+
+/* ------------------------------------------------- how good is a name match */
+
+/**
+ * HOW MUCH A NAME MATCH IS WORTH, ASKED OF A SOURCE THE MATCHER NEVER READ.
+ *
+ * An email match is proof. A name match is an inference, and until now every
+ * one of them wore the same flat label — "matched on name, check before
+ * editing" — whether it was overwhelming or a coin flip. That is a warning
+ * nobody can prioritise, so nobody does.
+ *
+ * There is a second signal sitting on the row already: the DEAL PRICE. The
+ * matcher does not look at it, and neither does the test that decides a row
+ * disagrees about cash — that one reads Cash Collected / Collected On Call. So
+ * Price Closed is genuinely independent of both, and when it equals what the
+ * buyer has paid the processor, two unrelated facts have agreed about who this
+ * person is. All five of Brey's August corrections were confirmed by hand this
+ * way before anything was written: George Segovia priced 4,800 against 4,800
+ * banked, Tyre 4,000 against 4,000, Liam 1,500 against 1,500, John Jones 3,000
+ * against 3,000.
+ *
+ * `unpriced` IS THE ONE TO READ. It is not a middle grade — it is the absence
+ * of any second opinion, and it is the exact shape of both matches that were
+ * wrong: "Robert Brown" and "Jaden Pierce" were open calls carrying no price
+ * and no cash, so there was nothing on the row for a payment to agree or
+ * disagree with. A row like that rests on the name alone. That is often
+ * legitimate — a prospect who says no and pays on Friday genuinely has an empty
+ * row, which is the whole reason settling exists — but it is the weakest
+ * evidence this system produces, and it should be the first thing a person
+ * looks at rather than the last.
+ *
+ * `differs` is deliberately NOT called a contradiction. A deal priced at 4,000
+ * against 400 banked is a customer paying in instalments as often as it is a
+ * wrong match, so it means "this did not corroborate", never "this is wrong".
+ */
+export const CORROBORATION = {
+  /** Tied by email. Nothing to second-guess. */
+  certain: "certain",
+  /** The deal price agrees with what the processor banked. */
+  corroborated: "corroborated",
+  /** A price is recorded and it does not agree. Not proof of anything. */
+  differs: "differs",
+  /** No price on the row, so nothing independent to check the name against. */
+  unpriced: "unpriced",
+};
+
+/**
+ * Weakest first, which is the order a person should work them in. Used to sort
+ * both the report and the panel, so the row needing a human is at the top
+ * instead of wherever the date happened to put it.
+ */
+export const CORROBORATION_ORDER = [
+  CORROBORATION.unpriced,
+  CORROBORATION.differs,
+  CORROBORATION.corroborated,
+  CORROBORATION.certain,
+];
+
+/**
+ * @param {boolean} certain  whether the match was made on email
+ * @param {number|null|undefined} price  the deal price recorded on the row
+ * @param {number} paid  what the processor has banked for this buyer
+ */
+export function corroborationOf(certain, price, paid) {
+  if (certain) return CORROBORATION.certain;
+  if (price == null || price <= 0) return CORROBORATION.unpriced;
+  return Math.abs(price - paid) < CASH_TOLERANCE
+    ? CORROBORATION.corroborated
+    : CORROBORATION.differs;
+}
+
+/**
+ * The same judgement in words, for a report line or a chip on the page.
+ *
+ * KEPT SHORT DELIBERATELY. The chip renders inside the row's truncating name
+ * cell, so a sentence gets its second half cut off — and the half that carries
+ * the meaning is the end. Both surfaces print the amounts on the same line
+ * anyway, so the label only has to say which of the three this is.
+ */
+export function corroborationLabel(grade) {
+  switch (grade) {
+    case CORROBORATION.certain:
+      return "";
+    case CORROBORATION.corroborated:
+      return "name match, price agrees";
+    case CORROBORATION.differs:
+      return "name match, price differs — check";
+    default:
+      return "name only — nothing to check it against";
+  }
+}

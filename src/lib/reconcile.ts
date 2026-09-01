@@ -28,7 +28,13 @@ import { CallRecord } from "./types";
 import { WhopBuyer } from "./whop";
 import { collectedToDate } from "./money";
 import { MIN_DEPOSIT, REFUND_OUTCOME } from "./sales-rules";
-import { matchBuyers, CASH_TOLERANCE } from "../../scripts/lib/buyer-match.mjs";
+import {
+  matchBuyers,
+  corroborationOf,
+  CORROBORATION_ORDER,
+  CASH_TOLERANCE,
+  type Corroboration,
+} from "../../scripts/lib/buyer-match.mjs";
 
 /**
  * What a deposit has to reach before a payment settles an open call as won.
@@ -45,6 +51,14 @@ export interface Disagreement {
   payments: number;
   /** False when the two were tied together on a name rather than an address. */
   certain: boolean;
+  /**
+   * How much that name match is worth, judged against the deal price — a
+   * figure neither the matcher nor the cash test reads, so its agreement is a
+   * genuinely second opinion. `unpriced` is the one to look at: it means the
+   * row offered nothing to check the name against, which is the shape both of
+   * the matches that were wrong in August had.
+   */
+  corroboration: Corroboration;
 }
 
 export interface Reconciliation {
@@ -74,8 +88,20 @@ export interface Reconciliation {
   worth: number;
 }
 
-const byDate = (a: Disagreement, b: Disagreement) =>
-  String(a.call.call_date ?? "").localeCompare(String(b.call.call_date ?? ""));
+/**
+ * WEAKEST EVIDENCE FIRST, then by date inside each grade.
+ *
+ * These were sorted by date alone, which put the row resting on nothing but a
+ * first name wherever the calendar happened to place it. The list is a queue of
+ * work for a person, so it is ordered by how much that person is needed.
+ */
+const byConfidence = (a: Disagreement, b: Disagreement) => {
+  const rank =
+    CORROBORATION_ORDER.indexOf(a.corroboration) -
+    CORROBORATION_ORDER.indexOf(b.corroboration);
+  if (rank !== 0) return rank;
+  return String(a.call.call_date ?? "").localeCompare(String(b.call.call_date ?? ""));
+};
 
 export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliation {
   // A NO-SHOW THAT LATER PAID IS NOT A CALL THAT HAPPENED.
@@ -114,6 +140,7 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
       paid: match.buyer.paid,
       payments: match.buyer.payments,
       certain: match.certain,
+      corroboration: corroborationOf(match.certain, call.price_closed, match.buyer.paid),
     };
 
     if (call.outcome !== "Customer" && call.outcome !== REFUND_OUTCOME) {
@@ -132,8 +159,8 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     }
   }
 
-  missedCloses.sort(byDate);
-  cashOff.sort(byDate);
+  missedCloses.sort(byConfidence);
+  cashOff.sort(byConfidence);
 
   const untracked = buyers.filter((b) => !claimed.has(b.email));
 

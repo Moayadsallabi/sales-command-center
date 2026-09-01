@@ -4,6 +4,12 @@ import { Reconciliation } from "@/lib/reconcile";
 import { collectedToDate, formatMoney, formatReporting } from "@/lib/money";
 import { Scale, ExternalLink } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
+import { cn } from "@/lib/utils";
+import {
+  CORROBORATION,
+  corroborationLabel,
+  type Corroboration,
+} from "../../../scripts/lib/buyer-match.mjs";
 
 /** How many rows before the list stops being a list and becomes a wall. */
 const SHOWN = 8;
@@ -115,7 +121,7 @@ export function WhopGap({
                   href={m.call.notion_url}
                   date={m.call.call_date}
                   name={m.call.name}
-                  certain={m.certain}
+                  corroboration={m.corroboration}
                   left={m.call.outcome ?? "—"}
                   right={`paid ${formatReporting(m.paid)}${
                     m.payments > 1 ? ` over ${m.payments}` : ""
@@ -141,7 +147,7 @@ export function WhopGap({
                   href={m.call.notion_url}
                   date={m.call.call_date}
                   name={m.call.name}
-                  certain={m.certain}
+                  corroboration={m.corroboration}
                   left={`tracker ${formatMoney(
                     collectedToDate(m.call),
                     m.call.currency
@@ -211,14 +217,14 @@ function Row({
   href,
   date,
   name,
-  certain,
+  corroboration,
   left,
   right,
 }: {
   href: string;
   date: string | null;
   name: string;
-  certain: boolean;
+  corroboration: Corroboration;
   left: string;
   right: string;
 }) {
@@ -235,10 +241,21 @@ function Row({
       <span className="min-w-0 flex-1 truncate text-[13px] text-zinc-200">
         {name || "Unknown"}
         {/* A name match is an inference, and one that would send someone to
-            edit the wrong prospect's row if it were wrong. Said, every time. */}
-        {!certain && (
-          <span className="ml-2 text-[11px] text-amber-300">
-            matched on name — check first
+            edit the wrong prospect's row if it were wrong. Said, every time —
+            and now said with how much is actually behind it, because a flat
+            "check first" on every one of them is a warning nobody can act on.
+            Amber for the two that need a person, zinc for the one a second
+            source already agreed with. */}
+        {corroboration !== CORROBORATION.certain && (
+          <span
+            className={cn(
+              "ml-2 text-[11px]",
+              corroboration === CORROBORATION.corroborated
+                ? "text-zinc-500"
+                : "text-amber-300"
+            )}
+          >
+            {corroborationLabel(corroboration)}
           </span>
         )}
       </span>
