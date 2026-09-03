@@ -85,6 +85,20 @@ export function reportingRevenue(call: CallRecord): number {
 }
 
 /**
+ * The price agreed, converted for totalling, and nothing else.
+ *
+ * NOT `reportingRevenue`, which is this floored by the cash received. Revenue
+ * is floored because a paid deal cannot have been worth less than the money
+ * that arrived. An outstanding balance is the opposite question — how much of
+ * the agreed price has NOT arrived — and measuring it against a figure that
+ * already contains the cash would report zero for ever. The KPI dashboard
+ * splits the same two apart for the same reason, as DEAL_PRICE against REVENUE.
+ */
+export function reportingClosed(call: CallRecord): number {
+  return toReporting(call.price_closed, call);
+}
+
+/**
  * The price talked about on a call that did not close. Not revenue and not
  * cash — it is what is still on the table on a follow-up, which is the only
  * figure that can size an unworked pipeline.

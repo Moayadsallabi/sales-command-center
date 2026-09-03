@@ -61,6 +61,29 @@ export interface Disagreement {
   corroboration: Corroboration;
 }
 
+/**
+ * A win and what the processor has actually received against it.
+ *
+ * Published for every call the matcher tied to a buyer, not only the ones that
+ * DISAGREE with the tracker — the two lists above are about faults, and a deal
+ * being half paid is not a fault, it is a job. lib/collect.ts turns these into
+ * the chase list.
+ *
+ * Carries no email and no address. The buyer list is matched on the server
+ * precisely so it does not travel; this is the part of it a panel needs.
+ */
+export interface MatchedPayment {
+  call: CallRecord;
+  /** Everything this person has paid, net of refunds. Lifetime, not windowed. */
+  paid: number;
+  /** How many separate payments make that up. */
+  payments: number;
+  /** The day the most recent one landed. */
+  last: string | null;
+  /** False when the tie was made on a name rather than an address. */
+  certain: boolean;
+}
+
 export interface Reconciliation {
   /** Money arrived, but the row is not marked Customer. */
   missedCloses: Disagreement[];
@@ -86,6 +109,8 @@ export interface Reconciliation {
   untrackedBuyers: WhopBuyer[];
   /** Everything the two lists are worth together, for the headline. */
   worth: number;
+  /** Every matched call with the money behind it — see MatchedPayment. */
+  matched: MatchedPayment[];
 }
 
 /**
@@ -130,10 +155,19 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
 
   const missedCloses: Disagreement[] = [];
   const cashOff: Disagreement[] = [];
+  const matched: MatchedPayment[] = [];
 
   for (const call of considered) {
     const match = matches.get(call);
     if (!match) continue;
+
+    matched.push({
+      call,
+      paid: match.buyer.paid,
+      payments: match.buyer.payments,
+      last: match.buyer.last,
+      certain: match.certain,
+    });
 
     const found: Disagreement = {
       call,
@@ -171,6 +205,7 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     untrackedWorth: untracked.reduce((sum, b) => sum + b.paid, 0),
     untrackedBuyers: untracked,
     worth: worthOf(missedCloses, cashOff),
+    matched,
   };
 }
 
@@ -225,6 +260,11 @@ export function windowReconciliation(
     keep(d.call.call_date)
   );
   const cashOff = reconciliation.cashOff.filter((d) => keep(d.call.call_date));
+  // Narrowed with the rest, by its call date, so nothing handed a windowed
+  // reconciliation can read a wider set out of it than the object claims to
+  // hold. The collect list does not want it narrowed and therefore reads the
+  // unwindowed reconciliation — see the ACT band in dashboard.tsx.
+  const matched = reconciliation.matched.filter((m) => keep(m.call.call_date));
   const untrackedBuyers = reconciliation.untrackedBuyers.filter((b) =>
     keep(b.first)
   );
@@ -236,5 +276,6 @@ export function windowReconciliation(
     untrackedWorth: untrackedBuyers.reduce((sum, b) => sum + b.paid, 0),
     untrackedBuyers,
     worth: worthOf(missedCloses, cashOff),
+    matched,
   };
 }

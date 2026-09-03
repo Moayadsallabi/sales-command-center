@@ -197,6 +197,42 @@ Rows without a prospect email fall back to matching on name; anything matched
 that way is labelled, because a wrong guess would send someone to edit the wrong
 prospect's row.
 
+## Who still owes money
+
+**Payments to collect**, in the Act band under the follow-up list. The money
+view has always shown what is outstanding as a total, and a total is not a job:
+the second half of a split deal reads as a slightly smaller Cash collected and
+never as a person to ring. This panel is the same money as a worklist — who,
+how much, and how long since anything arrived from them.
+
+**It is ordered by silence, not by lateness, because the tracker holds no due
+date.** There is no column for when the next payment falls due, and a plan
+agreed out loud on a call usually has no such date written down anywhere.
+Assuming one — thirty days, or the price divided by the number of payments —
+would put a deadline on screen that nobody agreed to and chase customers who
+are paying to schedule. So each row shows how long since money last arrived;
+over 30 days is worth a message and over 60 is worth worrying about, and the
+panel says out loud that both are judgement.
+
+Three things it says rather than hides, each of which would otherwise make the
+list read shorter or surer than it is:
+
+- **Where the money figure came from.** The processor wherever a payment could
+  be tied to the call — Cash Collected is typed by hand and drifts low, which
+  is this population exactly — and the tracker's own figure otherwise, marked
+  *from the tracker*.
+- **Rows with no prospect email**, whose balance nothing could check. This is
+  the shape a duplicated row takes: two Customer rows for the same person three
+  days apart, one without an address, and the second reads as a customer who
+  never paid. Adding the address is the fix — see **Filling in the missing
+  addresses** above.
+- **Wins carrying no price**, which cannot appear at any amount because nothing
+  can say what is left of a deal whose size was never recorded.
+
+Like the follow-up list above it, the date range at the top of the page does not
+apply — a balance does not stop being owed when the filter moves, and unlike a
+follow-up it does not expire at the end of the month either.
+
 ## Access control
 
 [`src/proxy.ts`](src/proxy.ts) puts HTTP basic auth in front of every route, and

@@ -58,6 +58,16 @@ export interface WhopBuyer {
   payments: number;
   /** The earliest payment, YYYY-MM-DD. */
   first: string | null;
+  /**
+   * The most recent payment, YYYY-MM-DD.
+   *
+   * The tracker records no date a payment is DUE — there is no such column, and
+   * on a plan agreed in conversation there is often no such date anywhere. So
+   * the only thing that can say whether a part-paid deal is still moving is
+   * when money last arrived, which is what the collect list is ordered by. See
+   * lib/collect.ts.
+   */
+  last: string | null;
 }
 
 export interface WhopRead {
@@ -158,6 +168,7 @@ async function crawlPayments(key: string): Promise<WhopRead> {
         paid: 0,
         payments: 0,
         first: day,
+        last: day,
       };
       // Kept from whichever payment carries one: a buyer's later renewals can
       // come through with the billing fields empty, and a name that arrived on
@@ -166,6 +177,10 @@ async function crawlPayments(key: string): Promise<WhopRead> {
       existing.paid += net;
       existing.payments += 1;
       if (!existing.first || day < existing.first) existing.first = day;
+      // NOT "the last one seen". The crawl is by page, not by date, so a later
+      // page can hold an earlier payment — taking whichever arrived last would
+      // make how quiet a buyer looks depend on how the processor paginated.
+      if (!existing.last || day > existing.last) existing.last = day;
       buyers.set(email, existing);
     }
 

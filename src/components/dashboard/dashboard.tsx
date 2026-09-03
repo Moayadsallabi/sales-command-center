@@ -31,6 +31,7 @@ import { KPICards } from "./kpi-cards";
 import { CoverageAlarm } from "./coverage-alarm";
 import { WhopGap } from "./whop-gap";
 import { FollowUps } from "./follow-ups";
+import { PaymentsToCollect } from "./payments-to-collect";
 import { CallTable, ExcludedNote, DuplicateNote } from "./call-table";
 import { CloserLeaderboard } from "./closer-leaderboard";
 import { WhatsCostingYou } from "./whats-costing-you";
@@ -52,6 +53,7 @@ import {
   Trophy,
   UserSearch,
   X,
+  HandCoins,
 } from "lucide-react";
 
 /**
@@ -71,6 +73,7 @@ const SECTIONS: NavSection[] = [
   { id: "objections", label: "Objections", icon: MessageSquareWarning },
   { id: "calls", label: "All calls", icon: List },
   { id: "follow-ups", label: "Follow-ups", icon: PhoneForwarded },
+  { id: "to-collect", label: "To collect", icon: HandCoins },
   { id: "data-health", label: "Data health", icon: Activity },
 ];
 
@@ -837,6 +840,26 @@ export function Dashboard({
           <FollowUps order={8} calls={calls} today={today} />
         </div>
 
+        {/* THE SECOND JOB ON THE PAGE, and the same reasoning about the filter:
+            a balance does not stop being owed when the date buttons move, and
+            unlike a follow-up it does not expire at the end of the month
+            either. Reads the UNWINDOWED reconciliation for the same reason —
+            `scopedReconciliation` below is narrowed to the visible window,
+            which would hide June's unpaid instalment in September.
+
+            Under the follow-ups rather than above them: a conversation that
+            never happened is worth less than a deal already agreed, but the
+            follow-up list expires monthly and this one does not, so the one
+            with the deadline goes first. */}
+        <div id="to-collect" className="scroll-mt-32">
+          <PaymentsToCollect
+            order={9}
+            calls={calls}
+            matched={reconciliation?.matched ?? []}
+            today={today}
+          />
+        </div>
+
         {/* DATA HEALTH. Everything above describes the business; these
             describe how much of it the page can actually see.
 
@@ -859,7 +882,7 @@ export function Dashboard({
           </div>
 
           {issues.map((issue) => (
-            <Panel key={issue.id} order={9} tone="alert">
+            <Panel key={issue.id} order={10} tone="alert">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle
                   className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400"
@@ -876,7 +899,7 @@ export function Dashboard({
           ))}
 
           <CoverageAlarm
-            order={10}
+            order={11}
             calls={calls}
             today={today}
             booked={funnel?.booked ?? null}
@@ -884,7 +907,7 @@ export function Dashboard({
 
           {scopedReconciliation && (
             <WhopGap
-              order={11}
+              order={12}
               reconciliation={scopedReconciliation}
               windowLabel={
                 visibleWindow.from === null && visibleWindow.to === null
