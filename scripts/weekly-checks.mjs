@@ -309,8 +309,55 @@ async function postAlert(text) {
   }
 }
 
+/**
+ * Whether the collect list is safe to work from.
+ *
+ * It is the only panel that names a customer and asks somebody to ring them
+ * about money, so it is the only one whose being wrong costs a phone call to a
+ * person who has already paid. That is not hypothetical: the day it shipped, a
+ * customer who paid in full and was refunded most of it back was on the list
+ * for the refund, because the processor reports totals net of refunds.
+ *
+ * The must-fix is deliberately just that one shape — a refunded row still
+ * marked Customer. Everything else the check reports needs a person's judgement
+ * rather than a fix, and a report that shouts weekly about rows nobody can
+ * mechanically resolve is one people stop opening.
+ */
+function collectSection({ code, output }) {
+  if (code === 2) {
+    return {
+      mustFix: ["the collect-list check could not run"],
+      lines: ["🚨 *To collect* — the check could not run, so whether the chase list is safe to work from is UNKNOWN."],
+    };
+  }
+
+  const refunds = headlines(output, ["✗"]);
+  const listed = (output.match(/(\d+) rows would be listed, (\$[\d,]+) owed/) || []);
+  const weak = (output.match(/(\d+) of them rest on less than an address match/) || [])[1];
+
+  const lines = [];
+  if (refunds.length) {
+    lines.push(`⚠️ *To collect* — ${refunds.length === 1 ? "a refunded customer is" : `${refunds.length} refunded customers are`} still marked Customer on the tracker.`);
+    lines.push(...cap(refunds).map((l) => `  • ${l}`));
+    lines.push("  • Mark the row REFUND: until then every money figure on the page counts it.");
+  } else if (listed.length) {
+    lines.push(`✅ *To collect* — ${listed[1]} deals part paid, ${listed[2]} owed, no refunded row on the list.`);
+  } else {
+    lines.push("✅ *To collect* — nothing outstanding on a closed deal.");
+  }
+  if (weak && Number(weak) > 0) {
+    lines.push(`  • ${weak} of them rest on less than an address match — \`npm run check:collect\` names which.`);
+  }
+  return { mustFix: refunds.length ? ["a refunded customer is on the collect list"] : [], lines };
+}
+
 const payments = await runScript("check-payments.mjs");
 const pay = paymentsSection(payments);
+
+/* THE ONE PANEL THAT ASKS SOMEBODY TO PICK UP THE PHONE. Added 2026-09-04 with
+   the collect list itself, rather than left to be run when somebody remembers —
+   which is the mechanism every other check here exists to replace. */
+const collect = collectSection(await runScript("check-collect.mjs"));
 
 // Every missing-money finding somebody already ACTED ON, re-asked of the
 // processor. This runs weekly for the same reason the payments check does: the
@@ -363,6 +410,7 @@ const previous = ALWAYS_REPORT ? null : readState(STATE_DIR);
 const verdict = decide({
   mustFix: [
     ...pay.mustFix,
+    ...collect.mustFix,
     ...(claimsHold ? [] : ["a money claim has been reopened"]),
     ...identified.mustFix,
   ],
@@ -393,6 +441,8 @@ const report = [
   ...pay.lines,
   "",
   ...claimLines,
+  "",
+  ...collect.lines,
   "",
   ...arrivalLines,
   "",

@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+import { readTracker, readPayments, LiveReadError } from "./lib/live-read.mjs";
 // ONE MATCHER, SHARED WITH THE DASHBOARD. It used to be a second copy here and
 // the two drifted apart on live data; `scripts/lib/buyer-match.mjs` opens with
 // what each divergence cost.
@@ -147,152 +148,17 @@ if (!whopKey) {
   );
 }
 
-/* ------------------------------------------------------------- the tracker */
+/* --------------------------------------------------- reading the two systems */
 
-async function readTracker() {
-  const rows = [];
-  let cursor;
-
-  for (;;) {
-    const body = { page_size: 100 };
-    if (cursor) body.start_cursor = cursor;
-
-    const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${notionKey}`,
-        "Notion-Version": NOTION_VERSION,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      fail(
-        `Notion refused the tracker (${res.status}).`,
-        res.status === 401
-          ? "The token is invalid or was rotated. Note that the n8n workflow holds " +
-            "its OWN copy of this token — fixing one does not fix the other."
-          : detail.slice(0, 200)
-      );
-    }
-
-    const page = await res.json();
-    for (const row of page.results ?? []) {
-      const p = row.properties;
-      rows.push({
-        id: row.id,
-        name: (p.Name?.title ?? []).map((t) => t.plain_text ?? "").join(""),
-        email: (p["Prospect Email"]?.email ?? "").trim().toLowerCase() || null,
-        date: p["Call Date"]?.date?.start ?? null,
-        closer: p.Closer?.select?.name ?? null,
-        outcome: p.Outcome?.select?.name ?? null,
-        priceClosed: p["Price Closed"]?.number ?? null,
-        cash: p["Cash Collected"]?.number ?? p["Collected On Call"]?.number ?? 0,
-        // Kept apart from `cash` on purpose. This one is written by the
-        // workflow from what happened on the recording, so it is a claim about
-        // money taken during the call — not a figure a human reconciled after.
-        onCall: p["Collected On Call"]?.number ?? 0,
-        url: `https://www.notion.so/${row.id.replace(/-/g, "")}`,
-      });
-    }
-
-    if (!page.has_more) break;
-    cursor = page.next_cursor;
-  }
-
-  return rows;
-}
-
-/* ---------------------------------------------------------------- the money */
-
-// v2, not v1: v1's payments route refuses a company API key outright whatever
-// its permissions, which reads as a permission problem and is not one. The
-// user expand is what carries the buyer's email, and email is the only join
-// key the tracker and the processor share.
-async function readPayments() {
-  const buyers = new Map();
-
-  for (let page = 1; page <= 200; page++) {
-    const url = new URL(`${WHOP_V2}/payments`);
-    for (const [k, v] of Object.entries({
-      per: 50,
-      page,
-      status: "paid",
-      "expand[]": "user",
-    })) {
-      url.searchParams.set(k, String(v));
-    }
-
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${whopKey}`, "Content-Type": "application/json" },
-    });
-    if (!res.ok) {
-      const detail = await res.text();
-      fail(
-        `Whop refused the payments route (${res.status}).`,
-        "Check in this order: is this still the v2 endpoint, and does the key " +
-          `have payment:basic:read. (${detail.slice(0, 160)})`
-      );
-    }
-
-    const body = await res.json();
-    const payments = Array.isArray(body) ? body : (body.data ?? []);
-    if (payments.length === 0) break;
-
-    for (const p of payments) {
-      const user = p.user && typeof p.user === "object" ? p.user : {};
-      const email = (user.email ?? "").trim().toLowerCase();
-      if (!email) continue;
-
-      // What stayed collected: gross less anything refunded.
-      const gross = [p.final_amount, p.total, p.subtotal].find((v) => typeof v === "number") ?? 0;
-      const net = Math.max(0, gross - (p.refunded_amount ?? 0));
-      const stamp = p.paid_at ?? p.created_at;
-      const day = typeof stamp === "number" ? new Date(stamp * 1000).toISOString().slice(0, 10) : null;
-
-      // Two names come back and they are not equally useful. `user.name` is the
-      // Whop display name and is usually a handle — "stonyartisan82",
-      // "jackdadawg", "CeeLo Tunes" — which matches nothing on a call row. The
-      // billing name is the real person ("Luke Mcdougall", "Nicole Olvera",
-      // "Carlos Lassalle") and is present on every payment. Matching on the
-      // handle alone is why rows carrying a perfectly good name still came back
-      // unmatched, and it is the single cheapest fix to coverage here.
-      const billing = [p.billing_first_name, p.billing_last_name].filter(Boolean).join(" ");
-      const buyer = buyers.get(email) ?? {
-        email,
-        name: user.name || user.username || "",
-        billing: "",
-        paid: 0,
-        // Money that went back out. Kept rather than just netted off, because
-        // "never paid" and "paid and was refunded" are different facts about a
-        // call and want different rows on the tracker.
-        refunded: 0,
-        gross: 0,
-        payments: 0,
-        first: day,
-        // EVERY PAYMENT'S DAY AND AMOUNT, not just the total. The cash check
-        // below has to ask "how much arrived ON the call", and a running total
-        // cannot answer that — see the note on cashOff.
-        history: [],
-      };
-      if (billing && !buyer.billing) buyer.billing = billing;
-      buyer.paid += net;
-      buyer.refunded += p.refunded_amount ?? 0;
-      buyer.gross += gross;
-      buyer.payments += 1;
-      buyer.history.push({ day, amount: net });
-      if (day && (!buyer.first || day < buyer.first)) buyer.first = day;
-      buyers.set(email, buyer);
-    }
-
-    const totalPages = body?.pagination?.total_page ?? 1;
-    if (page >= totalPages) break;
-  }
-
-  return buyers;
-}
+/*
+ * MOVED TO scripts/lib/live-read.mjs ON 2026-09-04, unchanged, because the
+ * dashboard needed the same reads and a second copy is how two readers of one
+ * processor come to disagree. They already had: this reader kept `refunded` per
+ * buyer and the dashboard's netted it off, so a customer who paid in full and
+ * was refunded reached a chase list as somebody who still owed the money.
+ */
+const readTrackerRows = () => readTracker({ notionKey, databaseId });
+const readBuyers = () => readPayments({ whopKey });
 
 /* ----------------------------------------------------------------- matching */
 
@@ -303,8 +169,14 @@ async function readPayments() {
  * that same file, so the report and the page cannot answer differently again.
  */
 
-const allTracker = await readTracker();
-const buyers = await readPayments();
+let allTracker, buyers;
+try {
+  allTracker = await readTrackerRows();
+  buyers = await readBuyers();
+} catch (err) {
+  if (err instanceof LiveReadError) fail(err.message, err.hint);
+  throw err;
+}
 const exclusions = loadExclusions();
 const ruledOut = allTracker.filter((r) => excludedBy(r, exclusions));
 

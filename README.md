@@ -197,6 +197,42 @@ Rows without a prospect email fall back to matching on name; anything matched
 that way is labelled, because a wrong guess would send someone to edit the wrong
 prospect's row.
 
+## Checking the collect list before anyone works it
+
+```bash
+npm run check:collect
+```
+
+The collect list is the only panel that names a customer and asks somebody to
+ring them about money, so it is the only one whose being wrong costs a phone
+call to a person who has already paid. It shipped after an audit done by hand,
+and that audit found two things the whole test suite was green through — a
+refunded customer on the list for the money he had been given back, and a third
+of the rows resting on a match nothing had corroborated. Both were facts about
+the **data**, not the code, which is why no fixture contained them.
+
+So the audit is a command now. It reads Notion and Whop and reports:
+
+- **A refunded customer whose row still says Customer.** The one finding that
+  exits non-zero, because it is a known-wrong amount rather than a question.
+- **Every listed row resting on less than an address match** — matched on name
+  only, an address with no payment against it, or no address at all.
+- **Two won rows sharing a name and a price within a fortnight with no address
+  on one side** — the shape one sale written up twice takes, where the second
+  copy reads as a customer who never paid a penny. Three conditions, because a
+  shared first name on its own is not a finding: the first version reported five
+  pairs of which one was real.
+- **Payments spanning more than one Whop product.** Every balance is a lifetime
+  total measured against one deal's price, so a second offer appearing makes
+  every balance read low. Today's second product is titled "Payment" — a
+  catch-all for taking instalments, not a rival offer.
+- **Won calls with no price**, which can never appear on the list at any amount.
+
+It reports and never concludes: whether two rows are one sale, or whether a
+customer paid under another address, is a question for a person. It runs inside
+`npm run check:weekly` too, so it happens on a schedule rather than when someone
+remembers.
+
 ## Who still owes money
 
 **Payments to collect**, in the Act band under the follow-up list. The money

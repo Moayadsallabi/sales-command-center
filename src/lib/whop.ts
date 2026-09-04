@@ -15,6 +15,8 @@
  */
 
 import { accountKey, cachedRead, cacheSecondsFrom } from "./live-cache";
+// The one reader of the payment processor, shared with the check scripts.
+import { readPayment } from "../../scripts/lib/live-read.mjs";
 
 const WHOP_V2 = process.env.WHOP_API_V2_BASE ?? "https://api.whop.com/api/v2";
 
@@ -145,56 +147,49 @@ async function crawlPayments(key: string): Promise<WhopRead> {
       : (body.data ?? []);
     if (payments.length === 0) break;
 
-    for (const p of payments) {
-      const gross =
-        [p.final_amount, p.total, p.subtotal].find(
-          (v) => typeof v === "number"
-        ) ?? 0;
-      const refunded =
-        typeof p.refunded_amount === "number" ? p.refunded_amount : 0;
-      const net = Math.max(0, (gross as number) - refunded);
-      const stamp = (p.paid_at ?? p.created_at) as number | undefined;
-      if (net <= 0 || typeof stamp !== "number") continue;
+    for (const raw of payments) {
+      /* THE SAME READER THE CHECK SCRIPTS USE, not a second one.
+         This loop had its own copy of the field extraction, and on 2026-09-04
+         the two turned out to disagree about the one field that decides whether
+         a shortfall is a debt: scripts/lib/live-read.mjs keeps `refunded` per
+         payment — its comment says why, "never paid" and "paid and was
+         refunded" are different facts — and this copy netted it off and threw
+         it away. A customer who paid $2,000 in full and was given $1,667 back
+         reached the collect list as somebody owing $1,667.
+         Two readers of one processor is the same fault the buyer matcher had,
+         fixed the same way: one implementation, imported by both sides. */
+      const p = readPayment(raw);
+      if (p.net <= 0 || !p.day) continue;
 
-      const day = new Date(stamp * 1000).toISOString().slice(0, 10);
-      days.push({ day, amount: net });
+      days.push({ day: p.day, amount: p.net });
 
       // A payment with no user expanded still counts towards the totals; it
       // just cannot be tied to a call, so it does not become a buyer.
-      const user = (p.user && typeof p.user === "object" ? p.user : {}) as Record<
-        string,
-        unknown
-      >;
-      const email = String(user.email ?? "").trim().toLowerCase();
-      if (!email) continue;
+      if (!p.email) continue;
 
-      const billing = [p.billing_first_name, p.billing_last_name]
-        .filter((part): part is string => typeof part === "string" && part.trim() !== "")
-        .join(" ");
-
-      const existing = buyers.get(email) ?? {
-        email,
-        name: String(user.name || user.username || ""),
+      const existing = buyers.get(p.email) ?? {
+        email: p.email,
+        name: p.handle,
         billing: "",
         paid: 0,
         refunded: 0,
         payments: 0,
-        first: day,
-        last: day,
+        first: p.day,
+        last: p.day,
       };
       // Kept from whichever payment carries one: a buyer's later renewals can
       // come through with the billing fields empty, and a name that arrived on
       // their first payment is still their name.
-      if (!existing.billing && billing) existing.billing = billing;
-      existing.paid += net;
-      existing.refunded += refunded;
+      if (!existing.billing && p.billing) existing.billing = p.billing;
+      existing.paid += p.net;
+      existing.refunded += p.refunded;
       existing.payments += 1;
-      if (!existing.first || day < existing.first) existing.first = day;
+      if (!existing.first || p.day < existing.first) existing.first = p.day;
       // NOT "the last one seen". The crawl is by page, not by date, so a later
       // page can hold an earlier payment — taking whichever arrived last would
       // make how quiet a buyer looks depend on how the processor paginated.
-      if (!existing.last || day > existing.last) existing.last = day;
-      buyers.set(email, existing);
+      if (!existing.last || p.day > existing.last) existing.last = p.day;
+      buyers.set(p.email, existing);
     }
 
     const totalPages = body?.pagination?.total_page ?? 1;

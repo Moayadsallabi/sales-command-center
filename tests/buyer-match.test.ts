@@ -126,7 +126,51 @@ describe("there is one matcher", () => {
   it("builds its text from the billing name, so a reader cannot drop it again", () => {
     // The single line whose absence caused four wrong figures.
     expect(read("scripts/lib/buyer-match.mjs")).toContain("buyer.billing");
-    expect(read("src/lib/whop.ts")).toContain("billing_first_name");
+    /* THIS ASSERTED ON whop.ts UNTIL 2026-09-04, when the field extraction it
+       was watching moved into the shared reader — so the claim moves with it.
+       Strictly stronger than what it replaced: it is no longer enough for the
+       page to MENTION the billing name, there must be exactly one place that
+       reads it. */
+    expect(read("scripts/lib/live-read.mjs")).toContain("billing_first_name");
+    expect(read("src/lib/whop.ts")).toContain("live-read.mjs");
+  });
+});
+
+/*
+ * THE SAME CLAIM, ABOUT THE READER RATHER THAN THE MATCHER.
+ *
+ * The matcher was unified after two copies drifted; the READER of the same
+ * processor stayed in two copies for months longer, and on 2026-09-04 they were
+ * found disagreeing about the one field that decides whether a shortfall is a
+ * debt. scripts/lib/live-read.mjs kept `refunded` per buyer and the dashboard's
+ * loop netted it off, so a customer who paid in full and was refunded reached
+ * the collect list owing the refund.
+ *
+ * These hold the same shape as the matcher's guards above: not "the copies
+ * agree today" but "there is nothing left to keep in agreement".
+ */
+describe("there is one reader of the payment processor", () => {
+  it("is imported by both the page and the scripts", () => {
+    expect(read("src/lib/whop.ts")).toContain("live-read.mjs");
+    expect(read("scripts/check-payments.mjs")).toContain("live-read.mjs");
+  });
+
+  it("is not re-declared in the page's crawl", () => {
+    const whop = read("src/lib/whop.ts");
+    // The raw processor fields. Any of them appearing here again means a second
+    // extraction has grown beside the shared one.
+    for (const field of ["final_amount", "refunded_amount", "billing_first_name", "billing_reason"]) {
+      expect(whop, `whop.ts reads ${field} itself instead of through the shared reader`)
+        .not.toContain(`p.${field}`);
+    }
+  });
+
+  it("keeps a refund as its own fact rather than netting it away", () => {
+    // The field whose absence put a refunded customer on a chase list.
+    const reader = read("scripts/lib/live-read.mjs");
+    expect(reader).toContain("refunded");
+    expect(read("scripts/lib/live-read.d.mts")).toContain("refunded: number");
+    expect(read("src/lib/whop.ts")).toContain("refunded");
   });
 });
 

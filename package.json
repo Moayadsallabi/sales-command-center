@@ -17,6 +17,7 @@
     "check:calendly": "node scripts/check-calendly.mjs",
     "check:accuracy": "node scripts/check-accuracy.mjs",
     "check:payments": "node scripts/check-payments.mjs",
+    "check:collect": "node scripts/check-collect.mjs",
     "fix:notion": "node scripts/fix-notion.mjs",
     "configure:client": "node scripts/configure-client.mjs",
     "configure:score-form": "node scripts/configure-score-form.mjs",
