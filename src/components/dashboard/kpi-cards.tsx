@@ -21,6 +21,7 @@ import {
   reportingRevenue,
 } from "@/lib/money";
 import {
+  AlertTriangle,
   CalendarCheck,
   PhoneCall,
   Target,
@@ -382,21 +383,55 @@ function Tile({
         hero ? "lg:p-6" : "lg:p-5"
       )}
     >
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="t-label text-zinc-400">{label}</span>
+      {/* ICON FIRST, THEN THE LABEL — the same order as every PanelHeader on
+          the page. It sat top-RIGHT here and top-left everywhere else, so a row
+          of tiles and the panels under them started on two different alignments
+          for no reason a reader could name. */}
+      <div className="mb-3 flex items-center gap-2">
         <Icon
-          className={cn("h-4 w-4 shrink-0", accent ? "text-gold-500" : "text-zinc-500")}
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            accent ? "text-gold-500" : "text-zinc-500"
+          )}
           strokeWidth={1.5}
         />
+        <span className="t-label text-zinc-400">{label}</span>
+        {/* A MARK, NOT A PARAGRAPH. This was the full FX sentence printed under
+            the number on BOTH money tiles, and again in full in the data-health
+            band — the same amber caveat three times, and the loudest thing above
+            the fold on a page whose own rule is that amber is spent on the "n to
+            check" chip and nowhere else up here. The sentence still exists, once,
+            at the foot of the page; this is the mark on the two figures it
+            actually affects, carrying the whole sentence on hover. */}
+        {warning && (
+          <span
+            title={warning}
+            aria-label={warning}
+            className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/[0.08] px-1.5 py-0.5 text-[11px] font-medium text-amber-300"
+          >
+            <AlertTriangle className="h-2.5 w-2.5" strokeWidth={2} />
+            FX
+          </span>
+        )}
       </div>
 
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
+      {/* The hero's delta is pushed to the far edge rather than trailing the
+          number: at this size the figure uses a third of the card and the rest
+          was empty. Only above `sm`, where there is a width to push it across. */}
+      <div
+        className={cn(
+          "flex flex-wrap items-baseline gap-x-3 gap-y-1.5",
+          hero && "sm:flex-nowrap sm:justify-between"
+        )}
+      >
         <AnimatedNumber
           value={value}
           format={format}
           className={cn(
             "font-mono font-bold tracking-tight tabular-nums",
-            hero ? "text-4xl lg:text-5xl" : accent ? "text-2xl lg:text-3xl" : "text-2xl",
+            // The four small tiles were a step below Revenue beside them, which
+            // left each one a 2xl number floating over an empty band. One size.
+            hero ? "text-4xl lg:text-5xl" : "text-2xl lg:text-3xl",
             accent ? "text-gold-400" : "text-zinc-100"
           )}
         />
@@ -430,7 +465,7 @@ function Tile({
         <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
           {breakdown.map((item) => (
             <div key={item.label}>
-              <dt className="t-label text-zinc-500">{item.label}</dt>
+              <dt className="t-label text-zinc-400">{item.label}</dt>
               <dd className="mt-0.5 font-mono text-[15px] tabular-nums text-zinc-200">
                 {item.value}
               </dd>
@@ -443,11 +478,6 @@ function Tile({
           across a row of tiles of different heights. */}
       <div className="mt-auto pt-3">
         <SourceNote source={source}>{note}</SourceNote>
-        {warning && (
-          <p className="mt-1.5 pl-3 text-[11px] leading-snug text-amber-300/90">
-            {warning}
-          </p>
-        )}
       </div>
     </motion.div>
   );

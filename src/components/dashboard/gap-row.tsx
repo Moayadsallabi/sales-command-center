@@ -139,7 +139,7 @@ export function GapRow({
       <span className="col-start-1 row-start-1 min-w-0 text-[13px] text-zinc-300">
         <span className="block truncate">{label}</span>
         {sublabel && (
-          <span className="block font-mono text-[11px] text-zinc-400">
+          <span className="block text-[11px] tabular-nums text-zinc-400">
             {sublabel}
           </span>
         )}
@@ -199,9 +199,25 @@ export function GapRow({
         >
           {gap > 0 ? `+${gap}` : `${gap}`}
         </span>
-        <span className="block text-[11px] leading-tight text-zinc-400">
-          {swing === 0 ? "one call moves it <1" : `one call moves it ${swing}`}
-          {!conclusive && " — too close"}
+        {/* ONE PHRASE OR THE OTHER, NEVER BOTH. An inconclusive row appended
+            "— too close" to the swing sentence and the result broke across
+            three lines under a two-character figure, which is the untidiest
+            thing on the panel and lands on the row that already says the least.
+            The swing itself is not lost: it is the whole of this line on a
+            conclusive row, and the tooltip on an inconclusive one. */}
+        <span
+          className="block text-[11px] leading-tight text-zinc-400"
+          title={
+            swing === 0
+              ? "One more call landing the other way would move this gap by less than a point"
+              : `One more call landing the other way would move this gap by ${swing} points`
+          }
+        >
+          {!conclusive
+            ? "too close to call"
+            : swing === 0
+            ? "one call moves it <1"
+            : `one call moves it ${swing}`}
         </span>
       </span>
     </div>

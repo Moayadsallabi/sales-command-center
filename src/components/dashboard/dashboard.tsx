@@ -542,9 +542,16 @@ export function Dashboard({
           and each row is allowed to scroll sideways rather than wrap. */}
       <header className="shell-offset-top sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
+          {/* THE TITLE BLOCK KEEPS A REAL MINIMUM WIDTH.
+              At 170px it could be squeezed until the inner block — which is
+              `min-w-0` so the name can truncate — shrank below its own
+              contents, and the two `shrink-0` pills inside it then spilled out
+              and drew on top of the "n to check" chip beside them. Measured on
+              a tablet at 834px: the eyebrow rendered as "SA…" and "Demo data"
+              sat underneath "1 to check". */}
           <motion.div
             {...titleMotion}
-            className="flex min-w-[170px] flex-1 items-center gap-3"
+            className="flex min-w-[240px] flex-1 items-center gap-3"
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gold-500/20 bg-gold-500/10">
               <SalesCommandMark size={24} className="text-gold-500" />
@@ -600,15 +607,20 @@ export function Dashboard({
             )}
           </motion.div>
 
+          {/* AND THE CONTROLS TAKE THEIR OWN ROW UNTIL THERE IS ROOM FOR BOTH.
+              This shared the title's row from `sm` up — 640px — where seven
+              date presets, two date fields and the live indicator leave the
+              title nothing. `xl` is the first step at which both fit beside the
+              section rail; under it the header is simply two rows. */}
           <motion.div
             {...controlsMotion}
-            className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:justify-end"
+            className="flex w-full min-w-0 items-center gap-3 xl:w-auto xl:justify-end"
           >
             {/* DATE RANGE. The presets answer "how is this week going". The
                 two date fields answer "what happened between these dates",
                 which is what reading a launch week, an ad flight or a single
                 month back needs, and no preset can express. */}
-            <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 sm:flex-none sm:items-end">
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 xl:flex-none xl:items-end">
               <div className="flex w-full min-w-0 items-center gap-2">
                 {dateRange === "custom" && (
                   <div className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gold-500/20 bg-gold-500/[0.06] px-2 py-1">
@@ -932,7 +944,7 @@ export function Dashboard({
           <span className="text-[11px] uppercase tracking-[0.15em] text-zinc-400">
             {brandName || "Sales Analytics"}
           </span>
-          <span className="font-mono text-[11px] tabular-nums text-zinc-400">
+          <span className="text-[11px] text-zinc-400">
             Calls from Notion · bookings from Calendly · money from Whop
           </span>
         </div>
@@ -961,7 +973,7 @@ function FilterGroup({
 }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <span className="t-label shrink-0 text-zinc-500">{label}</span>
+      <span className="t-label shrink-0 text-zinc-400">{label}</span>
       <div className="flex shrink-0 items-center gap-1.5">{children}</div>
     </div>
   );
@@ -996,8 +1008,11 @@ function FilterPill({
           ? on
           : dimmed
           ? // Excluded, not disabled. It was zinc-600 on transparent, which
-            // measured 2.6:1 and read as broken rather than as off.
-            "border-white/[0.05] bg-transparent text-zinc-500 hover:text-zinc-300"
+            // measured 2.6:1 and read as broken rather than as off, then
+            // zinc-500, which is 4.1:1 — under the readable floor, and this is
+            // a pill carrying a word. Held apart from an available pill by its
+            // border and fill now rather than by unreadable text.
+            "border-white/[0.05] bg-transparent text-zinc-400 hover:text-zinc-200"
           : "border-white/[0.08] bg-white/[0.02] text-zinc-300 hover:text-zinc-100"
       }`}
     >

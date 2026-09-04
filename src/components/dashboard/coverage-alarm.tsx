@@ -104,8 +104,17 @@ export function CoverageAlarm({
             would turn a stoppage into a shorter chart. */}
         <div className="shrink-0">
           <div className="flex h-16 items-end gap-1.5">
+            {/* GREY BARS, ONE GOLD. Every past week was drawn in gold at half
+                opacity, which over this page's background lands as mustard —
+                six bars of it, and the one bar the panel's own logic cares
+                about looked exactly like the other five. The last FULL week is
+                the week every warning here rests on, so it is the one that
+                carries the colour: gold normally, amber when it has collapsed.
+                The current week stays the palest, because it is part-run by
+                definition and is never the evidence. */}
             {weeks.map((w, i) => {
               const current = i === weeks.length - 1;
+              const lastFull = i === weeks.length - 2;
               return (
                 <div key={w.week} className="flex w-9 flex-col items-center gap-1">
                   <span className="font-mono text-[11px] tabular-nums text-zinc-300">
@@ -115,12 +124,20 @@ export function CoverageAlarm({
                     className={`w-full rounded-sm ${
                       current
                         ? "bg-white/[0.10]"
-                        : collapsed && i === weeks.length - 2
-                        ? "bg-amber-500/60"
-                        : "bg-gold-500/50"
+                        : lastFull && collapsed
+                        ? "bg-amber-500/80"
+                        : lastFull
+                        ? "bg-gold-500"
+                        : "bg-white/[0.18]"
                     }`}
                     style={{ height: `${Math.max((w.calls / peak) * 40, 2)}px` }}
-                    title={`${w.calls} recorded in the week of ${w.week}`}
+                    title={`${w.calls} recorded in the week of ${w.week}${
+                      current
+                        ? " — this week, still running"
+                        : lastFull
+                        ? " — the last full week, which is what any warning here is measured on"
+                        : ""
+                    }`}
                   />
                 </div>
               );
@@ -130,6 +147,15 @@ export function CoverageAlarm({
             <span>6 weeks ago</span>
             <span>this week</span>
           </div>
+          {/* One gold bar among five grey ones needs saying, or it reads as
+              decoration. Named here rather than left in a tooltip, because the
+              whole panel rests on that week. */}
+          <p className="mt-1 text-[11px] text-zinc-400">
+            <span className={collapsed ? "text-amber-400" : "text-gold-400"}>
+              ▪
+            </span>{" "}
+            last full week — what the reading below is measured on
+          </p>
         </div>
 
         <div className="min-w-0 flex-1 space-y-2">

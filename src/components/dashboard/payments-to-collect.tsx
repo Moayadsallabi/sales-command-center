@@ -3,6 +3,7 @@
 import { CallRecord } from "@/lib/types";
 import { MatchedPayment } from "@/lib/reconcile";
 import {
+  Balance,
   collectable,
   COLLECT_QUIET_DAYS,
   COLLECT_COLD_DAYS,
@@ -29,6 +30,16 @@ const EVIDENCE: Record<string, string> = {
   unfound: "no payment found — figure from the tracker",
   no_email: "no email on the row — check it first",
 };
+
+/**
+ * A row carrying money the tracker cannot date.
+ *
+ * Written once because it is asked twice — by the sentence in the subtitle and
+ * by the cell that sentence is about — and two copies of one predicate is how a
+ * count and the rows it counts come to disagree. It is NOT "nothing has ever
+ * arrived": that is a third state, and its cell says "Nothing yet".
+ */
+const paidButUndated = (item: Balance) => !item.lastPaid && item.paid > 0;
 
 /**
  * The money that is owed, as people to ring rather than as a total.
@@ -64,6 +75,16 @@ export function PaymentsToCollect({
   const rest = result.items.slice(SHOWN);
   const restOwed = rest.reduce((sum, i) => sum + i.owed, 0);
   const none = result.items.length === 0;
+
+  /**
+   * Rows carrying money with no date against it, said once in the subtitle
+   * rather than shouted on each row — see the note on the Last paid cell.
+   *
+   * COUNTED OVER THE WHOLE LIST, NOT THE FIFTEEN ON SCREEN. The sentence is
+   * about the list, and a count of the visible slice under a sentence about
+   * the list is this workspace's most-repeated fault.
+   */
+  const undated = result.items.filter(paidButUndated).length;
 
   /* A PANEL THAT CANNOT FILL IS NOT DRAWN — but this one can, and an empty one
      is the good news that every closed deal has been paid for. It is drawn
@@ -106,6 +127,25 @@ export function PaymentsToCollect({
                       result.needsChecking === 1 ? "it" : "those"
                     } before ringing.`
                   : ""
+              }${
+                /* Said here rather than coloured on every row it applies to.
+                   How long a row has been quiet is a judgement worth marking;
+                   not knowing when the money last moved is a gap in the
+                   tracker, and a gap repeated fifteen times in red reads as
+                   fifteen emergencies. */
+                /* Worded around the two cases, because on most accounts the
+                   answer is "all of them" and "17 closed deals are part paid …
+                   17 have been part paid with no date" says seventeen twice
+                   and reads as two different groups. */
+                undated === 0
+                  ? ""
+                  : undated === result.items.length
+                  ? ` None of them records when money last arrived, so the silence is counted from the call instead.`
+                  : ` ${undated} of them ${
+                      undated === 1 ? "has" : "have"
+                    } no record of when money last arrived, so ${
+                      undated === 1 ? "its" : "their"
+                    } silence is counted from the call instead.`
               }`
         }
         right={
@@ -206,22 +246,26 @@ export function PaymentsToCollect({
           {/* Named columns, hidden below `sm` where the rows stack and each
               value carries its own label instead — the same shape as the
               follow-up list above, because it is the same kind of list. */}
-          <div className="hidden gap-x-3 px-3.5 pb-1.5 sm:grid sm:grid-cols-[86px_minmax(0,1fr)_110px_120px_12px]">
-            <span className="t-label text-zinc-500">Last paid</span>
-            <span className="t-label text-zinc-500">Prospect</span>
-            <span className="t-label text-zinc-500">Closer</span>
-            <span className="t-label text-right text-zinc-500">Still owed</span>
+          <div className="hidden gap-x-3 px-1 pb-1.5 sm:grid sm:grid-cols-[86px_minmax(0,1fr)_110px_120px_12px]">
+            <span className="t-label text-zinc-400">Last paid</span>
+            <span className="t-label text-zinc-400">Prospect</span>
+            <span className="t-label text-zinc-400">Closer</span>
+            <span className="t-label text-right text-zinc-400">Still owed</span>
             <span />
           </div>
 
-          <div className="space-y-1">
+          {/* A RULE BETWEEN ROWS, NOT A BOX AROUND EACH. Fifteen bordered,
+              filled rectangles inside a bordered, filled card is the densest
+              clutter on the page, and it gets worse the longer the list — which
+              is exactly when this panel matters most. */}
+          <div className="divide-y divide-white/[0.05] border-y border-white/[0.05]">
             {shown.map((item) => (
               <a
                 key={item.call.id}
                 href={item.call.notion_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.03] sm:grid-cols-[86px_minmax(0,1fr)_110px_120px_12px]"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-1 py-2.5 transition-colors hover:bg-white/[0.02] sm:grid-cols-[86px_minmax(0,1fr)_110px_120px_12px]"
               >
                 <span className="col-span-3 min-w-0 truncate text-[15px] font-medium text-zinc-100 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:text-[13px] sm:font-normal sm:text-zinc-200">
                   {item.call.name || "Unknown"}
@@ -236,13 +280,24 @@ export function PaymentsToCollect({
                     against says nothing yet. Drawn the same way, the first
                     demo row read "Nothing yet" beside "$1,125 of $4,500", which
                     is the row contradicting itself. */}
+                {/* THE RAMP ONLY COLOURS WHAT IT MEASURES. Amber and red here
+                    mean "nothing has arrived for this long", and that claim
+                    rests on a payment date. A row with no date has its silence
+                    counted from the CALL instead — the weaker marker this
+                    panel's own info popover describes — and it was rendering in
+                    the loudest red on the page, on most of the list at once,
+                    for what is a gap in the tracker rather than a verdict about
+                    a customer. Undated rows are muted and counted once in the
+                    subtitle; red is left to mean something. */}
                 <span
-                  className={`whitespace-nowrap font-mono text-[13px] tabular-nums sm:col-start-1 sm:row-start-1 ${
-                    item.quiet >= COLLECT_COLD_DAYS
-                      ? "text-[var(--color-negative)]"
+                  className={`whitespace-nowrap text-[13px] tabular-nums sm:col-start-1 sm:row-start-1 ${
+                    !item.lastPaid
+                      ? "text-zinc-400"
+                      : item.quiet >= COLLECT_COLD_DAYS
+                      ? "font-mono text-[var(--color-negative)]"
                       : item.quiet >= COLLECT_QUIET_DAYS
-                      ? "text-amber-400"
-                      : "text-zinc-300"
+                      ? "font-mono text-amber-400"
+                      : "font-mono text-zinc-300"
                   }`}
                   title={
                     item.lastPaid
@@ -262,7 +317,7 @@ export function PaymentsToCollect({
                 >
                   {item.lastPaid
                     ? `${item.quiet}d ago`
-                    : item.paid > 0
+                    : paidButUndated(item)
                     ? "No date"
                     : "Nothing yet"}
                 </span>
@@ -271,11 +326,14 @@ export function PaymentsToCollect({
                 </span>
                 <span className="text-right font-mono text-[13px] tabular-nums text-gold-300 sm:col-start-4 sm:row-start-1">
                   {formatReporting(item.owed)}{" "}
-                  <span className="text-[11px] text-zinc-400">
-                    of {formatReporting(item.price)}
+                  <span className="font-sans text-[11px] text-zinc-400">
+                    of{" "}
+                    <span className="font-mono tabular-nums">
+                      {formatReporting(item.price)}
+                    </span>
                   </span>
                   {item.trackerSays != null && (
-                    <span className="block text-[11px] font-sans text-zinc-500">
+                    <span className="block text-[11px] font-sans text-zinc-400">
                       row says {formatReporting(item.trackerSays)} collected
                     </span>
                   )}
@@ -284,7 +342,7 @@ export function PaymentsToCollect({
                       className={`block text-[11px] font-sans ${
                         item.evidence === "no_email"
                           ? "text-amber-400/80"
-                          : "text-zinc-500"
+                          : "text-zinc-400"
                       }`}
                     >
                       {EVIDENCE[item.evidence]}

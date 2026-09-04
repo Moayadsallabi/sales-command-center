@@ -371,7 +371,13 @@ function buildCall({
     fx_rate: closed && i % 4 === 0 ? (i % 8 === 0 ? null : 1.085) : null,
     prospect_revenue: `${20 + Math.floor(rand() * 60)}k/mo`,
     niche: NICHES[i % NICHES.length],
-    location: "—",
+    /* EMPTY, NOT AN EM DASH — which is what an unfilled Notion Location
+       actually reads as. `CallFacts` skips a fact with no value, and the dash
+       defeated that check: the scorecard drew a "Based in" heading with a dash
+       under it, which reads as a field that failed rather than one nobody
+       filled in. A demo that renders an empty row teaches the shape of an
+       empty row. */
+    location: "",
     lead_source: SOURCES[i % SOURCES.length],
     quality_score:
       scored.length === 0

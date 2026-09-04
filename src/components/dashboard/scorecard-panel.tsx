@@ -229,7 +229,7 @@ function ScorecardBody({
             <h3 className="truncate text-base font-semibold text-zinc-100">
               {call.name || "Unknown"}
             </h3>
-            <p className="mt-0.5 text-[11px] text-zinc-500">
+            <p className="mt-0.5 text-[11px] text-zinc-400">
               {call.closer ?? "Unassigned"}
               {call.call_date ? ` · ${call.call_date}` : ""}
               {call.duration != null ? ` · ${call.duration} min` : ""}
@@ -265,7 +265,7 @@ function ScorecardBody({
                 {overall.toFixed(1)}
               </span>
               <span className="text-zinc-400">/10</span>{" "}
-              <span className="text-zinc-500">{verdictFor(overall)}</span>
+              <span className="font-sans text-zinc-400">{verdictFor(overall)}</span>
             </span>
           )}
           {/* Sat next to the call score deliberately. The pair is the finding:
@@ -279,7 +279,7 @@ function ScorecardBody({
                 {lead}
               </span>
               <span className="text-zinc-400">/{LEAD_MAX}</span>{" "}
-              <span className="text-zinc-500">{leadBandFor(lead)} lead</span>
+              <span className="font-sans text-zinc-400">{leadBandFor(lead)} lead</span>
             </span>
           )}
           {flags.map((f) => (
@@ -300,7 +300,7 @@ function ScorecardBody({
         {booking && <BeforeTheCall booking={booking} />}
 
         {overall == null ? (
-          <p className="text-[13px] text-zinc-500">
+          <p className="text-[13px] text-zinc-400">
             {call.outcome === "No show"
               ? "Nobody turned up, so there is nothing to score."
               : "This call has no scorecard. It was recorded before the scoring was installed, or the scoring step failed."}
@@ -332,11 +332,13 @@ function ScorecardBody({
 
             {weakSpots.length > 0 && (
               <Section title="What went wrong">
-                <div className="space-y-2">
+                {/* Hairlines rather than a box each, as everywhere else a list
+                    of rows repeats on this page. */}
+                <div className="divide-y divide-white/[0.05] border-y border-white/[0.05]">
                   {shown.map(({ dimension, score }) => (
                     <div
                       key={dimension.key}
-                      className="flex items-start gap-3 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5"
+                      className="flex items-start gap-3 px-1 py-2.5"
                     >
                       <span
                         className="mt-px w-6 shrink-0 font-mono text-[15px] font-bold tabular-nums"
@@ -348,7 +350,7 @@ function ScorecardBody({
                         <p className="text-[13px] font-medium text-zinc-200">
                           {dimension.plainName}
                         </p>
-                        <p className="mt-0.5 text-[13px] text-zinc-500">
+                        <p className="mt-0.5 text-[13px] text-zinc-400">
                           {dimension.plainQuestion}
                         </p>
                       </div>
@@ -396,13 +398,13 @@ function ScorecardBody({
               <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
                 <div className="mb-3 flex items-center gap-2">
                   <UserSearch className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.5} />
-                  <h4 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-500">
+                  <h4 className="text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400">
                     The lead they were handed
                   </h4>
                 </div>
 
                 {lead == null ? (
-                  <p className="text-[13px] text-zinc-500">
+                  <p className="text-[13px] text-zinc-400">
                     The call ended before enough of the prospect was established to
                     score them. That is a fact about the call, not about the lead.
                   </p>

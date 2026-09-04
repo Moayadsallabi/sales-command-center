@@ -26,7 +26,7 @@ function Trend({ value }: { value: number | null }) {
   const Icon = better ? TrendingUp : TrendingDown;
   return (
     <span
-      className={`inline-flex items-center justify-end gap-1 ${
+      className={`inline-flex items-center justify-end gap-1 font-mono ${
         better
         ? "text-[var(--color-positive)]"
         : "text-[var(--color-negative)]"
@@ -53,6 +53,19 @@ export function CloserLeaderboard({
   order?: number;
 }) {
   const rows = closerLeaderboard(calls, previousCalls);
+
+  /**
+   * THE TREND COLUMN IS DRAWN ONLY WHEN SOMETHING CAN FILL IT.
+   *
+   * `trend` is null for every closer whenever the window has no period before
+   * it to compare against — "This year" and "Every call on record" both do
+   * that — and the column then rendered as a heading over a full column of
+   * dashes. This page already holds the convention for that case: a box that
+   * can never fill is hidden rather than shown empty, because a permanently
+   * blank column does not read as "there is nothing to compare against", it
+   * reads as a column that has stopped working.
+   */
+  const showTrend = rows.some((r) => r.trend != null);
 
   return (
     <Panel order={order} padded={false} className="overflow-hidden">
@@ -116,7 +129,7 @@ export function CloserLeaderboard({
                   // against lower-quality leads is a different finding from a
                   // lower close rate against the same leads as everyone else.
                   { label: "Lead quality", align: "right" },
-                  { label: "Trend", align: "right" },
+                  ...(showTrend ? [{ label: "Trend", align: "right" }] : []),
                   { label: "Weakest part of their call", align: "left" },
                 ].map(({ label, align }) => (
                   <th
@@ -183,14 +196,20 @@ export function CloserLeaderboard({
                         </>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono text-[13px] tabular-nums">
-                      <Trend value={row.trend} />
-                    </td>
-                    <td className="px-5 py-3 whitespace-nowrap text-zinc-500 text-[13px]">
+                    {/* Not mono on the cell: this column prints the word
+                        "flat" as often as it prints a figure, and a word set
+                        in the figure typeface is what gives a dashboard its
+                        terminal look. The number inside carries its own. */}
+                    {showTrend && (
+                      <td className="px-5 py-3 text-right text-[13px] tabular-nums">
+                        <Trend value={row.trend} />
+                      </td>
+                    )}
+                    <td className="px-5 py-3 whitespace-nowrap text-zinc-400 text-[13px]">
                       {row.weakest ? (
                         <>
                           {row.weakest.dimension.plainName}{" "}
-                          <span className="font-mono tabular-nums text-zinc-400">
+                          <span className="font-mono tabular-nums text-zinc-300">
                             {row.weakest.score.toFixed(1)}
                           </span>
                         </>
@@ -198,7 +217,7 @@ export function CloserLeaderboard({
                         // Blank for two different reasons, and they want
                         // different responses: nothing scored yet, or scored
                         // but too few to call anything a habit.
-                        <span className="text-zinc-500">
+                        <span className="text-zinc-400">
                           {row.scoredCalls === 0
                             ? "not scored yet"
                             : `${row.scoredCalls} of ${MIN_CALLS_PER_CLOSER} scored calls`}

@@ -74,7 +74,7 @@ export function LiveIndicator() {
       {/* Never wraps. "54S AGO" breaking across two lines was pushing the
           header a row taller on a phone for a label nobody reads twice. */}
       <span
-        className="whitespace-nowrap font-mono text-[11px] tabular-nums text-zinc-400"
+        className="whitespace-nowrap text-[11px] tabular-nums text-zinc-400"
         title="Auto-refreshes every 60 seconds"
       >
         {syncing ? "SYNCING" : ago(elapsed).toUpperCase()}

@@ -71,12 +71,19 @@ export function ObjectionPanel({
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {result.stats.map((stat) => (
-            <ObjectionRow key={stat.name} stat={stat} base={base} />
-          ))}
+        <div>
+          {/* HAIRLINES, NOT SEVEN BOXES. Each row used to be its own bordered,
+              filled card inside this card — seven outlined rectangles stacked
+              in a rectangle, which is the shape a page takes when nobody has
+              decided what a card means. A rule between rows separates them
+              just as well and draws six fewer edges. */}
+          <div className="divide-y divide-white/[0.05] border-y border-white/[0.05]">
+            {result.stats.map((stat) => (
+              <ObjectionRow key={stat.name} stat={stat} base={base} />
+            ))}
+          </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-2 text-[11px] text-zinc-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-3 text-[11px] text-zinc-400">
             {/* "Reviewed for objections" rather than "assessed" — the lead
                 panel uses a stricter test for its own count, and the two
                 numbers sitting under the same word looked like a bug. */}
@@ -107,7 +114,7 @@ function ObjectionRow({ stat, base }: { stat: ObjectionStat; base: number }) {
   const inside = frequency >= 45;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+    <div className="flex flex-col gap-2 px-1 py-3 transition-colors hover:bg-white/[0.02] sm:flex-row sm:items-center sm:gap-3">
       <span className="shrink-0 truncate text-[13px] text-zinc-200 sm:w-[140px] sm:text-zinc-300">
         {stat.name}
         {stat.belief && (
@@ -120,8 +127,11 @@ function ObjectionRow({ stat, base }: { stat: ObjectionStat; base: number }) {
       <div className="min-w-0 flex-1">
         {/* The count follows the end of the bar rather than sitting at a fixed
             offset inside the track, so it stays legible on a one-call bar. */}
+        {/* The track was `white/[0.03]` over a card that has since been lifted
+            to #141418, which left the unfilled part of every bar invisible —
+            the bar had no measurable length to be read against. */}
         <div
-          className="relative h-5 rounded bg-white/[0.03]"
+          className="relative h-5 rounded bg-white/[0.06]"
           title={`Raised on ${stat.calls} of the assessed calls`}
         >
           <div
@@ -149,7 +159,7 @@ function ObjectionRow({ stat, base }: { stat: ObjectionStat; base: number }) {
       <span className="flex shrink-0 items-baseline justify-between gap-2 text-right sm:w-[92px] sm:block">
         {thin ? (
           <span
-            className="font-mono text-[13px] tabular-nums text-zinc-400"
+            className="text-[13px] text-zinc-400"
             title="Under five calls, a close rate is a coin toss"
           >
             too few

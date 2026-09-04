@@ -221,7 +221,8 @@ export function CallTable({
                       {formatMoney(collectedToDate(call), call.currency)}
                       {call.outstanding ? (
                         <span className="ml-1 text-[11px] text-zinc-400">
-                          +{formatMoney(call.outstanding, call.currency)} due
+                          +{formatMoney(call.outstanding, call.currency)}{" "}
+                          <span className="font-sans">due</span>
                         </span>
                       ) : null}
                     </span>

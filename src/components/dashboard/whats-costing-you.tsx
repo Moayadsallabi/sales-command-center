@@ -85,8 +85,9 @@ export function WhatsCostingYou({
         }
         right={
           scored > 0 ? (
-            <span className="font-mono text-[11px] tabular-nums text-zinc-400">
-              from {scored} scored {scored === 1 ? "call" : "calls"}
+            <span className="text-[11px] text-zinc-400">
+              from <span className="tabular-nums">{scored}</span> scored{" "}
+              {scored === 1 ? "call" : "calls"}
             </span>
           ) : null
         }
@@ -99,12 +100,12 @@ export function WhatsCostingYou({
             : "Nothing is dragging here — every part of the call is scoring 7 or better."}
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+          {/* Two bordered, filled boxes inside a bordered, filled card. The
+              rule between them says the same thing with one edge instead of
+              eight, and the numbers stop sitting in a frame within a frame. */}
           {costs.map((cost) => (
-            <div
-              key={cost.dimension.key}
-              className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4"
-            >
+            <div key={cost.dimension.key} className="py-4">
               <div className="flex flex-col-reverse items-start justify-between gap-2 sm:flex-row sm:gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2.5">
@@ -150,7 +151,10 @@ export function WhatsCostingYou({
                 </div>
               </div>
 
-              <div className="mt-3 space-y-1.5 border-t border-white/[0.05] pt-3">
+              {/* No rule of its own any more. The row is separated from its
+                  neighbour now, so a second hairline inside it was dividing a
+                  thing from itself. */}
+              <div className="mt-3 space-y-1.5">
                 <p className="text-[13px] text-zinc-300">
                   Went wrong on{" "}
                   <span className="font-medium text-zinc-100">
@@ -183,14 +187,16 @@ export function WhatsCostingYou({
               </div>
             </div>
           ))}
-
-          {!closer && (
-            <p className="text-[11px] text-zinc-400">
-              A closer needs {MIN_CALLS_PER_CLOSER} scored calls before they are
-              counted here.
-            </p>
-          )}
         </div>
+      )}
+
+      {/* Outside the divided rows: it is a note about the panel, not another
+          row in it, and inside the container it picked up a rule of its own. */}
+      {costs.length > 0 && !closer && (
+        <p className="mt-3 text-[11px] text-zinc-400">
+          A closer needs {MIN_CALLS_PER_CLOSER} scored calls before they are
+          counted here.
+        </p>
       )}
     </Panel>
   );

@@ -24,7 +24,7 @@ import { GapRow, GapScale } from "./gap-row";
  */
 
 /** Matches the parts-of-the-call panel, so the two read as one idea. */
-const GRID = "168px 1fr 132px";
+const GRID = "168px 1fr 150px";
 
 export function LeadImpact({
   calls,

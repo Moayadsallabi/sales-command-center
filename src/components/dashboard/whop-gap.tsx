@@ -114,6 +114,11 @@ export function WhopGap({
               note={`${formatReporting(
                 missedCloses.reduce((s, m) => s + m.paid, 0)
               )} received. Counted as closes above; still recorded as losses in the tracker`}
+              more={
+                missedCloses.length > SHOWN ? (
+                  <Rest count={missedCloses.length - SHOWN} />
+                ) : null
+              }
             >
               {missedCloses.slice(0, SHOWN).map((m) => (
                 <Row
@@ -128,9 +133,6 @@ export function WhopGap({
                   }`}
                 />
               ))}
-              {missedCloses.length > SHOWN && (
-                <Rest count={missedCloses.length - SHOWN} />
-              )}
             </Section>
           )}
 
@@ -140,6 +142,11 @@ export function WhopGap({
                 cashOff.length === 1 ? "row disagrees" : "rows disagree"
               } with Whop on cash`}
               note="the deal is counted; the money on it is not what arrived"
+              more={
+                cashOff.length > SHOWN ? (
+                  <Rest count={cashOff.length - SHOWN} />
+                ) : null
+              }
             >
               {cashOff.slice(0, SHOWN).map((m) => (
                 <Row
@@ -155,7 +162,6 @@ export function WhopGap({
                   right={`Whop ${formatReporting(m.paid)}`}
                 />
               ))}
-              {cashOff.length > SHOWN && <Rest count={cashOff.length - SHOWN} />}
             </Section>
           )}
         </>
@@ -198,17 +204,30 @@ export function WhopGap({
 function Section({
   title,
   note,
+  more,
   children,
 }: {
   title: string;
   note: string;
+  /**
+   * The "and n more" footnote, kept OUT of the divided list.
+   *
+   * It used to be passed in as the last child, which was harmless while every
+   * row drew its own box — and became wrong the moment they became rules,
+   * because the footnote then took a rule of its own and read as one more row.
+   */
+  more?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="mb-4 last:mb-0">
       <h4 className="text-[13px] font-medium text-zinc-200">{title}</h4>
       <p className="mb-2 text-[11px] text-zinc-400">{note}</p>
-      <div className="space-y-1">{children}</div>
+      {/* Hairlines rather than a box per row, matching the two worklists. */}
+      <div className="divide-y divide-white/[0.05] border-y border-white/[0.05]">
+        {children}
+      </div>
+      {more}
     </div>
   );
 }
@@ -233,7 +252,7 @@ function Row({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2 transition-colors hover:border-white/[0.12] hover:bg-white/[0.03]"
+      className="flex items-center gap-3 px-1 py-2.5 transition-colors hover:bg-white/[0.02]"
     >
       <span className="w-[62px] shrink-0 font-mono text-[11px] tabular-nums text-zinc-400">
         {date?.slice(5) ?? "—"}
@@ -251,7 +270,7 @@ function Row({
             className={cn(
               "ml-2 text-[11px]",
               corroboration === CORROBORATION.corroborated
-                ? "text-zinc-500"
+                ? "text-zinc-400"
                 : "text-amber-300"
             )}
           >

@@ -22,8 +22,10 @@ import { GapLegend, GapRow, GapScale } from "./gap-row";
  * the answer, and whether it is thin enough to need saying out loud.
  */
 
-/** The three columns, declared once so the rows and the axis cannot drift. */
-const GRID = "168px 1fr 132px";
+/** The three columns, declared once so the rows and the axis cannot drift.
+    The right column was 132px, which wrapped its one-line note across three
+    lines on the narrowest reading it has to carry. */
+const GRID = "168px 1fr 150px";
 
 export function DimensionImpact({
   calls,

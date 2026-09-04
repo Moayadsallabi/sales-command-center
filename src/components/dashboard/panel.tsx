@@ -231,7 +231,7 @@ function InfoButton({
             className="absolute left-0 top-6 z-50 w-[min(30rem,calc(100vw-3rem))] rounded-lg border border-white/[0.10] bg-[#141418] p-4 shadow-2xl"
           >
             <div className="mb-2 flex items-center justify-between gap-4">
-              <span className="t-label text-zinc-500">How to read this</span>
+              <span className="t-label text-zinc-400">How to read this</span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}

@@ -140,11 +140,11 @@ export function FollowUps({
               own label instead. Four fixed columns totalling 272px plus gaps
               left the prospect's name — the one thing the list is for — with
               nothing to sit in at phone width, so the names vanished. */}
-          <div className="hidden gap-x-3 px-3.5 pb-1.5 sm:grid sm:grid-cols-[72px_minmax(0,1fr)_110px_110px_12px]">
-            <span className="t-label text-zinc-500">Waiting</span>
-            <span className="t-label text-zinc-500">Prospect</span>
-            <span className="t-label text-zinc-500">Closer</span>
-            <span className="t-label text-right text-zinc-500">Price quoted</span>
+          <div className="hidden gap-x-3 px-1 pb-1.5 sm:grid sm:grid-cols-[72px_minmax(0,1fr)_110px_110px_12px]">
+            <span className="t-label text-zinc-400">Waiting</span>
+            <span className="t-label text-zinc-400">Prospect</span>
+            <span className="t-label text-zinc-400">Closer</span>
+            <span className="t-label text-right text-zinc-400">Price quoted</span>
             <span />
           </div>
 
@@ -155,14 +155,16 @@ export function FollowUps({
               totalling 272px plus gaps used to leave the name — the one thing
               a worklist is for — nothing to sit in at phone width, and it
               vanished entirely. */}
-          <div className="space-y-1">
+          {/* Rules between rows rather than a box around each — the same list
+              shape, and the same reasoning, as Payments to collect below. */}
+          <div className="divide-y divide-white/[0.05] border-y border-white/[0.05]">
             {shown.map(({ call, age, worth }) => (
               <a
                 key={call.id}
                 href={call.notion_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.03] sm:grid-cols-[72px_minmax(0,1fr)_110px_110px_12px]"
+                className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-1 py-2.5 transition-colors hover:bg-white/[0.02] sm:grid-cols-[72px_minmax(0,1fr)_110px_110px_12px]"
               >
                 <span className="col-span-3 min-w-0 truncate text-[15px] font-medium text-zinc-100 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:text-[13px] sm:font-normal sm:text-zinc-200">
                   {call.name || "Unknown"}

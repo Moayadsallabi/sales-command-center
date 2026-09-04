@@ -297,7 +297,7 @@ export function SectionNav({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {!collapsed && (
-            <div className="px-2.5 pb-1.5 t-label text-zinc-500">Sections</div>
+            <div className="px-2.5 pb-1.5 t-label text-zinc-400">Sections</div>
           )}
           {renderList("rail")}
         </div>
@@ -358,7 +358,7 @@ export function SectionNav({
             className="shell-offset-top absolute inset-y-0 left-0 flex w-[15rem] flex-col border-r border-white/[0.06] bg-[#0b0b0e]"
           >
             <div className="flex h-[57px] shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
-              <span className="t-label text-zinc-500">Sections</span>
+              <span className="t-label text-zinc-400">Sections</span>
               <button
                 type="button"
                 onClick={() => setDrawerOpen(false)}
