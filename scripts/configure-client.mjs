@@ -22,6 +22,15 @@
 // all — so it is caught on the Meeting Purpose line of Fathom's summary
 // instead. Omit it and those calls are scored as this client's business.
 //
+// Pass --no-evidence-fallback for a client whose recorder produces nothing but
+// untitled calls. Normally a call with no usable title is judged on its shape
+// instead — 15+ minutes with a second voice — which rescues a closer working
+// outside the booking link. Where EVERY call is untitled, that test admits the
+// team calls too, because the block list reads titles and there are none to
+// read. With the flag, an untitled call goes to the Slack alert and is scored
+// only when a person vouches for it through the form. See the flag's own note
+// below for the volumes that decide which way round is right.
+//
 // THE ARGUMENTS BELOW ARE THE LIVE ONES FOR BREY. Regenerating without a
 // --block-offer that the live workflow has is a silent downgrade: the file
 // still builds, still passes every check, and quietly starts scoring another
@@ -93,6 +102,33 @@ const offerPath = arg("offer");
 const display = arg("name") ?? client;
 const currency = arg("currency");
 const channel = arg("channel");
+// WHEN THE EVIDENCE TEST HAS NOTHING TO WORK WITH, TURN IT OFF.
+//
+// An untitled call is normally judged on its shape — 15+ minutes with a voice
+// on it that is not the closer's — because at Brey's the untitled ones are
+// mostly real sales calls that were started in a bare room, and everything
+// else he does is titled ("Team Meeting", "Onboarding") and blocked by name.
+//
+// That reasoning inverts when a recorder produces NOTHING but untitled calls.
+// Moayad starts every Zoom ad hoc, so all 15 of his recordings in one August
+// were "Impromptu Zoom Meeting" — his Quran lessons, his strategy calls with
+// the team, an onboarding — and the block list, which reads titles, sees none
+// of them. Length and a second voice then admit almost every one, and roughly
+// one call in nine of his is a sale.
+//
+// So the fallback is a per-client choice, not a rule: it earns its place where
+// the untitled calls are mostly sales, and costs a tracker full of team calls
+// where they are mostly not. With it off, an untitled call goes to the Slack
+// alert and is scored only if a person vouches for it through the form — the
+// same path a blocked call cannot take, since the blocks still win.
+//
+// THE OBJECTION TO THAT QUEUE STILL STANDS, and this does not answer it in
+// general: measured in August 2026 Brey's queue asked for 29 rulings and got
+// 3. It is survivable here because the volume is different — Moayad's works
+// out at about one call a week — and because the alternative for him is not a
+// missed call but a wrong row. A queue nobody works loses calls; a gate that
+// admits everything files Quran lessons as sales.
+const noEvidenceFallback = process.argv.includes("--no-evidence-fallback");
 const tierCount = arg("tiers");
 // Every client's workflow lives on Moayad's n8n, not their own, so this is a
 // default rather than a required option — but it is overridable, because the
@@ -268,12 +304,17 @@ filter.conditions = [
       // Every read below is guarded, because an expression that THROWS inside
       // n8n does not fail loudly — it takes a branch, and the call is gone with
       // no error anyone will see. A missing field must land on `false`.
-      " const mins = (Date.parse(b.recording_end_time) - Date.parse(b.recording_start_time)) / 60000;" +
-      " if (!(mins >= 15)) return false;" +
-      ' const host = ((b.recorded_by || {}).name) || "";' +
-      " const voices = new Set((b.transcript || []).map((t) => (((t || {}).speaker) || {}).display_name).filter(Boolean));" +
-      " voices.delete(host);" +
-      " return voices.size >= 1;" +
+      (noEvidenceFallback
+        ? // Nothing in the title, and this client does not want the shape of the
+          // recording to stand in for one. The call is not refused for good —
+          // it goes to the Slack alert, and the form can still force it through.
+          " return false;"
+        : " const mins = (Date.parse(b.recording_end_time) - Date.parse(b.recording_start_time)) / 60000;" +
+          " if (!(mins >= 15)) return false;" +
+          ' const host = ((b.recorded_by || {}).name) || "";' +
+          " const voices = new Set((b.transcript || []).map((t) => (((t || {}).speaker) || {}).display_name).filter(Boolean));" +
+          " voices.delete(host);" +
+          " return voices.size >= 1;") +
       " })() }}",
     rightValue: "",
     operator: { type: "boolean", operation: "true", singleValue: true },
@@ -378,13 +419,28 @@ if (!JSON.stringify(alert.parameters).includes("__SCORE_FORM_URL__")) {
 }
 alert.parameters.text = alert.parameters.text.split("__SCORE_FORM_URL__").join(scoreForm);
 
-// 5. The database id, in all three Notion nodes at once.
+// 5. The database id, in all four Notion nodes at once.
+//
+// THE COUNT IS PART OF THE MASTER WORKFLOW, so adding a Notion node breaks this
+// script until someone updates it here. That is the safe direction — a miss
+// leaves one node pointed at a placeholder and the workflow half-works — but it
+// is only safe if the break is NOTICED. "Still New?" was added on 2026-09-01
+// (f467585, the second duplicate check that asks Notion again after scoring)
+// and this still said three, so configure:client refused to run for every
+// client from that day until 2026-09-05. Nobody found out, because nobody
+// regenerates a workflow on an ordinary day — it surfaced only when a new
+// client needed one.
+//
+// If you add another Notion node, change the number and the list below in the
+// same commit.
+const DB_NODES = ["Write to Notion", "Already Logged?", "Log No-Show", "Still New?"];
 const serialised = JSON.stringify(workflow);
 const occurrences = serialised.split(DB_PLACEHOLDER).length - 1;
-if (occurrences !== 3) {
+if (occurrences !== DB_NODES.length) {
   fail(
-    `Expected 3 database-id placeholders, found ${occurrences}.`,
-    "Write to Notion, Already Logged? and Log No-Show should each have one."
+    `Expected ${DB_NODES.length} database-id placeholders, found ${occurrences}.`,
+    `${DB_NODES.join(", ")} should each have one.\n` +
+      "  A node added to the master since this list was written is the usual cause."
   );
 }
 const configured = JSON.parse(serialised.split(DB_PLACEHOLDER).join(databaseId));
@@ -437,14 +493,32 @@ const adHocEvidence = {
     { speaker: { display_name: "A Prospect" } },
   ],
 };
-if (!decide("Impromptu Google Meet Meeting", adHocEvidence)) {
-  fail("A 63-minute ad-hoc call with a prospect on it is being refused.");
-}
-if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, transcript: [{ speaker: { display_name: "The Closer" } }] })) {
-  fail("A call with nobody but the closer on it is being scored.");
-}
-if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, recording_end_time: "2026-08-23T18:07:00Z" })) {
-  fail("A five-minute ad-hoc call is being scored.");
+if (noEvidenceFallback) {
+  // The opposite promise, asserted just as hard. With the fallback off, the
+  // shape of a recording vouches for nothing: this call is refused and waits
+  // for a person. Asserted rather than assumed because the flag's whole effect
+  // is a branch that is not taken, which is invisible in the written file.
+  if (decide("Impromptu Google Meet Meeting", adHocEvidence)) {
+    fail(
+      "--no-evidence-fallback was passed, but a 63-minute ad-hoc call is still being scored. " +
+        "The evidence path is still in the expression."
+    );
+  }
+  // And it must still be reachable BY HAND, or the flag has quietly turned the
+  // client's untitled calls into calls that can never be scored at all.
+  if (!decide("Impromptu Google Meet Meeting", { ...adHocEvidence, force_score: true })) {
+    fail("With the evidence path off, the score form is the only way in — and it is refused.");
+  }
+} else {
+  if (!decide("Impromptu Google Meet Meeting", adHocEvidence)) {
+    fail("A 63-minute ad-hoc call with a prospect on it is being refused.");
+  }
+  if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, transcript: [{ speaker: { display_name: "The Closer" } }] })) {
+    fail("A call with nobody but the closer on it is being scored.");
+  }
+  if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, recording_end_time: "2026-08-23T18:07:00Z" })) {
+    fail("A five-minute ad-hoc call is being scored.");
+  }
 }
 // Every --block-offer name must actually refuse a call, INCLUDING an ad-hoc one
 // carrying full evidence — the evidence path is exactly where a foreign offer
@@ -458,7 +532,12 @@ for (const offer of foreignOffers) {
   if (decide(`${phrases[0]} with a prospect`, purposeOf(`Discuss the ${offer} programme`))) {
     fail(`"${offer}" is not being refused on the Meeting Purpose line.`);
   }
-  if (decide("Impromptu Google Meet Meeting", { ...adHocEvidence, ...purposeOf(`Sell ${offer} coaching`) })) {
+  // Only meaningful while there IS an evidence path for a foreign offer to get
+  // in on. With --no-evidence-fallback every untitled call is refused anyway,
+  // so this would pass without testing the purpose check at all — the same
+  // unfalsifiable shape as an assertion written where the two populations
+  // happen to coincide. The titled case above still exercises it.
+  if (!noEvidenceFallback && decide("Impromptu Google Meet Meeting", { ...adHocEvidence, ...purposeOf(`Sell ${offer} coaching`) })) {
     fail(`"${offer}" is getting in on evidence — the purpose check must run before the evidence path.`);
   }
 }
@@ -530,8 +609,15 @@ console.log(`✓ Wrote ${outPath}`);
 console.log(`  workflow name:  ${configured.name}`);
 console.log(`  webhook path:   fathom-webhook-${client}`);
 console.log(`  call phrases:   ${phrases.map((p) => `"${p}"`).join(", ")} (any, capitals ignored)`);
-console.log(`  database id:    ${databaseId} (3 nodes)`);
+console.log(`  database id:    ${databaseId} (${DB_NODES.length} nodes)`);
 console.log(`  score form:     ${scoreForm}  (linked from the untracked-call alert)`);
+console.log(
+  `  untitled calls: ${
+    noEvidenceFallback
+      ? "alert only — a person vouches for them through the form"
+      : "scored when 15+ minutes with a second voice  (pass --no-evidence-fallback to require the form)"
+  }`
+);
 console.log(`  offer context:  ${offer.length} characters`);
 console.log(
   `  currency:       ${rubric.commercial.defaultCurrency} when the call does not say` +
@@ -541,12 +627,20 @@ console.log(
   `  price bands:    ${rubric.commercial.tiers.length}` +
     `${tierCount ? "" : "  (default — pass --tiers to change)"}`
 );
-if (rubric.commercial.tiers.length > 2 || currency) {
+// Two separate follow-ups, printed separately. Joined by an `||` they were one
+// sentence, so a client with a currency and no price bands was told to make
+// sure their Tier column offered "" — an instruction with nothing in it, which
+// reads as a bug in the tracker rather than as a line that should not be there.
+if (currency) {
   console.log(
-    `\n  Set the dashboard's NEXT_PUBLIC_REPORTING_CURRENCY to ${rubric.commercial.defaultCurrency},` +
-      `\n  and make sure Notion's Tier column offers ${rubric.commercial.tiers
-        .map((t) => `Tier ${t}`)
-        .join(", ")}.`
+    `\n  Set the dashboard's NEXT_PUBLIC_REPORTING_CURRENCY to ${rubric.commercial.defaultCurrency}.`
+  );
+}
+if (rubric.commercial.tiers.length > 2) {
+  console.log(
+    `\n  Make sure Notion's Tier column offers ${rubric.commercial.tiers
+      .map((t) => `Tier ${t}`)
+      .join(", ")}.`
   );
 }
 console.log("\nImport it into n8n, attach the client's Notion credential and the");

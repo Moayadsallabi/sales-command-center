@@ -270,3 +270,77 @@ describe.skipIf(!configured)("a closed sale that Fathom describes as onboarding"
     expect(scores("Impromptu Google Meet Meeting", won)).toBe(true);
   });
 });
+
+/**
+ * A RECORDER WHOSE CALLS ARE ALL UNTITLED, where the evidence rule inverts.
+ *
+ * Everything above is Brey's shape: sales calls carry a booked title, the other
+ * meetings carry their own ("Team Meeting", "Onboarding"), and the evidence
+ * path exists to rescue the handful started in a bare room.
+ *
+ * Moayad's recorder produces one title and one only. All 15 of his August 2026
+ * recordings were "Impromptu Zoom Meeting" — Quran lessons, strategy calls with
+ * Shahrose, the Kenda onboarding, one partnership pitch. The block list reads
+ * TITLES, so it sees none of them, and 15 minutes with a second voice describes
+ * every single one. Roughly one call in nine was a sale.
+ *
+ * So his workflow is generated with --no-evidence-fallback: untitled means
+ * alert, and a person vouches through the form. These cases pin the inversion,
+ * because the flag's whole effect is a branch that is NOT taken — which is
+ * invisible in the generated file and would otherwise be caught by nothing.
+ */
+const moayadConfigured = existsSync(
+  resolve(__dirname, "../automation/generated/sales-call-tracker-moayad.json")
+);
+const moayad = moayadConfigured ? readSalesCallFilter("moayad") : null;
+const moayadScores = (title: string, body: Record<string, unknown> = {}): boolean =>
+  moayad!.isSalesCall(title, body);
+
+describe.skipIf(!moayadConfigured)("a client whose calls are all untitled", () => {
+  // The 4 September partnership call with Jan: 15+ minutes, his voice on it,
+  // and a real prospect conversation. Nothing in the title says so.
+  const longCallWithAProspect = {
+    recording_start_time: "2026-09-04T17:00:00Z",
+    recording_end_time: "2026-09-04T18:05:00Z",
+    recorded_by: { name: "MomoFX" },
+    transcript: [
+      { speaker: { display_name: "MomoFX" }, text: "what are you selling right now" },
+      { speaker: { display_name: "Jan" }, text: "four units in forty five days" },
+    ],
+  };
+
+  it("scores a call whose invite names the offer", () => {
+    expect(moayadScores("Perceptionism <> Jan")).toBe(true);
+  });
+
+  it("refuses an untitled call even with the full evidence Brey's rule accepts", () => {
+    // The same body scores true on Brey's workflow, two describes above. That
+    // is the point: this is a per-client choice, not a change to the rule.
+    expect(moayadScores("Impromptu Zoom Meeting", longCallWithAProspect)).toBe(false);
+  });
+
+  it("keeps a Quran lesson out, which is what the evidence path would let in", () => {
+    expect(
+      moayadScores("Impromptu Zoom Meeting", {
+        ...longCallWithAProspect,
+        transcript: [
+          { speaker: { display_name: "MomoFX" }, text: "..." },
+          { speaker: { display_name: "Jamal" }, text: "..." },
+        ],
+      })
+    ).toBe(false);
+  });
+
+  it("still lets a person vouch for one through the form", () => {
+    // Without this the flag would not narrow the gate, it would weld it shut:
+    // an untitled call could never be scored by any route.
+    expect(
+      moayadScores("Impromptu Zoom Meeting", { ...longCallWithAProspect, force_score: true })
+    ).toBe(true);
+  });
+
+  it("does not let the form force an excluded call through", () => {
+    expect(moayadScores("Quran Lesson", { force_score: true })).toBe(false);
+    expect(moayadScores("Perceptionism Onboarding", { force_score: true })).toBe(false);
+  });
+});
