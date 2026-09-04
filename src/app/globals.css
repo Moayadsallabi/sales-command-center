@@ -89,9 +89,20 @@
      a step lighter, so it reads as something you can type into. Two dashboards
      in one product disagreeing about what a card is made of is the drift
      design-tokens.json exists to catch. */
-  --card: #0f0f12;
+  /* 2026-09-04: was #0f0f12, six points off the #09090b page behind it —
+     a difference a display shows and an eye does not, so every surface in both
+     dashboards was held apart from the page by a hairline alone and the whole
+     screen read as one dark sheet. Raised with the KPI dashboard's --surface,
+     which this token exists to match. Contrast cost is small and stays well
+     over the floor: --muted-foreground goes 7.47:1 → 7.17:1. */
+  --card: #141418;
   --card-foreground: #fafaf9;
-  --popover: #111113;
+  /* THE EDGE OF A RAISED SURFACE, matched to the KPI dashboard's --edge.
+     Added 2026-09-04 with the surface lift: it was the literal #ffffff0d in
+     .glass-card and nowhere else, so nothing could tell whether the two apps
+     still agreed about what a card's edge is. */
+  --edge: #ffffff14;
+  --popover: #1c1c21;
   --popover-foreground: #fafaf9;
   --primary: #d4af37;
   --primary-foreground: #2b2005;
@@ -118,7 +129,7 @@
   --chart-4: #f4776b;   /* the same one red, for the same reason */
   --chart-5: #6b7280;
   --radius: 0.75rem;
-  --sidebar: #111113;
+  --sidebar: #1c1c21;
   --sidebar-foreground: #fafaf9;
   --sidebar-primary: #d4af37;
   --sidebar-primary-foreground: #2b2005;
@@ -188,8 +199,8 @@
    rather than clean.
    One flat fill, one hairline, one soft shadow to lift it off the page. */
 .glass-card {
-  background: #0f0f12;
-  border: 1px solid #ffffff0d;
+  background: var(--card);
+  border: 1px solid var(--edge);
   box-shadow:
     0 1px 2px #00000040,
     0 12px 32px -16px #000000cc;

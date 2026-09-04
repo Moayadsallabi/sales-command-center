@@ -143,7 +143,7 @@ export function CallTable({
               ].map((h) => (
                 <th
                   key={h}
-                  className="t-label sticky top-0 z-10 whitespace-nowrap bg-[#0f0f12] px-5 py-3 text-left text-zinc-400"
+                  className="t-label sticky top-0 z-10 whitespace-nowrap bg-card px-5 py-3 text-left text-zinc-400"
                 >
                   {h}
                 </th>

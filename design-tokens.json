@@ -22,19 +22,18 @@
     "Anything genuinely allowed to differ is NOT in here. A file that lists things",
     "nobody intends to keep equal is one whose failures get waved through."
   ],
-
   "roles": {
     "page_background": {
       "value": "#09090b",
       "note": "The ground everything sits on. Contrast ratios are measured against this."
     },
     "card_surface": {
-      "value": "#0f0f12",
-      "note": "One flat fill for every raised surface. Was a white gradient over the page, which needed the page behind it to be doing something -- it is flat dark, so the gradient only greyed the card."
+      "value": "#141418",
+      "note": "One flat fill for every raised surface. Raised from #0f0f12 to #141418 on 2026-09-04: six points off the page behind it is a difference a display shows and an eye does not, so every surface was held apart from the page by a hairline alone and both dashboards read as one dark sheet with outlines drawn on it."
     },
     "input_surface": {
-      "value": "#111113",
-      "note": "Inputs, selects, popovers and menus. A step lighter than a card on purpose: it reads as something you can type into rather than something you read."
+      "value": "#1c1c21",
+      "note": "Inputs, selects, popovers and menus. A step lighter than a card on purpose: it reads as something you can type into rather than something you read. Raised with card_surface on 2026-09-04 -- left at #111113 it would have been DARKER than the card, which turns every popover into a hole."
     },
     "text_primary": {
       "value": "#fafaf9",
@@ -56,13 +55,30 @@
       "value": "#ffffff0f",
       "note": "The hairline between surfaces."
     },
-    "gold_100": { "value": "#faf3dc", "note": "The ramp is complete on purpose: Tailwind emits nothing for a shade that does not exist, so a missing one fails silently and the element inherits the page's foreground." },
-    "gold_200": { "value": "#f5e7b8" },
-    "gold_300": { "value": "#f0d98a" },
-    "gold_400": { "value": "#e5c158" },
-    "gold_500": { "value": "#d4af37", "note": "The brand. Carries no verdict -- it marks what is ours, never whether something is good." },
-    "gold_600": { "value": "#b8942c" },
-    "gold_dim": { "value": "#d4af3733", "note": "Gold at 20%, for a border or a wash." },
+    "gold_100": {
+      "value": "#faf3dc",
+      "note": "The ramp is complete on purpose: Tailwind emits nothing for a shade that does not exist, so a missing one fails silently and the element inherits the page's foreground."
+    },
+    "gold_200": {
+      "value": "#f5e7b8"
+    },
+    "gold_300": {
+      "value": "#f0d98a"
+    },
+    "gold_400": {
+      "value": "#e5c158"
+    },
+    "gold_500": {
+      "value": "#d4af37",
+      "note": "The brand. Carries no verdict -- it marks what is ours, never whether something is good."
+    },
+    "gold_600": {
+      "value": "#b8942c"
+    },
+    "gold_dim": {
+      "value": "#d4af3733",
+      "note": "Gold at 20%, for a border or a wash."
+    },
     "positive": {
       "value": "#6ee7a8",
       "note": "Deliberately desaturated. A saturated green beside this gold reads as a traffic light and drags the whole page towards dashboard-template."
@@ -74,9 +90,12 @@
     "amber": {
       "value": "#f59e0b",
       "note": "Reserved for one thing: how far the page can be trusted. Never a third verdict colour."
+    },
+    "card_edge": {
+      "value": "#ffffff14",
+      "note": "The hairline where a raised surface meets the page. Brighter than `border`, which separates things INSIDE a surface. Added 2026-09-04 with the surface lift: it was #ffffff0d typed into seven rules across three files, which is how a card and a panel come to disagree about what an edge is."
     }
   },
-
   "_banished_why": [
     "Colours the palette REMOVED, which must not reappear as a literal anywhere.",
     "",
@@ -88,47 +107,132 @@
   "banished": {
     "#ef4444": "The saturated red. Use `negative` (#f4776b) -- a saturated red beside this gold reads as a traffic light.",
     "#34d399": "The saturated green. Use `positive` (#6ee7a8), for the same reason.",
-    "#71717a": "NOT banished as a value -- it is `text_decoration` -- but it may never carry words. Nothing automatic can check that; it is here so the next reader knows."
+    "#71717a": "NOT banished as a value -- it is `text_decoration` -- but it may never carry words. Nothing automatic can check that; it is here so the next reader knows.",
+    "#0f0f12": "The card surface BEFORE 2026-09-04. Use `card_surface` (#141418) -- six points off the page behind it is a difference a display shows and an eye does not, so every surface read as one dark sheet. A literal left behind paints a hole where the old card was.",
+    "#111113": "The input/popover surface before 2026-09-04. Use `input_surface` (#1c1c21). Left at the old value it is DARKER than a card, which turns every popover and menu into a recess."
   },
-
   "declared_by": {
     "perceptionismlabkpis/public/theme.css": {
-      "page_background": ["--bg"],
-      "card_surface": ["--surface"],
-      "input_surface": ["--bg2"],
-      "text_primary": ["--text"],
-      "text_secondary": ["--text2"],
-      "text_tertiary": ["--text3"],
-      "text_decoration": ["--text4"],
-      "border": ["--border"],
-      "gold_100": ["--gold-100"],
-      "gold_200": ["--gold-200"],
-      "gold_300": ["--gold-300"],
-      "gold_400": ["--gold-400"],
-      "gold_500": ["--gold"],
-      "gold_600": ["--gold-600"],
-      "gold_dim": ["--gold-dim"],
-      "positive": ["--green"],
-      "negative": ["--red"],
-      "amber": ["--amber"]
+      "page_background": [
+        "--bg"
+      ],
+      "card_surface": [
+        "--surface"
+      ],
+      "input_surface": [
+        "--bg2"
+      ],
+      "text_primary": [
+        "--text"
+      ],
+      "text_secondary": [
+        "--text2"
+      ],
+      "text_tertiary": [
+        "--text3"
+      ],
+      "text_decoration": [
+        "--text4"
+      ],
+      "border": [
+        "--border"
+      ],
+      "gold_100": [
+        "--gold-100"
+      ],
+      "gold_200": [
+        "--gold-200"
+      ],
+      "gold_300": [
+        "--gold-300"
+      ],
+      "gold_400": [
+        "--gold-400"
+      ],
+      "gold_500": [
+        "--gold"
+      ],
+      "gold_600": [
+        "--gold-600"
+      ],
+      "gold_dim": [
+        "--gold-dim"
+      ],
+      "positive": [
+        "--green"
+      ],
+      "negative": [
+        "--red"
+      ],
+      "amber": [
+        "--amber"
+      ],
+      "card_edge": [
+        "--edge"
+      ]
     },
     "sales-command-center/src/app/globals.css": {
-      "page_background": ["--background"],
-      "card_surface": ["--card"],
-      "input_surface": ["--popover", "--sidebar"],
-      "text_primary": ["--foreground", "--card-foreground", "--popover-foreground"],
-      "text_tertiary": ["--muted-foreground"],
-      "border": ["--border", "--sidebar-border"],
-      "gold_100": ["--color-gold-100"],
-      "gold_200": ["--color-gold-200"],
-      "gold_300": ["--color-gold-300"],
-      "gold_400": ["--color-gold-400"],
-      "gold_500": ["--color-gold-500", "--color-gold", "--primary", "--ring", "--chart-1"],
-      "gold_600": ["--color-gold-600"],
-      "gold_dim": ["--color-gold-dim"],
-      "positive": ["--color-positive"],
-      "negative": ["--color-negative", "--destructive", "--chart-4"],
-      "amber": ["--chart-3"]
+      "page_background": [
+        "--background"
+      ],
+      "card_surface": [
+        "--card"
+      ],
+      "input_surface": [
+        "--popover",
+        "--sidebar"
+      ],
+      "text_primary": [
+        "--foreground",
+        "--card-foreground",
+        "--popover-foreground"
+      ],
+      "text_tertiary": [
+        "--muted-foreground"
+      ],
+      "border": [
+        "--border",
+        "--sidebar-border"
+      ],
+      "gold_100": [
+        "--color-gold-100"
+      ],
+      "gold_200": [
+        "--color-gold-200"
+      ],
+      "gold_300": [
+        "--color-gold-300"
+      ],
+      "gold_400": [
+        "--color-gold-400"
+      ],
+      "gold_500": [
+        "--color-gold-500",
+        "--color-gold",
+        "--primary",
+        "--ring",
+        "--chart-1"
+      ],
+      "gold_600": [
+        "--color-gold-600"
+      ],
+      "gold_dim": [
+        "--color-gold-dim"
+      ],
+      "positive": [
+        "--color-positive"
+      ],
+      "negative": [
+        "--color-negative",
+        "--destructive",
+        "--chart-4"
+      ],
+      "amber": [
+        "--chart-3"
+      ],
+      "card_edge": [
+        "--edge"
+      ]
     }
   }
 }

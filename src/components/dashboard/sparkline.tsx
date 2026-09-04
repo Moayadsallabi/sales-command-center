@@ -148,7 +148,11 @@ export function Sparkline({
           marginTop: -2.5,
           borderRadius: 999,
           background: "#e5c158",
-          boxShadow: "0 0 0 2px #0f0f12",
+          // The card behind it, by token. It was the hex #0f0f12, typed here
+          // and nowhere else, so raising the card surface on 2026-09-04 left
+          // this ring painting the OLD colour — a dark halo around the dot on
+          // every sparkline, on a card that had moved out from under it.
+          boxShadow: "0 0 0 2px var(--card)",
         }}
       />
     </motion.div>
