@@ -109,6 +109,10 @@ export function buyer(over: Partial<WhopBuyer> = {}): WhopBuyer {
     paid: 2000,
     refunded: 0,
     payments: 1,
+    // Kept in step with `paid` by default so a test that does not care about
+    // the split still describes a coherent buyer. A test about the split
+    // passes its own history in.
+    history: [{ day: "2026-08-10", amount: 2000 }],
     first: "2026-08-10",
     last: "2026-08-10",
     ...over,

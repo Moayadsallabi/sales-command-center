@@ -7,6 +7,8 @@ import { UNASSIGNED } from "@/lib/stats";
 import { callsMissingFxRate, carriesCash, reportingCollected } from "@/lib/money";
 import { PaymentDay } from "@/lib/whop";
 import { Reconciliation, windowReconciliation } from "@/lib/reconcile";
+import { cashSplit } from "@/lib/cash-split";
+import { settleMatched } from "@/lib/settle";
 import {
   CalendlyState,
   LinkedBooking,
@@ -307,10 +309,29 @@ export function Dashboard({
             .filter((p) => withinWindow(p.day, prior))
             .reduce((sum, p) => sum + p.amount, 0);
 
+    /* WHAT THE TOTAL IS MADE OF — new selling, older deals paying off, deposits,
+       and the part no call explains. Built from the WHOLE reconciliation rather
+       than the windowed one: a deal closed in June is precisely what
+       `remainder` exists to name, and handing this the windowed matches would
+       empty that bucket and move its money silently into `noCall`. */
+    const split =
+      reconciliation === null
+        ? null
+        : cashSplit(
+            // THE OUTCOME THE PAGE IS COUNTING, not the one typed on the day.
+            // reconcile runs before settle, so its matched calls still hold the
+            // pre-settlement outcome — see settleMatched. Without this a BAMFAM
+            // that paid is a close on the leaderboard and a deposit here.
+            settleMatched(reconciliation.matched, calls),
+            collected,
+            visibleWindow
+          );
+
     return {
       collected,
       trackerLogged,
       previousCollected,
+      split,
       missedCount: newUntracked.length,
       missedWorth: newUntracked.reduce((sum, b) => sum + b.paid, 0),
     };

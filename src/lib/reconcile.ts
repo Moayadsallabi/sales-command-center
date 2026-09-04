@@ -25,7 +25,7 @@
  */
 
 import { CallRecord } from "./types";
-import { WhopBuyer } from "./whop";
+import { WhopBuyer, PaymentDay } from "./whop";
 import { collectedToDate } from "./money";
 import { MIN_DEPOSIT, REFUND_OUTCOME } from "./sales-rules";
 import {
@@ -80,6 +80,15 @@ export interface MatchedPayment {
   refunded: number;
   /** How many separate payments make that up. */
   payments: number;
+  /**
+   * Those payments as day and amount, so a period can be counted.
+   *
+   * `paid` is a lifetime total and cannot say what arrived inside a window,
+   * which is the whole question the cash split asks. Day and amount only —
+   * this list is the reason the split exists and it identifies nobody, which
+   * keeps the rule in the paragraph above intact.
+   */
+  history: PaymentDay[];
   /** The day the most recent one landed. */
   last: string | null;
   /** False when the tie was made on a name rather than an address. */
@@ -168,6 +177,7 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
       paid: match.buyer.paid,
       refunded: match.buyer.refunded,
       payments: match.buyer.payments,
+      history: match.buyer.history,
       last: match.buyer.last,
       certain: match.certain,
     });

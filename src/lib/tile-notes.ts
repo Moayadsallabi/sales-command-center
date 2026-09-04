@@ -17,6 +17,7 @@
  * PRINTED BESIDE IT.
  */
 import { FunnelStats } from "./bookings";
+import { CashSplit } from "./cash-split";
 import { formatReporting } from "./money";
 
 /** Which system a tile's number came from. Mirrors the pill on the tile. */
@@ -32,6 +33,13 @@ export interface CashBank {
   trackerLogged: number;
   /** The processor's total for the previous window. Null without one. */
   previousCollected: number | null;
+  /**
+   * What the total is made of: new selling, older deals paying off, deposits,
+   * and the part no call explains. Null when it could not be trusted — see
+   * lib/cash-split.ts, which refuses rather than showing four figures that
+   * do not add up to the one above them.
+   */
+  split: CashSplit | null;
   /** Buyers who first paid inside this window with no call anywhere. */
   missedCount: number;
   /** What those buyers have paid to date — lifetime, not window. */
@@ -95,15 +103,53 @@ payments: boolean
   const gap = Math.round(bank.collected) - Math.round(bank.trackerLogged);
   if (Math.abs(gap) < 50)
     return { source: "whop", note: "matches what closers logged" };
+  /* "SO $X HAS NO CALL BEHIND IT" — REMOVED 2026-09-04, AND THIS IS WHY.
+     The tile now carries a four-way breakdown, one part of which is money no
+     call explains. On Brey's live August the two figures were $36,602 here and
+     $33,704 there, both labelled the same thing, six inches apart — the exact
+     fault this file was written to end.
+     They are not the same quantity. This gap is the processor's total against
+     what closers TYPED into Cash Collected, so it includes matched calls whose
+     typed figure is simply low. The breakdown's `no call` is money no call row
+     could be tied to at all. So the sentence states what it actually measures
+     and makes no claim about attribution, which the breakdown answers properly
+     three lines below it. */
   return {
     source: "whop",
     note:
       gap > 0
         ? `closers logged ${formatReporting(
             bank.trackerLogged
-          )}, so ${formatReporting(gap)} has no call behind it`
+          )} on the call rows, ${formatReporting(gap)} less than was banked`
         : `closers logged ${formatReporting(
             bank.trackerLogged
           )}, ${formatReporting(-gap)} of that isn't in Whop`,
   };
+}
+
+/**
+ * The four figures under the Cash Collected tile.
+ *
+ * Formatted here rather than in the component for the reason at the top of
+ * this file: these are figures, they have to add up to the tile above them,
+ * and a test should be able to reach them without rendering a dashboard.
+ *
+ * `null` in, nothing out — a filtered view has no processor figure to split,
+ * and a split that could not be trusted was already refused upstream.
+ *
+ * NO CALL IS SHOWN EVEN AT ZERO, unlike the other three. A zero there is a
+ * real and welcome fact: every payment this period is accounted for by a call.
+ * The other three at zero are equally real — no new deals, or nothing owed
+ * from before — so all four always show, and the row always sums to the tile.
+ */
+export function cashBreakdownFor(
+  split: CashSplit | null | undefined
+): { label: string; value: string }[] | undefined {
+  if (!split) return undefined;
+  return [
+    { label: "new", value: formatReporting(split.newCash) },
+    { label: "remainder", value: formatReporting(split.remainder) },
+    { label: "deposits", value: formatReporting(split.deposits) },
+    { label: "no call", value: formatReporting(split.noCall) },
+  ];
 }

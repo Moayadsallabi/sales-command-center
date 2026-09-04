@@ -35,6 +35,7 @@ const paidBy = (
   paid: 2000,
   refunded: 0,
   payments: 1,
+  history: [{ day: "2026-08-01", amount: 2000 }],
   last: "2026-08-01",
   certain: true,
   ...over,

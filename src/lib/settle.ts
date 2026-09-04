@@ -86,3 +86,40 @@ export function settle(
 export function wasSettledByPayment(call: CallRecord): boolean {
   return call.recorded_outcome != null && call.recorded_outcome !== call.outcome;
 }
+
+/**
+ * The same matched payments, carrying the outcome the dashboard is COUNTING
+ * rather than the one typed on the day.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS IS NEEDED AT ALL
+ *
+ * `reconcile` runs BEFORE `settle` — deliberately, so it can still report the
+ * rows that disagree with the processor — which means every call inside its
+ * `matched` list holds its pre-settlement outcome. Anything reading that list
+ * and asking "is this a win" therefore gets a different answer from every
+ * other panel on the page, all of which read the settled calls.
+ *
+ * Measured on Brey's live August the day this shipped: three matched calls had
+ * been promoted by payment, one of them with money inside the window, so the
+ * cash split filed $50 as a deposit while the leaderboard beside it counted the
+ * same call as a close. Small, and only because no large BAMFAM happened to pay
+ * that month — the mechanism has no ceiling.
+ *
+ * Matched by id rather than by identity: settlement returns a NEW object for
+ * every row it promotes, so the object keys `settle` itself can rely on are
+ * exactly the ones that stop working here.
+ */
+export function settleMatched<T extends { call: CallRecord }>(
+  matched: T[],
+  settled: CallRecord[]
+): T[] {
+  const byId = new Map(settled.map((c) => [c.id, c]));
+  return matched.map((m) => {
+    const current = byId.get(m.call.id);
+    // Untouched when the row is not in the settled set at all, which should
+    // not happen — both come from the same query — and would silently swap a
+    // real outcome for undefined if it did.
+    return current && current !== m.call ? { ...m, call: current } : m;
+  });
+}

@@ -7,7 +7,11 @@
  * states a number is a number, and gets asserted like one.
  */
 import { describe, it, expect } from "vitest";
-import { recordedNoteFor, cashNoteFor } from "../src/lib/tile-notes";
+import {
+  recordedNoteFor,
+  cashNoteFor,
+  cashBreakdownFor,
+} from "../src/lib/tile-notes";
 import type { FunnelStats } from "../src/lib/bookings";
 
 const funnel = (over: Partial<FunnelStats> = {}): FunnelStats =>
@@ -65,15 +69,22 @@ describe("the note under Cash Collected", () => {
         collected: 88848.66,
         trackerLogged: 52247.38,
         previousCollected: null,
+        split: null,
         missedCount: 0,
         missedWorth: 0,
       },
       true
     );
     expect(note).toContain("closers logged $52,247");
-    expect(note).toContain("$36,602 has no call behind it");
+    expect(note).toContain("$36,602 less than was banked");
     // The old, unreconcilable figure.
     expect(note).not.toContain("$36,601");
+    // AND IT NO LONGER CLAIMS THE MONEY HAS NO CALL. That is a different
+    // quantity, answered by the breakdown on the same tile — which read
+    // $33,704 for the same live month, because this gap also contains matched
+    // calls whose typed cash figure is low. Two numbers for one phrase, six
+    // inches apart, is the fault this file exists to prevent.
+    expect(note).not.toContain("has no call behind it");
   });
 
   it("words itself the other way when the tracker is ahead of the processor", () => {
@@ -82,6 +93,7 @@ describe("the note under Cash Collected", () => {
         collected: 1000,
         trackerLogged: 4000,
         previousCollected: null,
+        split: null,
         missedCount: 0,
         missedWorth: 0,
       },
@@ -96,6 +108,7 @@ describe("the note under Cash Collected", () => {
         collected: 1020,
         trackerLogged: 1000,
         previousCollected: null,
+        split: null,
         missedCount: 0,
         missedWorth: 0,
       },
@@ -109,5 +122,34 @@ describe("the note under Cash Collected", () => {
     const { source, note } = cashNoteFor(null, true);
     expect(source).toBe("tracker");
     expect(note).toContain("cannot follow a filter");
+  });
+});
+
+describe("the four figures under Cash Collected", () => {
+  it("shows all four, so the row always adds up to the tile above it", () => {
+    // Including a zero. A month with nothing owed from before is a fact worth
+    // printing, and dropping the zero would leave three figures that no longer
+    // sum to the total — which is the fault this whole file exists to prevent.
+    const rows = cashBreakdownFor({
+      newCash: 3000,
+      remainder: 0,
+      deposits: 500,
+      noCall: 250,
+    })!;
+    expect(rows.map((r) => r.label)).toEqual([
+      "new",
+      "remainder",
+      "deposits",
+      "no call",
+    ]);
+    expect(rows.map((r) => r.value)).toEqual(["$3,000", "$0", "$500", "$250"]);
+  });
+
+  it("shows nothing at all when the split was refused or the view is filtered", () => {
+    // A refusal and a real zero must never render identically. Four zeroes
+    // would say "every payment this month is accounted for"; nothing says
+    // "this cannot be answered for the view you are looking at".
+    expect(cashBreakdownFor(null)).toBeUndefined();
+    expect(cashBreakdownFor(undefined)).toBeUndefined();
   });
 });

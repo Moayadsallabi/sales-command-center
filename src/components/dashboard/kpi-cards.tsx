@@ -4,7 +4,12 @@ import { motion, useReducedMotion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
 import { Sparkline } from "./sparkline";
 import { SourceNote, SourceLegend, Source } from "./source-note";
-import { recordedNoteFor, cashNoteFor, CashBank } from "@/lib/tile-notes";
+import {
+  recordedNoteFor,
+  cashNoteFor,
+  cashBreakdownFor,
+  CashBank,
+} from "@/lib/tile-notes";
 import { Delta } from "./delta";
 import { CallRecord } from "@/lib/types";
 import { FunnelStats } from "@/lib/bookings";
@@ -177,6 +182,14 @@ export function KPICards({
           note={cash.note}
           warning={fxWarning}
           series={cashSeries}
+          /* WHAT THE MONEY IS MADE OF, under the number it adds up to.
+             One cash figure answers "how much arrived" and gets read as "how
+             much did we sell", and on an account running payment plans those
+             come apart every month. Absent whenever the tile is showing the
+             tracker's figure rather than the processor's — a split of a number
+             the processor did not produce would be four figures under a total
+             they do not belong to. */
+          breakdown={cashBreakdownFor(bank?.split)}
         />
 
         <Tile

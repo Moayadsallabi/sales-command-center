@@ -72,6 +72,20 @@ export interface WhopBuyer {
   /** The earliest payment, YYYY-MM-DD. */
   first: string | null;
   /**
+   * Every payment they have made, as day and amount.
+   *
+   * `paid` above is the lifetime total, which can answer what a buyer is worth
+   * and cannot answer what arrived in August. The cash split needs the second
+   * question — a payment belongs to the period it landed in, and the deal it
+   * belongs to may have closed months earlier — so the individual payments
+   * travel rather than only their sum. Net of refunds, same as `paid`, so the
+   * list and the total can never disagree about what a payment was worth.
+   *
+   * Day and amount only: this rides through the matcher into MatchedPayment,
+   * which deliberately carries nothing that identifies a person.
+   */
+  history: PaymentDay[];
+  /**
    * The most recent payment, YYYY-MM-DD.
    *
    * The tracker records no date a payment is DUE — there is no such column, and
@@ -174,6 +188,7 @@ async function crawlPayments(key: string): Promise<WhopRead> {
         paid: 0,
         refunded: 0,
         payments: 0,
+        history: [],
         first: p.day,
         last: p.day,
       };
@@ -184,6 +199,7 @@ async function crawlPayments(key: string): Promise<WhopRead> {
       existing.paid += p.net;
       existing.refunded += p.refunded;
       existing.payments += 1;
+      existing.history.push({ day: p.day, amount: p.net });
       if (!existing.first || p.day < existing.first) existing.first = p.day;
       // NOT "the last one seen". The crawl is by page, not by date, so a later
       // page can hold an earlier payment — taking whichever arrived last would
