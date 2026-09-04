@@ -5,13 +5,48 @@ Written 2026-09-04, from the audit in
 figures below were read the same day off Brey's Notion tracker (86 calls since
 1 August). Order is by what unblocks what, not by size.
 
-| # | Item | Kind | Who | Depends on |
+| # | Item | Kind | Who | State |
 |---|---|---|---|---|
-| 1 | Daily leaderboard in Brey's Slack | Code, KPI dashboard | Claude | A webhook for Brey's team channel |
-| 2 | Cash tile split: new, remainder, deposits | Code, Sales Command Center | Claude | Nothing |
-| 3 | Setter attribution and booking-source split | Process first, then code | Brey's setters, then Claude | Setter links live and one booking carrying the field |
-| 4 | Show rate | Process only | Brey's closers | Nothing |
-| 5 | Offer rate | Dropped | — | — |
+| 1 | Daily leaderboard in Brey's Slack | Code, KPI dashboard | Claude | **Built 2026-09-04, off.** Needs a webhook, a posting hour and a yes |
+| 2 | Cash tile split: new, remainder, deposits | Code, Sales Command Center | Claude | **Shipped 2026-09-04** |
+| 3 | Setter attribution and booking-source split | Process first, then code | Brey's setters, then Claude | Waiting on setter links being live |
+| 4 | Show rate | Process only | Brey's closers | Waiting on the ask |
+| 5 | Offer rate | Dropped | — | Measured 2026-09-04: offers on 94% of held calls |
+
+## What was built on 2026-09-04
+
+**Item 2 is live.** Cash Collected now carries four figures that add up to it:
+new, remainder, deposits, and the part no call explains. Live August reads
+$52,479 / $2,540 / $125 / $33,704 against a tile of $88,849; September so far
+is $9,500 of August deals paying against $1,500 of new selling, which is the
+month-shape the single figure hid. Two things it turned up: `reconcile` runs
+before `settle`, so its matched calls carried the outcome typed on the day and
+filed a paid BAMFAM as a deposit while the leaderboard called it a close; and
+the note under the tile claimed "$36,602 has no call behind it" six inches from
+a breakdown reading $33,704 for the same thing. Both fixed in the same change.
+
+**Item 1 is built and switched off.** `npm run check:leaderboard -- --client
+"Funded Blueprint" --day <day> --rows` prints the post and every payment behind
+it without sending anything. The scheduled job no-ops unless
+`DAILY_LEADERBOARD_CLIENTS` names a client, because several clients already
+have a Slack channel for money alerts and a scoreboard naming their closers
+must not appear in them on a deploy.
+
+Three decisions inside it worth being able to overturn:
+
+- **Cash is credited by email only, never by name.** The Sales Command Center
+  ties Bairon Leiva's $500 to his 3 September call on the name; this will not,
+  so that payment sits in the gap and the post says one close where the
+  dashboard says two. Deliberate — a name-matched payment moves money between
+  two named closers in public — but it does mean the post and the dashboard can
+  differ, and the reason is always a row with no email on it.
+- **The day is the processor's UTC day.** An evening US sale can land on
+  tomorrow's post. Fixing it needs Brey's timezone and the payment's raw
+  timestamp, which `whop-payments.js` reduces to a date; both are small, neither
+  is worth guessing.
+- **A quiet day still posts.** A channel that goes silent on a slow week cannot
+  be told from a job that has died — which is exactly how a Slack alert here
+  went unnoticed for a month.
 
 ## What Brey's team is asked for (send this week)
 
