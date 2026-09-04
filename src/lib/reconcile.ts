@@ -76,6 +76,8 @@ export interface MatchedPayment {
   call: CallRecord;
   /** Everything this person has paid, net of refunds. Lifetime, not windowed. */
   paid: number;
+  /** How much was given back. A shortfall made of refund is not a debt. */
+  refunded: number;
   /** How many separate payments make that up. */
   payments: number;
   /** The day the most recent one landed. */
@@ -164,6 +166,7 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
     matched.push({
       call,
       paid: match.buyer.paid,
+      refunded: match.buyer.refunded,
       payments: match.buyer.payments,
       last: match.buyer.last,
       certain: match.certain,

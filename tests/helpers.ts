@@ -107,6 +107,7 @@ export function buyer(over: Partial<WhopBuyer> = {}): WhopBuyer {
     name: "abuyer99",
     billing: "",
     paid: 2000,
+    refunded: 0,
     payments: 1,
     first: "2026-08-10",
     last: "2026-08-10",

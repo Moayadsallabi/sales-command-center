@@ -54,6 +54,17 @@ export interface WhopBuyer {
   billing: string;
   /** Everything they have paid, net of refunds. */
   paid: number;
+  /**
+   * How much of that was given back.
+   *
+   * `paid` is already net of it, which is right for a cash total and dangerous
+   * for a balance: a customer who paid $2,000 and was refunded $1,667 arrives
+   * here as one who has paid $333, and against a $2,000 deal that reads as
+   * $1,667 still owed. It is the opposite — the money came and went. Live on
+   * this account, 2026-09-04: two refunds, and one of them was on the chase
+   * list for $1,667 nobody was owed. See lib/collect.ts.
+   */
+  refunded: number;
   /** How many separate payments make that up. */
   payments: number;
   /** The earliest payment, YYYY-MM-DD. */
@@ -166,6 +177,7 @@ async function crawlPayments(key: string): Promise<WhopRead> {
         name: String(user.name || user.username || ""),
         billing: "",
         paid: 0,
+        refunded: 0,
         payments: 0,
         first: day,
         last: day,
@@ -175,6 +187,7 @@ async function crawlPayments(key: string): Promise<WhopRead> {
       // their first payment is still their name.
       if (!existing.billing && billing) existing.billing = billing;
       existing.paid += net;
+      existing.refunded += refunded;
       existing.payments += 1;
       if (!existing.first || day < existing.first) existing.first = day;
       // NOT "the last one seen". The crawl is by page, not by date, so a later

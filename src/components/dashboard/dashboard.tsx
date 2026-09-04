@@ -856,6 +856,7 @@ export function Dashboard({
             order={9}
             calls={calls}
             matched={reconciliation?.matched ?? []}
+            processorRead={reconciliation !== null}
             today={today}
           />
         </div>

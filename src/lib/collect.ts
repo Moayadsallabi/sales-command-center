@@ -70,10 +70,42 @@ export interface Balance {
   paid: number;
   /** price − paid, always above COLLECT_FLOOR. */
   owed: number;
-  /** Whether `paid` came from the payment processor or from the tracker row. */
-  source: "processor" | "tracker";
-  /** How many payments the processor has seen. Null when it is not the source. */
+  /**
+   * WHAT TIES THIS ROW TO THE MONEY, which is what decides whether the balance
+   * beside it can be trusted enough to ring somebody about.
+   *
+   *   email    a payment was tied to this call by the prospect's address. The
+   *            strongest thing this system produces, and the only one that
+   *            needs no caveat.
+   *   name     tied on the name alone, because the address on the row matched
+   *            no buyer. A lone wrong answer looks exactly like a confident
+   *            right one, so it is marked.
+   *   unfound  the row carries an address and the processor has no payment
+   *            against it. Either they genuinely have not paid, or they paid
+   *            under another address — and the figure shown is the closer's
+   *            typing rather than the bank.
+   *   no_email nothing could be looked up at all. This is the shape a
+   *            duplicated row takes, and the shape of a row named "Unknown".
+   *   unread   no payment processor was consulted, for this client or at all.
+   *            Every figure is then the tracker's and none of the three grades
+   *            above means anything — "no payment found" would claim a search
+   *            that never happened. Said once at the top of the panel instead
+   *            of on all seventeen rows.
+   */
+  evidence: "email" | "name" | "unfound" | "no_email" | "unread";
+  /** How many payments the processor has seen. Null when it found none. */
   payments: number | null;
+  /**
+   * What the tracker row itself claims was collected, when that disagrees with
+   * the processor by more than the rounding floor. Null when they agree or
+   * when there is nothing to compare against.
+   *
+   * Named rather than silently overridden: a closer whose row says one thing
+   * while the screen says another will dispute the number, and they are right
+   * to. Live case — a row typed $1,060 while $1,560 had arrived, so trusting
+   * the row would have chased $500 that was already banked.
+   */
+  trackerSays: number | null;
   /**
    * The day money last arrived, when anything knows it.
    *
@@ -96,6 +128,8 @@ export interface Balance {
 }
 
 export interface CollectResult {
+  /** Whether the payment processor was consulted at all — see `collectable`. */
+  processorRead: boolean;
   /** Longest quiet first. */
   items: Balance[];
   /** What the list is worth. */
@@ -126,6 +160,29 @@ export interface CollectResult {
    * fix, after which the money checks itself.
    */
   uncheckable: number;
+  /**
+   * Rows resting on anything weaker than an address match.
+   *
+   * Published as a headline number rather than left to the per-row notes,
+   * because the cost of this list being wrong is somebody's afternoon and a
+   * customer told they owe money they have paid. Live on 2026-09-04 it is 9 of
+   * 23 — a third of the list, which is not a footnote.
+   */
+  needsChecking: number;
+  /**
+   * Deals where money came and went again.
+   *
+   * A refund makes a paid deal look part paid: the processor's total is net of
+   * it, so $2,000 received and $1,667 given back reads as $333 paid against a
+   * $2,000 price — a $1,667 balance nobody is owed. Live on 2026-09-04 that
+   * was one row on this list, with a name and a closer beside it.
+   *
+   * Pulled out rather than shown, because the number is not a debt and no
+   * amount of labelling makes it safe to put in a column headed Still owed.
+   * The row needs correcting to REFUND on the tracker, which is what the
+   * count says.
+   */
+  refunded: { count: number; value: number };
 }
 
 /** Whole days from `date` to `today`, both YYYY-MM-DD. Negative clamps to 0. */
@@ -153,7 +210,15 @@ function daysBetween(date: string, today: string): number {
 export function collectable(
   calls: CallRecord[],
   matched: MatchedPayment[],
-  today: string
+  today: string,
+  /**
+   * Whether the payment processor was read at all. False for a client with no
+   * Whop key, for one reporting in a currency Whop does not settle in, and on
+   * any load where the crawl failed — see isWhopConfigured and loadPayments.
+   * An empty `matched` alone cannot tell "nobody has paid" from "nobody
+   * looked", and those want opposite sentences.
+   */
+  processorRead = true
 ): CollectResult {
   // KEYED BY ID, NOT BY THE OBJECT. reconcile runs before settle, and settle
   // returns a NEW record for every row it promotes — so the call inside a match
@@ -166,6 +231,7 @@ export function collectable(
 
   const items: Balance[] = [];
   let unpriced = 0;
+  const refunded = { count: 0, value: 0 };
 
   for (const call of calls) {
     if (!isWin(call)) continue;
@@ -188,19 +254,45 @@ export function collectable(
     const owed = price - paid;
     if (owed <= COLLECT_FLOOR) continue;
 
+    // MONEY THAT CAME AND WENT IS NOT MONEY OWED. See `refunded` above: the
+    // processor's total is net of the refund, so a refunded customer arrives
+    // here looking part paid. Counted and removed rather than labelled, since
+    // the figure is not a debt in any wording.
+    if (match && match.refunded > 0) {
+      refunded.count += 1;
+      refunded.value += match.refunded;
+      continue;
+    }
+
     const lastPaid = match?.last ?? null;
     // Falling back to the call date rather than skipping the row: a deal agreed
     // on a call and never paid at all is the single most collectable thing on
     // this list, and it is the one with no payment to date it by.
     const clock = lastPaid ?? call.call_date;
 
+    // What the closer typed, kept beside what arrived whenever the two differ
+    // by more than rounding. Only meaningful where a payment was found: with
+    // nothing to compare against, the tracker's figure IS the figure.
+    const typed = reportingCollected(call);
+    const trackerSays =
+      match && Math.abs(typed - match.paid) >= COLLECT_FLOOR ? typed : null;
+
     items.push({
       call,
       price,
       paid,
       owed,
-      source: match ? "processor" : "tracker",
+      evidence: !processorRead
+        ? "unread"
+        : match
+        ? match.certain
+          ? "email"
+          : "name"
+        : String(call.prospect_email ?? "").trim()
+        ? "unfound"
+        : "no_email",
       payments: match ? match.payments : null,
+      trackerSays,
       lastPaid,
       quiet: clock ? daysBetween(clock, today) : 0,
       clockFrom: lastPaid ? "payment" : "call",
@@ -213,13 +305,18 @@ export function collectable(
   items.sort((a, b) => (b.quiet - a.quiet) || (b.owed - a.owed));
 
   return {
+    processorRead,
     items,
     owed: items.reduce((sum, i) => sum + i.owed, 0),
     quiet: items.filter((i) => i.quiet >= COLLECT_QUIET_DAYS).length,
     cold: items.filter((i) => i.quiet >= COLLECT_COLD_DAYS).length,
     unpriced,
-    uncheckable: items.filter(
-      (i) => i.source === "tracker" && !String(i.call.prospect_email ?? "").trim()
-    ).length,
+    uncheckable: items.filter((i) => i.evidence === "no_email").length,
+    // Zero when nothing was read, because the caveat is then about the whole
+    // panel rather than about particular rows, and it is stated once.
+    needsChecking: processorRead
+      ? items.filter((i) => i.evidence !== "email").length
+      : 0,
+    refunded: { count: refunded.count, value: Math.round(refunded.value) },
   };
 }

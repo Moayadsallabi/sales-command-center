@@ -214,20 +214,36 @@ are paying to schedule. So each row shows how long since money last arrived;
 over 30 days is worth a message and over 60 is worth worrying about, and the
 panel says out loud that both are judgement.
 
-Three things it says rather than hides, each of which would otherwise make the
-list read shorter or surer than it is:
+**A refund is not a debt, and it is the one that would have cost somebody a
+phone call.** The processor's total is net of refunds, so a customer who paid
+$2,000 in full and was refunded $1,667 arrives having "paid $333" — and against
+a $2,000 deal that reads as $1,667 outstanding. Live on 2026-09-04 exactly one
+row on this account was of that shape, with a name and a closer beside it.
+Those come off the list and are counted underneath instead: the row needs
+marking REFUND on the tracker, not ringing.
 
-- **Where the money figure came from.** The processor wherever a payment could
-  be tied to the call — Cash Collected is typed by hand and drifts low, which
-  is this population exactly — and the tracker's own figure otherwise, marked
-  *from the tracker*.
-- **Rows with no prospect email**, whose balance nothing could check. This is
-  the shape a duplicated row takes: two Customer rows for the same person three
-  days apart, one without an address, and the second reads as a customer who
-  never paid. Adding the address is the fix — see **Filling in the missing
-  addresses** above.
-- **Wins carrying no price**, which cannot appear at any amount because nothing
-  can say what is left of a deal whose size was never recorded.
+**Every row says what ties it to the money**, because a third of them rest on
+something weaker than an address:
+
+| | What it means |
+|---|---|
+| *(no note)* | A payment was tied to this call by the prospect's email. The strongest tie the system makes. |
+| matched on name | The address on the row matched no buyer, so this rests on the name alone. A lone wrong answer looks exactly like a confident right one. |
+| no payment found | The row has an address and the processor has nothing against it. Either they have not paid, or they paid under another address — the figure shown is the closer's typing. |
+| no email on the row | Nothing could be looked up. This is the shape a duplicated row takes: two Customer rows for one person three days apart, one without an address, and the second reads as a customer who never paid. |
+
+The count of those travels in the subtitle rather than only on the rows — a
+caveat in small grey type under an amount is read after somebody has already
+decided to ring. Where the tracker's own cash figure disagrees with the
+processor by more than $50, the row prints both.
+
+With no processor connected — no key, a currency Whop does not settle in, or a
+failed read — every figure is the tracker's, and the panel says that once at the
+top instead of putting "no payment found" against every row. That claims a
+search nobody ran.
+
+**Wins carrying no price** cannot appear at any amount, because nothing can say
+what is left of a deal whose size was never recorded. They are counted too.
 
 Like the follow-up list above it, the date range at the top of the page does not
 apply — a balance does not stop being owed when the filter moves, and unlike a

@@ -15,6 +15,22 @@ import { Panel, PanelHeader } from "./panel";
 const SHOWN = 15;
 
 /**
+ * What each row is resting on, in the words a person about to ring somebody
+ * needs. Empty for an email match — the strongest tie this system makes, and a
+ * caveat on every clean row is how people learn to skim past the caveats.
+ *
+ * The wording says what to DO, not what the matcher did: "check the row" is
+ * actionable, "unmatched" invites a shrug.
+ */
+const EVIDENCE: Record<string, string> = {
+  email: "",
+  unread: "",
+  name: "matched on name, not address",
+  unfound: "no payment found — figure from the tracker",
+  no_email: "no email on the row — check it first",
+};
+
+/**
  * The money that is owed, as people to ring rather than as a total.
  *
  * The second panel on this page that is a job rather than a number. Cash
@@ -31,6 +47,7 @@ export function PaymentsToCollect({
   calls,
   matched,
   today,
+  processorRead = true,
   order = 0,
 }: {
   /** Every call, unfiltered — see the note in the footer. */
@@ -38,9 +55,11 @@ export function PaymentsToCollect({
   /** reconcile's matches, unwindowed. Empty when the processor is not connected. */
   matched: MatchedPayment[];
   today: string;
+  /** False when there is no processor to read, or the read failed. */
+  processorRead?: boolean;
   order?: number;
 }) {
-  const result = collectable(calls, matched, today);
+  const result = collectable(calls, matched, today, processorRead);
   const shown = result.items.slice(0, SHOWN);
   const rest = result.items.slice(SHOWN);
   const restOwed = rest.reduce((sum, i) => sum + i.owed, 0);
@@ -73,7 +92,21 @@ export function PaymentsToCollect({
                       result.quiet === 1 ? "one has" : `${result.quiet} have`
                     } been quiet for over ${COLLECT_QUIET_DAYS} days`
                   : ""
-              }.`
+              }.${
+                /* IN THE SUBTITLE, NOT ONLY ON THE ROWS. A caveat in 11px grey
+                   under an amount is read after somebody has already decided to
+                   ring. The cost of getting this list wrong is a customer being
+                   told they owe money they have paid, so the count of rows
+                   nothing verified sits in the same sentence as the count of
+                   rows to work. */
+                result.needsChecking > 0
+                  ? ` ${result.needsChecking} of them ${
+                      result.needsChecking === 1 ? "rests" : "rest"
+                    } on something weaker than an address match — check ${
+                      result.needsChecking === 1 ? "it" : "those"
+                    } before ringing.`
+                  : ""
+              }`
         }
         right={
           none ? null : (
@@ -88,14 +121,28 @@ export function PaymentsToCollect({
         }
         info={
           <>
+            {!result.processorRead && (
+              <p>
+                <strong>
+                  No payment processor is connected, so every figure here is
+                  what the tracker was typed with.
+                </strong>{" "}
+                Cash Collected is filled in by hand as instalments land, and it
+                drifts low — connect the processor and these balances check
+                themselves against the money.
+              </p>
+            )}
             <p>
               What was agreed on the call, minus what has actually arrived. The
               money comes from the payment processor wherever a payment could be
               tied to the call, because Cash Collected on the tracker is typed
               by hand and drifts low — a later instalment lands and nobody goes
-              back to the row, which is this list exactly. A row the processor
-              could not be matched to says <em>from the tracker</em>, and that
-              figure is somebody&apos;s typing rather than the bank.
+              back to the row, which is this list exactly. Where the two
+              disagree the row&apos;s own figure is printed underneath, so a
+              closer who typed something else can see both rather than argue
+              with the screen. Each row also says what tied it to the money: an
+              address is the strongest tie there is and carries no note, and
+              anything weaker says so in the words of what to check.
             </p>
             <p>
               <strong>Nothing here says a payment is late.</strong> The tracker
@@ -111,6 +158,18 @@ export function PaymentsToCollect({
               {COLLECT_COLD_DAYS} is worth worrying about; both are judgement,
               not a deadline anyone agreed to.
             </p>
+            {result.refunded.count > 0 && (
+              <p>
+                {result.refunded.count === 1
+                  ? "One deal is not on this list because money was refunded on it"
+                  : `${result.refunded.count} deals are not on this list because money was refunded on them`}{" "}
+                — {formatReporting(result.refunded.value)} given back. The
+                processor&apos;s total is net of a refund, so a refunded
+                customer looks part paid and would otherwise appear here as
+                somebody to chase for money nobody is owed. Mark the row REFUND
+                in Notion and it drops out of the figures above it too.
+              </p>
+            )}
             {result.uncheckable > 0 && (
               <p>
                 {result.uncheckable}{" "}
@@ -215,9 +274,20 @@ export function PaymentsToCollect({
                   <span className="text-[11px] text-zinc-400">
                     of {formatReporting(item.price)}
                   </span>
-                  {item.source === "tracker" && (
+                  {item.trackerSays != null && (
                     <span className="block text-[11px] font-sans text-zinc-500">
-                      from the tracker
+                      row says {formatReporting(item.trackerSays)} collected
+                    </span>
+                  )}
+                  {EVIDENCE[item.evidence] && (
+                    <span
+                      className={`block text-[11px] font-sans ${
+                        item.evidence === "no_email"
+                          ? "text-amber-400/80"
+                          : "text-zinc-500"
+                      }`}
+                    >
+                      {EVIDENCE[item.evidence]}
                     </span>
                   )}
                 </span>
