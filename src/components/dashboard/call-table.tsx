@@ -1,6 +1,6 @@
 "use client";
 
-import { CallRecord, OUTCOME_COLORS, leadQualityScore } from "@/lib/types";
+import { CallRecord, OUTCOME_COLORS, leadQualityScore, overallScore } from "@/lib/types";
 import { leadBandFor } from "@/lib/lead-quality";
 import { carriesRevenue, collectedToDate, formatMoney, formatReporting } from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
@@ -278,29 +278,37 @@ export function CallTable({
                   })()}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap">
-                  {call.quality_score != null ? (
+                  {/* Computed from the dimension columns, not read from the
+                      tracker's Quality Score cell: rows scored before the
+                      overall-score floor existed still carry an average over
+                      two dimensions there, and this table must agree with the
+                      scorecard panel about which calls have an overall. */}
+                  {(() => {
+                    const overall = overallScore(call);
+                    return overall != null ? (
                     <div className="flex items-center gap-2">
                       <div className="w-12 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
                         <div
                           className="h-full rounded-full transition-[width,background-color] duration-300"
                           style={{
-                            width: `${(call.quality_score / 10) * 100}%`,
+                            width: `${(overall / 10) * 100}%`,
                             // This band started at 8 while every other copy
                             // started at 7.5, so a call scored 7.7 was one
                             // colour on the leaderboard and another here. There
                             // are no copies left: every panel that paints a
                             // score reads score-tone.ts.
-                            background: callScoreHex(call.quality_score),
+                            background: callScoreHex(overall),
                           }}
                         />
                       </div>
                       <span className="font-mono text-[13px] text-zinc-400 tabular-nums">
-                        {call.quality_score}
+                        {overall.toFixed(1)}
                       </span>
                     </div>
                   ) : (
                     <span className="text-zinc-500">—</span>
-                  )}
+                  );
+                  })()}
                 </td>
               </tr>
             ))}

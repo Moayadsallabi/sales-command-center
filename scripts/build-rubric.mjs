@@ -628,6 +628,14 @@ ${entries}
 
 export const RUBRIC_VERSION = ${JSON.stringify(r.version)};
 
+/**
+ * How many dimensions must be scored before a call has an overall at all.
+ * Below it the dimension scores stand on their own and the call has no place
+ * on any average — a 17-minute payment call scored on two dimensions was the
+ * joint top call on the board before this existed.
+ */
+export const MIN_SCORED_DIMENSIONS = ${JSON.stringify(r.minScoredDimensions)};
+
 /** Verdict bands, highest threshold first. */
 export const VERDICTS: { min: number; label: string }[] = [
 ${verdicts}
@@ -795,6 +803,11 @@ function buildWorkflow(r, systemPrompt, schema) {
   // deeply nested schema on the way through.
   assign("output_schema", JSON.stringify(schema));
   assign("rubric_version", r.version);
+  // The verdict bands and the overall floor travel with the prompt so the
+  // Notion write reads them from the same box the rubric came from, instead of
+  // keeping a typed-out copy of the thresholds that drifts from rubric.json.
+  assign("verdicts", JSON.stringify(r.verdicts));
+  assign("min_scored_dimensions", r.minScoredDimensions);
 
   return template;
 }

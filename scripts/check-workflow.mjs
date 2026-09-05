@@ -330,7 +330,15 @@ const aiFrom = (ai) => ({
   $: (name) => {
     if (name === "Extract Direct Fields") return { item: { json: mockDirect } };
     if (name === "Load Rubric")
-      return { item: { json: { rubric_version: rubric.version } } };
+      return {
+        item: {
+          json: {
+            rubric_version: rubric.version,
+            verdicts: JSON.stringify(rubric.verdicts),
+            min_scored_dimensions: rubric.minScoredDimensions,
+          },
+        },
+      };
     throw new Error(`unexpected node reference: ${name}`);
   },
 });
@@ -467,6 +475,112 @@ if (notionBody) {
   });
   if (overLong.length) fail(`${overLong.length} blocks exceed Notion's 2000-character limit`);
   else pass("no block exceeds Notion's 2000-character limit");
+}
+
+/* ------------------------------------------ 4b. The overall-score floor */
+
+// A call scored on two dimensions was the joint top call on Brey's board:
+// a 17-minute payment call, Frame and Strategic Awareness at 7 and 8, the
+// other six "no evidence", overall 7.5. The floor keeps such a call's
+// dimension scores and denies it an overall, so it cannot lead a leaderboard
+// of full calls.
+{
+  const scoresWith = (n) =>
+    Object.fromEntries(
+      rubric.dimensions.map((d, i) => [
+        d.key,
+        i < n ? { score: 8, reasoning: `Scored ${d.name}.` } : { score: 0, reasoning: "No evidence." },
+      ])
+    );
+  const floor = rubric.minScoredDimensions;
+  const evalWith = (n) =>
+    JSON.parse(
+      evalExpr(nodeByName["Write to Notion"].parameters.jsonBody, aiFrom({ ...mockAi, scores: scoresWith(n) }))
+    );
+
+  const under = evalWith(floor - 1);
+  if (under.properties["Quality Score"]?.number != null)
+    fail(`${floor - 1} scored dimensions still produced an overall of ${under.properties["Quality Score"].number}`);
+  else if (under.properties[rubric.dimensions[0].column]?.number !== 8)
+    fail("a call under the floor lost its dimension scores — only the overall should go");
+  else if (!under.children.some((b) => /only \d+ of \d+ dimensions/.test(b[b.type]?.rich_text?.[0]?.text?.content ?? "")))
+    fail("a call under the floor does not say on its page why it has no overall");
+  else pass(`${floor - 1} scored dimensions: dimension scores kept, no overall, page says why`);
+
+  const at = evalWith(floor);
+  if (at.properties["Quality Score"]?.number !== 8)
+    fail(`exactly ${floor} scored dimensions should produce an overall (got ${at.properties["Quality Score"]?.number})`);
+  else if (!at.children.some((b) => new RegExp(`scored on ${floor} of ${rubric.dimensions.length}`).test(b[b.type]?.rich_text?.[0]?.text?.content ?? "")))
+    fail("a partially scored call does not say how many dimensions its overall rests on");
+  else pass(`exactly ${floor} scored dimensions: overall written, coverage named on the page`);
+}
+
+/* ---------------------------------------------- 4c. Verdicts from the rubric */
+
+// The verdict bands used to be typed out in the write expression, so a change
+// to rubric.json changed the dashboard and the docs and left the Notion page
+// saying something else. They now travel in the Load Rubric node.
+{
+  // Scores that average to exactly `target`, spread across the dimensions so a
+  // half-point band (7.5) is reachable with whole-number scores.
+  const verdictOf = (target) => {
+    const n = rubric.dimensions.length;
+    const total = Math.max(n, Math.round(target * n));
+    const base = Math.floor(total / n);
+    const extra = total - base * n;
+    const scores = Object.fromEntries(
+      rubric.dimensions.map((d, i) => [d.key, { score: base + (i < extra ? 1 : 0), reasoning: "x" }])
+    );
+    const body = JSON.parse(
+      evalExpr(nodeByName["Write to Notion"].parameters.jsonBody, aiFrom({ ...mockAi, scores }))
+    );
+    const heading = body.children[0][body.children[0].type].rich_text[0].text.content;
+    return heading.split(" — ")[1];
+  };
+  const wrong = rubric.verdicts.filter((v) => verdictOf(v.min) !== v.label);
+  if (wrong.length)
+    fail(`verdict labels on the page disagree with rubric.json for: ${wrong.map((v) => v.label).join(", ")}`);
+  else pass(`all ${rubric.verdicts.length} verdict bands on the page come from rubric.json`);
+}
+
+/* ------------------------------------------- 2c. Timestamps reach the model */
+
+// Every quote in the scorecard is supposed to carry a [mm:ss], and for the
+// first 123 calls on Brey's tracker none did — the transcript was joined as
+// "speaker: text" and Fathom's per-line timestamp never left the webhook.
+// Without it the model cannot see a pause either, so "held the silence" was
+// being judged on nothing.
+{
+  const webhookBody = {
+    transcript: [
+      { speaker: { display_name: "Sam Rep" }, text: "The investment is four thousand.", timestamp: "00:31:02" },
+      { speaker: { display_name: "Alex Morgan" }, text: "Okay.", timestamp: "01:04:19" },
+      { speaker: { display_name: "Sam Rep" }, text: "No stamp on this one." },
+    ],
+  };
+  const expr = nodeByName["Extract Meeting Data"].parameters.assignments.assignments.find(
+    (a) => a.name === "transcript"
+  ).value;
+  const joined = evalExpr(expr, { $json: {}, $: () => ({ item: { json: { body: webhookBody } } }) });
+  const lines = joined.split("\n");
+  if (lines[0] !== "[31:02] Sam Rep: The investment is four thousand.")
+    fail(`transcript line lost or mangled its timestamp: ${JSON.stringify(lines[0])}`);
+  else if (lines[1] !== "[64:19] Alex Morgan: Okay.")
+    fail(`an hour-plus timestamp should read as total minutes, got ${JSON.stringify(lines[1])}`);
+  else if (lines[2] !== "Sam Rep: No stamp on this one.")
+    fail(`a line with no timestamp should be joined bare, got ${JSON.stringify(lines[2])}`);
+  else pass("transcript lines carry their [mm:ss], hours folded into minutes, bare lines survive");
+
+  const gate = nodeByName["Has Transcript?"].parameters.conditions.conditions[0].leftValue;
+  // Twenty lines: 40 words, 60 tokens once the stamps are counted.
+  const stamped = Array.from({ length: 20 }, (_, i) => `[00:${String(i).padStart(2, "0")}] Alex: ok`).join("\n");
+  const decision = evalExpr(gate, {
+    $json: {},
+    $: () => ({ item: { json: { transcript: stamped } } }),
+  });
+  if (decision !== false)
+    fail("Has Transcript? counted the timestamps as words — a 40-word no-show would be scored");
+  else pass("Has Transcript? ignores the timestamps when counting words");
 }
 
 /* ----------------------------------------- 4a. The token-deposit floor */

@@ -171,16 +171,28 @@ export function partitionCalls(
  */
 export const FOREIGN_OFFER = "different offer";
 
+/**
+ * The scorer's other positive verdict: the recording was not a sales
+ * conversation at all. A team call reviewing a closer's earlier call scored
+ * 2.4 as a lost sale in August 2026 — it quoted a closer and a prospect, so
+ * nothing on the row could tell it apart. Same handling as a foreign offer:
+ * written, arguable, and out of every figure.
+ */
+export const NOT_A_SALES_CALL = "not a sales call";
+
+const SCORER_EXCLUSIONS: Record<string, string> = {
+  [FOREIGN_OFFER]: "The scorer read the transcript as selling a different product.",
+  [NOT_A_SALES_CALL]: "The scorer read the recording as something other than a sales call.",
+};
+
 function foreignOffer(call: CallRecord): Exclusion | null {
-  if (String(call.offer_match ?? "").trim().toLowerCase() !== FOREIGN_OFFER) {
-    return null;
-  }
+  const verdict = String(call.offer_match ?? "").trim().toLowerCase();
+  const stock = SCORER_EXCLUSIONS[verdict];
+  if (!stock) return null;
   return {
     call_date: call.call_date ?? undefined,
     prospect_name: call.name,
-    reason:
-      call.offer_evidence?.trim() ||
-      "The scorer read the transcript as selling a different product.",
+    reason: call.offer_evidence?.trim() || stock,
     ruled_by: "the scorer, from the transcript",
   };
 }

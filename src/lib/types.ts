@@ -1,4 +1,4 @@
-import { DIMENSIONS, DimensionKey } from "./dimensions";
+import { DIMENSIONS, DimensionKey, MIN_SCORED_DIMENSIONS } from "./dimensions";
 import { LEAD_FACTORS, LeadFactorKey, leadScore } from "./lead-quality";
 import { AMBER, CRIMSON, GOLD, NEGATIVE, NEUTRAL } from "./palette";
 
@@ -113,12 +113,27 @@ export interface CallRecord {
   offer_evidence: string;
 }
 
-/** Mean of a call's dimension scores, or null if it was never scored. */
+/** How many of the eight dimensions the scorer found evidence for. */
+export function scoredDimensionCount(call: CallRecord): number {
+  return DIMENSIONS.filter((d) => call.scores[d.key] != null).length;
+}
+
+/**
+ * Mean of a call's dimension scores, or null when too few were scored for a
+ * mean to say anything.
+ *
+ * The floor exists because a dimension with no evidence drops out of the
+ * average, and a call with six such dimensions is then averaged over two. A
+ * 17-minute payment-processing call — Frame 7, Strategic Awareness 8, nothing
+ * else scorable — sat as the joint best call on Brey's board at 7.5. Below the
+ * floor the dimension scores still show on the scorecard; only the overall,
+ * and with it the call's place in every average, is withheld.
+ */
 export function overallScore(call: CallRecord): number | null {
   const values = DIMENSIONS.map((d) => call.scores[d.key]).filter(
     (v): v is number => v != null
   );
-  if (values.length === 0) return null;
+  if (values.length < MIN_SCORED_DIMENSIONS) return null;
   return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 

@@ -115,6 +115,29 @@ count already on the panel.
 npm run check:calendly
 ```
 
+## Rescoring calls after a rubric change
+
+A rubric change reaches new calls the moment the workflow is republished, and
+never reaches the calls already on the tracker. Averages then mix two rubrics,
+and `Rubric Version` is the only thing that says so.
+
+```bash
+npm run rescore -- --client brey --webhook https://…/webhook/fathom-webhook-brey --sample 10
+npm run rescore -- --client brey --webhook https://…/webhook/fathom-webhook-brey --sample 10 --apply
+npm run rescore -- --client brey --webhook https://…/webhook/fathom-webhook-brey --all --apply
+```
+
+It does not reimplement the scorer. For each row it fetches the recording from
+Fathom, archives the old row, posts the recording into the live workflow with
+`force_score`, waits for the new row, and copies the hand-maintained commercial
+columns (outcome, prices, cash, email, lead source) from the old row onto the new
+one, because those were reconciled against Whop and Calendly by people and the
+scorer must not overwrite them. Every old row is saved under `rescore-backups/`
+before it is archived, and the report at the end lists old and new scores side by
+side. Run `--sample` first and read the shift before rescoring the board.
+
+Without `--apply` it only says what it would do.
+
 ## Filling in the missing addresses
 
 `Prospect Email` is the key every join runs on — the booking behind a call, the

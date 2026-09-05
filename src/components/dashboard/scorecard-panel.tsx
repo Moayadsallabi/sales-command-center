@@ -8,6 +8,7 @@ import {
   overallScore,
   leadQualityScore,
   hasLeadAssessment,
+  scoredDimensionCount,
 } from "@/lib/types";
 import { DIMENSIONS, GOOD_SCORE, verdictFor } from "@/lib/dimensions";
 import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
@@ -164,6 +165,7 @@ function ScorecardBody({
   const [showAllFactors, setShowAllFactors] = useState(false);
 
   const overall = overallScore(call);
+  const scoredCount = scoredDimensionCount(call);
   const lead = leadQualityScore(call);
   const leadAssessed = hasLeadAssessment(call);
 
@@ -266,6 +268,25 @@ function ScorecardBody({
               </span>
               <span className="text-zinc-400">/10</span>{" "}
               <span className="font-sans text-zinc-400">{verdictFor(overall)}</span>
+              {scoredCount < DIMENSIONS.length && (
+                <span
+                  className="font-sans text-zinc-500"
+                  title="The other dimensions had no evidence on this call and are left out of the average"
+                >
+                  {" "}· scored on {scoredCount} of {DIMENSIONS.length}
+                </span>
+              )}
+            </span>
+          )}
+          {/* Under the floor the dimension scores still show below; only the
+              average is withheld, and the reader is told why rather than shown
+              nothing. */}
+          {overall == null && scoredCount > 0 && (
+            <span
+              className="font-sans text-[11px] text-zinc-500"
+              title="An overall needs enough scored dimensions to mean something"
+            >
+              No overall — only {scoredCount} of {DIMENSIONS.length} dimensions had evidence
             </span>
           )}
           {/* Sat next to the call score deliberately. The pair is the finding:

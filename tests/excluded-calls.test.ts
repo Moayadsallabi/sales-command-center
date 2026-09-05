@@ -80,6 +80,19 @@ describe("excluded calls", () => {
     expect(isExcluded(call({ name: "Someone Else", call_date: "2026-08-21" }), entries)).toBeNull();
   });
 
+  it("drops a row the scorer marked as not a sales call, and keeps its dimension scores on the record", () => {
+    const review = call({
+      name: "Unknown",
+      offer_match: "not a sales call",
+      offer_evidence: "'so on this call what I would have done is' [01:12] — a review of another call",
+    });
+    const sale = call({ name: "Angel", offer_match: "this offer" });
+    const { kept, excluded } = partitionCalls([review, sale], fileWith({}));
+    expect(kept.map((c) => c.name)).toEqual(["Angel"]);
+    expect(excluded[0].entry.reason).toContain("a review of another call");
+    expect(excluded[0].entry.ruled_by).toBe("the scorer, from the transcript");
+  });
+
   it("drops a row the scorer marked as a different offer, with no list entry", () => {
     const foreign = call({ name: "Ludgero", offer_match: "different offer", offer_evidence: "\"I'm part of Kevin's team\" [00:02]" });
     const ours = call({ name: "Alan", offer_match: "this offer" });

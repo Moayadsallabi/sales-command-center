@@ -75,7 +75,7 @@ export const DIMENSIONS: Dimension[] = [
     plainName: "Handling pushback",
     plainQuestion: "Did they find the real objection before answering it?",
     column: "Objection Resolution",
-    question: "Were objections handled in the correct sequence?",
+    question: "Did the caller find the real objection before answering it?",
   },
   {
     key: "qualification",
@@ -95,12 +95,21 @@ export const DIMENSIONS: Dimension[] = [
   },
 ];
 
-export const RUBRIC_VERSION = "1.7.0";
+export const RUBRIC_VERSION = "2.0.0";
+
+/**
+ * How many dimensions must be scored before a call has an overall at all.
+ * Below it the dimension scores stand on their own and the call has no place
+ * on any average — a 17-minute payment call scored on two dimensions was the
+ * joint top call on the board before this existed.
+ */
+export const MIN_SCORED_DIMENSIONS = 5;
 
 /** Verdict bands, highest threshold first. */
 export const VERDICTS: { min: number; label: string }[] = [
-  { min: 8.5, label: "Elite execution" },
-  { min: 7, label: "Strong call" },
+  { min: 9, label: "Elite execution" },
+  { min: 8, label: "Strong call" },
+  { min: 7.5, label: "Good call" },
   { min: 5.5, label: "Average" },
   { min: 0, label: "Fundamentals need work" },
 ];

@@ -8,19 +8,23 @@ _Eight dimensions for the caller, eight factors for the lead, applied to every r
 
 - No weighting. Every dimension counts equally, because a weakness in any single one can kill the deal.
 - Every judgement must be anchored to a specific moment in the transcript. Quote the exact words so they can find the moment.
-- Every quote carries the time it happened, written as [mm:ss] immediately after the closing quotation mark — "I have nothing to show for it" [03:50]. Take the time from the transcript's own timestamps; never estimate one. If a line in the transcript carries no timestamp, quote it without one rather than inventing a number.
-- You are scoring two separate things and must not let one bleed into the other: the caller's execution, and the quality of the lead they were handed. A weak lead does not lower the caller's scores, and a strong lead does not raise them.
+- Every line of the transcript begins with the time it was spoken, as [mm:ss]. Every quote carries the time of the line it came from, written immediately after the closing quotation mark — "I have nothing to show for it" [03:50]. Copy the time from the line. Never estimate one, and never quote a line without its time.
+- The transcript shows when each line started, not how long the pauses were. Read a pause as the gap between one line's time and the next. A caller who states the price at [31:02] and speaks again at [31:04] with nothing from the prospect in between filled the silence; one whose next line is at [31:19] held it. Do not describe a silence the timestamps cannot show.
+- You are scoring two separate things and must not let one bleed into the other: the caller's execution, and the quality of the lead they were handed. A weak lead does not lower the caller's scores, and a strong lead does not raise them. Score a dimension by what the caller did, never by how the prospect behaved — the prospect's behaviour belongs in the lead factors.
+- Score the process the caller actually ran against what this call needed, not against a fixed script. A close taken on a deposit with the balance on a named date is a close. A second call with a prospect who has already been through discovery does not need discovery re-run. Judge whether each move was right for where this prospect was.
+- Use the whole scale. 7 means the job was done properly with a lapse or two that cost nothing. 8 means done properly throughout. 9 means a specific move a coach would replay for other closers. 10 is for something you have not seen before. A caller who did most things right and slipped once is a 7, not a 5. A caller who never did the thing at all is a 2 or a 3, not a 4.
 - Be direct. If the call was bad, say so. If a dimension scored a 3, explain exactly why without softening it.
-- Do not over-praise. A 7 is a good score. An 8 is strong. A 9 means near-flawless execution on that dimension. A 10 is reserved for exceptional, textbook-worthy moments.
-- If the transcript gives no evidence for a dimension — it never came up, or the call ended before it could — return 0 for that score and say in the reasoning what was missing. 0 means not assessed, never a score of zero out of ten; it is left blank on the tracker and drops out of every average. Never fill the gap with a middle score; a guessed number poisons every average built on it.
+- If the transcript gives no evidence for a dimension — it never came up, or the call ended before it could — return 0 for that score and say in the reasoning what was missing. 0 means not assessed, never a score of zero out of ten; it is left blank on the tracker and drops out of every average. Never fill the gap with a middle score; a guessed number poisons every average built on it. 0 is never a penalty: a caller who should have qualified and did not scores low on Qualification, while a caller on a call where no objection could arise scores 0 on Objection Resolution.
+- An overall score exists only when at least five of the eight dimensions were scored. A call that gave evidence for fewer than five — a payment-processing call, a call cut short — keeps its dimension scores and has no overall, so a two-dimension call cannot top a leaderboard of full calls.
 
 The overall score is the plain average of the eight dimensions.
 
 | Overall | Verdict |
 | --- | --- |
-| 8.5–10 | Elite execution |
-| 7.0–8.4 | Strong call |
-| 5.5–6.9 | Average |
+| 9.0–10 | Elite execution |
+| 8.0–8.9 | Strong call |
+| 7.5–7.9 | Good call |
+| 5.5–7.4 | Average |
 | 0.0–5.4 | Fundamentals need work |
 
 ## The dimensions
@@ -34,14 +38,16 @@ Did they set the frame at the top using a structured opening that establishes di
 | Score | What it looks like |
 | --- | --- |
 | 1-3 | Prospect led the conversation. Caller was reactive, answered questions out of sequence, let the prospect skip discovery. |
-| 4-6 | Frame was set at the start but lost at some point and not recovered. Prospect dictated pace for portions of the call. |
-| 7-9 | Frame held throughout with natural redirects. Caller transitioned between phases deliberately. |
-| 10 | The prospect never questioned who was leading. Caller moved through discovery, pitch and close with total control. |
+| 4-6 | Frame was set at the start but lost at some point and not recovered. Prospect dictated the pace for parts of the call. |
+| 7 | Frame set and held. One or two moments where the prospect pulled the call sideways before the caller brought it back. |
+| 8 | Frame held throughout. Every derail was redirected within a line or two, and the caller moved between phases deliberately. |
+| 9 | The caller also used the frame: named where the call was going and got the prospect to agree to it, so later redirects cost nothing. |
+| 10 | A frame move a coach would replay — a redirect or reframe that changed the direction of the call, chosen by the caller rather than stumbled into. |
 
 What the scorer looks for:
 
-- Did the caller use a structured frame-setting opener?
-- Did the caller give the prospect the illusion of control ("Where do you think we should go from here?")?
+- Did the caller set the agenda in the first minutes and get the prospect to agree to it?
+- When the prospect asked for the price early or went on a tangent, how many lines did it take the caller to bring the call back?
 - Did the caller allow the prospect to interview them instead of the other way around?
 
 ### 2. Discovery Depth
@@ -53,9 +59,11 @@ Surface-level discovery ("What's your biggest challenge?" then moving on) is a 3
 | Score | What it looks like |
 | --- | --- |
 | 1-3 | Surface-level answers accepted without probing. Caller moved to pitch without understanding the real situation. |
-| 4-6 | Got to the business problem but not the personal or emotional layer. Some numbers gathered but gaps remain. |
-| 7-9 | Full excavation — business metrics, personal impact, financial specifics, timeline, emotional drivers. The gap between current and desired situation is crystal clear. |
-| 10 | The prospect had a visible emotional moment or said something like "I've never actually told anyone that." Discovery created genuine self-awareness in the prospect. |
+| 4-6 | Got to the business problem but not the personal layer. Some numbers gathered but gaps remain. |
+| 7 | The problem quantified and its personal cost named. One layer missing — usually how long it has gone on, or what has already been tried. |
+| 8 | Full excavation: numbers, duration, personal impact, past attempts, what happens if nothing changes. The one-paragraph test passes. |
+| 9 | Full excavation, and the caller reflected it back in a summary the prospect confirmed, so discovery became the material for the pitch. |
+| 10 | The caller asked a question that changed what the prospect understood about their own situation, and built the rest of the call on the answer. |
 
 What the scorer looks for:
 
@@ -76,8 +84,10 @@ There are seven beliefs a prospect must hold before they will buy: Pain (they ha
 | --- | --- |
 | 1-3 | Multiple beliefs unaddressed. Objections at the close caught the caller off guard. |
 | 4-6 | Covered most beliefs but missed at least one that later surfaced as an objection. |
-| 7-9 | All relevant beliefs addressed during discovery. The only objections at the close were purely financial or logistical. |
-| 10 | Zero uncertainty objections. The close was about logistics only. |
+| 7 | Every relevant belief addressed before the pitch. One was thin and needed handling again at the close. |
+| 8 | Every relevant belief built and tested before the price. The only objections at the close were financial or logistical. |
+| 9 | Beliefs built in an order that made each next one easier, and each checked with a tie-down before the caller moved on. |
+| 10 | The caller pre-handled the exact objection this prospect was going to raise, in the prospect’s own words, before it was raised. |
 
 What the scorer looks for:
 
@@ -98,8 +108,10 @@ Two things matter. First, did the pitch reference specific things the prospect s
 | --- | --- |
 | 1-3 | Generic pitch. Mostly deliverables. Could have been said to anyone on any call. |
 | 4-6 | Referenced some discovery details but still leaned on deliverables and features. |
-| 7-9 | Fully tailored, transformation-led, tied down after each pillar. |
-| 10 | The prospect interrupted to say "that's exactly what I need" before the caller finished. |
+| 7 | Built for this prospect — their numbers and their words — with tie-downs, but slid into a list of deliverables for part of it. |
+| 8 | Every pillar tied to something the prospect said, transformation before deliverables, tied down after each. |
+| 9 | Also kept short: pitched only the parts that answered this prospect’s situation and left the rest out. |
+| 10 | The pitch quoted the prospect’s own words back to them as each pillar landed, and the bridge from their pain to the outcome was explicit every time. |
 
 What the scorer looks for:
 
@@ -113,63 +125,70 @@ What the scorer looks for:
 
 **Could the caller hold tension without becoming needy?**
 
-This is the difference between people who have great conversations and people who close. Can the caller hold silence after dropping the price? Ask uncomfortable questions about finances without flinching? Push back on "I need to think about it" without sounding desperate? Any sign of neediness tanks this score: rushed or urgent tone, getting excited when the prospect agrees to pay, accepting a counter-offer too quickly, overpromising to win the sale, filling silence after the price drop, or softening the price.
+This is the difference between people who have great conversations and people who close. Tension is the silence after the price, the direct question about money, the push-back on "I need to think about it". Neediness shows as a rushed tone, excitement when the prospect agrees, accepting a counter-offer at once, overpromising, filling the silence after the price, or softening the number ("it's only", "but there's a payment plan") before the prospect has reacted. Read silence off the timestamps: the gap between the price line and the caller's next line. Three seconds or more before the caller speaks again is holding; speaking again inside that with nothing from the prospect in between is filling. Where the price was stated once and the prospect answered at once, there was no silence to hold — score the other tense moments on the call, and if there were none, return 0.
 
 | Score | What it looks like |
 | --- | --- |
-| 1-3 | Broke tension consistently — filled silences, softened the price, backed off objections quickly. |
-| 4-6 | Handled some tense moments well but folded on at least one key moment. |
-| 7-9 | Held tension throughout. Comfortable with silence and hard questions. Never sounded needy. |
-| 10 | Used tension strategically to create movement — not just endured it but leveraged it. |
+| 1-3 | Broke tension repeatedly — filled silences, softened the price before the prospect reacted, backed off at the first push. |
+| 4-6 | Held some tense moments but folded on at least one that mattered: the price, a hard money question, or "I need to think about it". |
+| 7 | Held the price and the hard questions. One soft moment that did not cost the deal. |
+| 8 | Held every tense moment. Said the number, stopped, waited. Asked about money directly and let the answer come. |
+| 9 | Also held when the prospect pushed a second time, without hardening or apologising. |
+| 10 | Used a silence or a direct question at the moment of decision to move the prospect — chosen, not endured. |
 
 What the scorer looks for:
 
-- What happened immediately after the price drop? The correct answer is nothing — the caller stops talking.
+- After the price line, when is the caller’s next line, and what did the prospect say in between?
 - Did the caller ever sound like they needed the sale?
-- Did the caller ask hard financial questions directly?
+- Did the caller ask about money directly ("what do you have available right now?")?
 - Did the caller back down from a push too early?
 
 ### 6. Objection Resolution
 
-**Were objections handled in the correct sequence?**
+**Did the caller find the real objection before answering it?**
 
-The sequence is: drop the investment and stop talking, pace the first objection without reacting, tie down certainty ("Finances aside, do you feel like this is what you need?"), handle any uncertainty objections first, and only then handle financial or partner objections. The biggest error is treating a certainty problem as a money problem. If the prospect is not sold and the caller jumps into payment plans, that is a critical failure.
+An objection has a surface and a cause. The job is to pace the first objection without reacting, find out whether the prospect is sold on the solution before dealing with money or a partner ("finances aside, is this what you need?"), handle any doubt about the solution first, and only then handle money or partner. The biggest error is treating a certainty problem as a money problem: a prospect who is not sold gets a payment plan instead of an answer. A scheduled second step — a deposit now and the balance on a named date, or a partner conversation booked with the prospect’s commitment to decide on a named day — is a resolution when the caller secured the commitment and the date. It is a deferral when the caller offered it to end the conversation. Where the prospect raised no objection there is nothing to score: return 0.
 
 | Score | What it looks like |
 | --- | --- |
-| 1-3 | Reacted to surface objections. Did not isolate the real objection. Jumped to payment plans before confirming certainty. |
-| 4-6 | Paced and isolated but handled in the wrong order, or missed the real objection behind a surface one. |
-| 7-9 | Clean sequence — paced, isolated, handled uncertainty before money, referenced discovery throughout. |
-| 10 | Turned the objection into a reason to buy. |
+| 1-3 | Reacted to the surface. Never isolated the real objection. Went to payment plans before checking the prospect was sold. |
+| 4-6 | Paced and isolated, but handled in the wrong order, or answered a surface objection while the real one went unresolved. |
+| 7 | Paced, isolated and handled in the right order. One objection was answered rather than uncovered. |
+| 8 | Clean sequence on every objection: paced, certainty tied down, doubt before money, discovery referenced. |
+| 9 | Also anticipated: the caller named the objection before the prospect did, or turned the prospect’s own earlier words into the answer. |
+| 10 | An objection became the reason to buy, and the caller did it without a rebuttal. |
 
 What the scorer looks for:
 
 - Did the caller pace the first objection rather than rebutting it?
 - Did the caller isolate the real objection?
 - Did the caller use consistency ("You told me earlier that...")?
-- Did the caller handle uncertainty before money?
+- Did the caller handle doubt about the solution before money?
+- If a second step was scheduled, did the caller get a commitment and a date, or just an exit?
 - Was the tonality neutral and grounded, or harsh, quick and defensive?
 
 ### 7. Qualification
 
 **Did the caller establish early whether this is a real prospect, and act on what they found?**
 
-Key areas: can this person decide alone or is there a partner, do they have financial capacity, is the timing right, are they shopping around. This is also about acting on what you find. Identifying that a business partner exists and then ignoring it until it surfaces as an objection at the close is a failure. Disqualifying too early and missing a real opportunity is the opposite failure.
+Key areas: can this person decide alone or is there a partner, do they have financial capacity, is the timing right, are they shopping around. This is also about acting on what you find. Identifying that a partner exists and then ignoring it until it surfaces as an objection at the close is a failure. Disqualifying too early and missing a real opportunity is the opposite failure. A two-step close is not a failure of qualification when the caller set it up: a deposit taken and the balance dated, or a partner conversation booked with the prospect committed to a decision on a named day. It is a failure when a partner or a money gap was found and the caller pitched as if it were not there, or when a follow-up was booked because the caller had no next move. A follow-up with no commitment attached rarely closes.
 
 | Score | What it looks like |
 | --- | --- |
 | 1-3 | No qualification. Pitched everyone the same regardless of signals. |
-| 4-6 | Some qualification but did not act on red flags or adjust the approach. |
-| 7-9 | Qualified decisively — decision-makers identified, financial capacity checked, timing confirmed, approach adjusted accordingly. |
-| 10 | The entire call strategy was shaped by qualification findings. Nothing at the close was a surprise. |
+| 4-6 | Some qualification but did not act on it — a partner or a money gap surfaced and the pitch went ahead as if it had not. |
+| 7 | Decision-maker, money and timing checked. One signal found late or acted on late. |
+| 8 | Qualified early and decisively, and the call was shaped by it: one call or two steps chosen on the evidence, pitch depth matched to it. |
+| 9 | Also disqualified or paused correctly where the evidence said to, without losing the prospect. |
+| 10 | Qualification set up the close so completely that nothing at the end was a surprise, and the caller could name the exact reason this prospect would buy. |
 
 What the scorer looks for:
 
 - Did the caller check for decision-maker status (partner, spouse, board)?
 - Did the caller financially pre-qualify before going deep?
 - Did the caller recognise an uncloseable prospect and handle it efficiently?
-- If a two-call close was appropriate, did the caller set it up correctly?
-- Did the caller book a follow-up when they should have pushed harder? Follow-ups close at under 10 percent, so this is almost always a mistake.
+- If a second step was scheduled, did it carry a deposit or a dated commitment?
+- Was a follow-up booked because the prospect needed one, or because the caller had run out of moves?
 
 ### 8. Strategic Awareness
 
@@ -179,10 +198,12 @@ The meta-dimension. Were there moments the caller clearly missed? Did they misre
 
 | Score | What it looks like |
 | --- | --- |
-| 1-3 | Major misreads. Moved to pitch when the prospect was not ready, or spent forty minutes in discovery when the prospect was already sold. Missed obvious buying signals or red flags. |
-| 4-6 | Read the room mostly right but missed secondary signals. Some mismatch between prospect energy and the caller's approach. |
-| 7-9 | Accurate reads throughout. Adapted pace and approach to the prospect's energy. Knew when to push and when to back off. |
-| 10 | Identified and exploited the exact moment the prospect was ready to move. Perfect pacing. Every transition felt natural and well-timed. |
+| 1-3 | Major misreads. Moved to pitch when the prospect was not ready, or spent forty minutes in discovery on a prospect who was already sold. Missed obvious buying signals or red flags. |
+| 4-6 | Read the room mostly right but missed secondary signals. Some mismatch between the prospect’s energy and the caller’s approach. |
+| 7 | Read the prospect accurately and adapted. One signal missed, or one phase run long. |
+| 8 | Accurate reads throughout. Pace matched the prospect; pushed and backed off at the right moments. |
+| 9 | Also changed the plan mid-call on the evidence — shortened discovery, skipped a pillar, moved to the close early — and it was the right change. |
+| 10 | Spotted the one moment that decided the call as it happened and acted on it. The moment you would name in this review and the caller’s move are the same line. |
 
 What the scorer looks for:
 
@@ -343,9 +364,9 @@ Record which objections were actually voiced, so the pattern across calls is vis
 | Flag | Question |
 | --- | --- |
 | Value Leak | Did the caller give away consulting or strategy before getting a commitment? |
-| Follow-Up Trap | Was a follow-up booked when a harder push was warranted? |
-| Early Price Drop | Was the price dropped before the caller confirmed the prospect was certain about the solution? |
-| Weakest Belief | Which of the seven beliefs was weakest or missing on this call? |
+| Follow-Up Trap | Was a follow-up booked with no deposit and no dated commitment attached, when the prospect was in a position to decide on the call? |
+| Early Price Drop | Was the price stated before the caller had checked the prospect was sold on the solution? A deposit asked for after a certainty tie-down is not an early drop; a price named before the pitch, or before any tie-down, is. |
+| Weakest Belief | Which of the seven beliefs did the caller build least on this call? The belief the caller left weakest, not the one the prospect arrived weakest on. |
 
 ## Written feedback
 

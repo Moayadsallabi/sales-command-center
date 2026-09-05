@@ -56,3 +56,6 @@ rubric/clients/*.local.md
 
 # local dev-server launch config, not part of the app
 .claude/
+
+# rows archived by scripts/rescore.mjs, kept so a rescore can be undone
+/rescore-backups/

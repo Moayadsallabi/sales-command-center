@@ -17,9 +17,10 @@
       "enum": [
         "this offer",
         "different offer",
-        "unclear"
+        "unclear",
+        "not a sales call"
       ],
-      "description": "Was this call about the offer above? Answer \"different offer\" only when the transcript positively identifies a different product. Answer \"unclear\" whenever you cannot tell."
+      "description": "Was this call about the offer above, and was it a sales call at all? Answer \"different offer\" only when the transcript positively identifies a different product. Answer \"unclear\" whenever you cannot tell."
     },
     "offer_evidence": {
       "type": "string",
@@ -220,7 +221,7 @@
           "properties": {
             "score": {
               "type": "integer",
-              "description": "Were objections handled in the correct sequence? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
+              "description": "Did the caller find the real objection before answering it? A whole number from 1 to 10, or 0 when the transcript gives no evidence to judge this."
             },
             "reasoning": {
               "type": "string",
@@ -396,11 +397,11 @@
         },
         "follow_up_trap": {
           "type": "boolean",
-          "description": "Was a follow-up booked when a harder push was warranted?"
+          "description": "Was a follow-up booked with no deposit and no dated commitment attached, when the prospect was in a position to decide on the call?"
         },
         "price_drop_too_early": {
           "type": "boolean",
-          "description": "Was the price dropped before the caller confirmed the prospect was certain about the solution?"
+          "description": "Was the price stated before the caller had checked the prospect was sold on the solution? A deposit asked for after a certainty tie-down is not an early drop; a price named before the pitch, or before any tie-down, is."
         },
         "weakest_belief": {
           "type": "string",
@@ -414,7 +415,7 @@
             "Trust",
             "None"
           ],
-          "description": "Which of the seven beliefs was weakest or missing on this call?"
+          "description": "Which of the seven beliefs did the caller build least on this call? The belief the caller left weakest, not the one the prospect arrived weakest on."
         }
       },
       "required": [

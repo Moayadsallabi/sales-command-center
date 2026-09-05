@@ -45,7 +45,7 @@ every column would misprice every non-USD deal on sight.
 
 | Column | Type | Options |
 | --- | --- | --- |
-| `Offer Match` | Select | this offer, different offer, unclear |
+| `Offer Match` | Select | this offer, different offer, unclear, not a sales call |
 | `Offer Evidence` | Text | The line from the transcript that decides it |
 
 Every other column on the row says **how** the call went. These two say whether
@@ -56,6 +56,13 @@ because the calendar belongs to the closer and not to the product — so a call
 can be recorded correctly, scored correctly, and still be nothing to do with
 you. Nothing else on the row can tell the difference: the closer, the price, the
 outcome and the length look identical either way.
+
+**A row marked `not a sales call` is treated the same way** (rubric 2.0.0). It is
+the scorer's verdict that the recording was not a conversation with a prospect at
+all — a team call reviewing another call, a coaching session, one person working
+alone. The lowest call on Brey's board before this existed was a call review,
+scored 2.4 as a lost sale. The dimension scores on such a row are 0 (not
+assessed), and the row is out of every figure.
 
 **A row marked `different offer` reaches no figure on either dashboard.** It is
 still written, so there is a record and so the verdict can be argued with, but
@@ -85,7 +92,12 @@ dashboard charts over time.
 | `Rubric Version` | Text |
 
 A dimension the call never gave evidence for is left empty rather than scored, and
-`Quality Score` averages only the dimensions that were scored. `Rubric Version`
+`Quality Score` averages only the dimensions that were scored — **provided at least
+five of the eight were** (rubric 2.0.0, `minScoredDimensions` in `rubric.json`).
+Below five the dimension scores are written and `Quality Score` is left empty, so
+the call drops out of every average: before the floor, a 17-minute payment call
+scored on two dimensions was the joint top call on the board. The page heading says
+how many dimensions the overall rests on whenever it is fewer than eight. `Rubric Version`
 records which version of the rubric produced the scores, so when the rubric changes
 you can tell a v1.2 six from a v1.1 six instead of mixing them in one trend line.
 
@@ -236,5 +248,12 @@ lead assessed on three answers is not a lead anyone has assessed.
 **Quotes carry the time they happened at.** Every quote in the written breakdown ends
 with a `[mm:ss]` taken from the transcript, and the dashboard turns those into links
 straight into the recording at that moment. This is what makes a score arguable: a
-closer who disputes a 4 on Tension can click the timestamp and hear it. Rows scored
-before this existed simply have no timestamps and still render fine.
+closer who disputes a 4 on Tension can click the timestamp and hear it.
+
+Until rubric 2.0.0 no row had one. The rubric asked for timestamps from 1.7.0, but
+the workflow joined the transcript as `speaker: text` and Fathom's per-line
+`timestamp` never reached the model — 0 of the first 123 rows on Brey's tracker
+carried a stamp. The transcript now reaches the scorer as `[mm:ss] speaker: text`
+(minutes run past 59 on a long call: `[64:19]`), which is also what lets the
+scorer read a pause as the gap between two lines. Rows scored before 2.0.0 have no
+timestamps and still render fine.
