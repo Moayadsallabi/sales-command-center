@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { readSalesCallFilter, phraseListsIn } from "./lib/sales-call-filter.mjs";
 import { NOTION_VERSION } from "./lib/notion-env.mjs";
+import { readAllRecordings } from "./lib/fathom.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -89,39 +90,31 @@ if (RECORDERS.length === 0) {
   process.exit(1);
 }
 
-async function recordings(key) {
-  const out = [];
-  let cursor;
-  for (;;) {
-    const url = new URL("https://api.fathom.ai/external/v1/meetings");
-    url.searchParams.set("created_after", `${SINCE}T00:00:00Z`);
-    // The transcript is what makes an impromptu call readable at all. It has no
-    // calendar invite, so "was there an outsider on it" can only be answered by
-    // whether a second voice speaks — which is exactly the case this list is
-    // for. Heavy, and worth it on a weekly command.
-    url.searchParams.set("include_transcript", "true");
-    if (cursor) url.searchParams.set("cursor", cursor);
-    let res = await fetch(url, { headers: { "X-Api-Key": key } });
-    // Asking for transcripts makes these calls heavy, and the recorder rate-limits
-    // in bursts. Backing off is the difference between a report and a report with
-    // one closer silently missing from it.
-    for (let attempt = 1; res.status === 429 && attempt <= 4; attempt += 1) {
-      await new Promise((r) => setTimeout(r, attempt * 4000));
-      res = await fetch(url, { headers: { "X-Api-Key": key } });
-    }
-    if (!res.ok) {
-      throw new Error(
-        res.status === 429
-          ? "Fathom is rate-limiting and did not recover after four tries. Nothing was read for this closer — do not read the totals as complete."
-          : `Fathom refused (${res.status}). A key only reaches its own owner's recordings.`
-      );
-    }
-    const data = await res.json();
-    out.push(...(data.items ?? []));
-    cursor = data.next_cursor;
-    if (!cursor) break;
-  }
-  return out;
+function recordings(key) {
+  return readAllRecordings(key, {
+    createdAfter: `${SINCE}T00:00:00Z`,
+    params: {
+      // The transcript is what makes an impromptu call readable at all. It has
+      // no calendar invite, so "was there an outsider on it" can only be
+      // answered by whether a second voice speaks — which is exactly the case
+      // this list is for. Heavy, and worth it on a weekly command.
+      include_transcript: "true",
+      /* THE SUMMARY IS PART OF THE RULE, SO IT HAS TO BE FETCHED (2026-09-05).
+         The live rule refuses a call whose "Meeting Purpose" names a different
+         offer — fba, amazon, jp embrace — and that purpose is only in
+         `default_summary`, which this was not asking for. Without it the rule
+         cannot refuse, so every one of the other offer's calls came back
+         "accepted" and was printed here as a Funded Blueprint call somebody had
+         forgotten to score, under a link that files it on THIS client's
+         tracker. Measured on Brey the same day: 30 of the 51 calls this queue
+         was recommending were somebody else's business.
+         check-delivery.mjs carries the same lesson about the transcript and
+         calls itself "the THIRD caller found doing it". This is the fourth, one
+         field along: passing part of the recording asks a question the rule
+         does not answer, and the answer it gives back is confidently wrong. */
+      include_summary: "true",
+    },
+  });
 }
 
 /** Every recording link already on the tracker, so a rescue is visible as one. */
@@ -177,7 +170,7 @@ function looksLikeASalesCall(m, refusal) {
   // and put two 65-minute "Team Meeting" recordings at the top of the queue —
   // the two calls the block list exists to reject, recommended hardest. Length
   // and an outsider are what a team meeting looks like too.
-  const score = refusal === "blocked-by-name"
+  const score = refusal === "blocked-by-name" || refusal === "blocked-by-offer"
     ? -1
     : (long ? 2 : 0) + (outsider ? 2 : 0) + (otherVoice ? 1 : 0);
   return { long, outsider, otherVoice, score };
@@ -193,9 +186,16 @@ function looksLikeASalesCall(m, refusal) {
  * "no-phrase-matched" is the real backlog: a call whose title simply says
  * nothing, which is every impromptu recording ever made.
  */
-function refusalKind(title, blockedPhrases) {
-  const t = String(title ?? "").toLowerCase();
-  return blockedPhrases.some((b) => t.includes(b)) ? "blocked-by-name" : "no-phrase-matched";
+function refusalKind(m, blockedPhrases) {
+  const t = String(m.title ?? "").toLowerCase();
+  if (blockedPhrases.some((b) => t.includes(b))) return "blocked-by-name";
+  // "blocked-by-offer" is the rule working, exactly like a blocked name — the
+  // call happened and was real, it was simply somebody else's business. It is
+  // listed so a mis-summarised call is still findable, and never ranked,
+  // because a link that files another offer's call on this client's tracker is
+  // the one outcome this command must not encourage.
+  if (refusedForAnotherOffer(m)) return "blocked-by-offer";
+  return "no-phrase-matched";
 }
 
 const filter = readSalesCallFilter(CLIENT);
@@ -216,7 +216,36 @@ function wouldPass(m) {
     recording_end_time: m.recording_end_time,
     recorded_by: m.recorded_by,
     transcript: m.transcript,
+    default_summary: m.default_summary,
   });
+}
+
+/** What the recording says it was for. Shown, never decided with. */
+function purposeOf(m) {
+  const sum = String(m.default_summary?.markdown_formatted ?? "");
+  return (sum.match(/Meeting Purpose\s*\[([^\]]{0,240})/i)?.[1] ?? "").trim() || null;
+}
+
+/**
+ * Was it the SUMMARY that refused this, rather than the title or the length?
+ *
+ * Asked by running the shipped rule twice — once with the summary and once
+ * without — rather than by restating its list of other offers here. The list
+ * lives in the client's workflow and changes there; a copy in this file would
+ * agree with it until the day somebody added an offer.
+ */
+function refusedForAnotherOffer(m) {
+  const base = {
+    meeting_title: m.title,
+    recording_start_time: m.recording_start_time,
+    recording_end_time: m.recording_end_time,
+    recorded_by: m.recorded_by,
+    transcript: m.transcript,
+  };
+  return (
+    filter.isSalesCall(String(m.title ?? ""), base) &&
+    !filter.isSalesCall(String(m.title ?? ""), { ...base, default_summary: m.default_summary })
+  );
 }
 
 console.log(`\nRecordings since ${SINCE}, against the rule ${CLIENT}'s workflow is actually running.\n`);
@@ -265,7 +294,7 @@ for (const { who, key } of RECORDERS) {
       dropped.push({ who, m, refusal: "accepted-but-absent" });
     } else {
       blocked += 1;
-      dropped.push({ who, m, refusal: refusalKind(m.title, BLOCKED_PHRASES) });
+      dropped.push({ who, m, refusal: refusalKind(m, BLOCKED_PHRASES) });
     }
   }
   totalPassed += passed;
@@ -295,8 +324,10 @@ dropped.sort((a, b) => a.m.recording_start_time.localeCompare(b.m.recording_star
 // kinds need the same thing from a person — a recording the rule turned away,
 // and one it would take today but that was refused before the rule changed.
 // Splitting them here once cost the list every call it existed to show.
-const queue = dropped.filter((d) => d.refusal !== "blocked-by-name");
+const deliberate = new Set(["blocked-by-name", "blocked-by-offer"]);
+const queue = dropped.filter((d) => !deliberate.has(d.refusal));
 const onPurpose = dropped.filter((d) => d.refusal === "blocked-by-name");
+const otherOffer = dropped.filter((d) => d.refusal === "blocked-by-offer");
 
 function line({ who, m, refusal }) {
   const s = looksLikeASalesCall(m, refusal);
@@ -310,6 +341,10 @@ function line({ who, m, refusal }) {
   const flag = s.score >= 4 ? "!!" : s.score >= 2 ? " ·" : "  ";
   console.log(`${flag} ${m.recording_start_time.slice(0, 10)}  ${who.padEnd(10)} "${m.title}"`);
   console.log(`     ${marks}`);
+  // An ad-hoc title says nothing, so without this every line reads the same and
+  // the only way to sort a backlog is to open all of it.
+  const purpose = purposeOf(m);
+  if (purpose) console.log(`     ${purpose.slice(0, 100)}`);
   console.log(`     ${m.share_url}`);
   console.log(`     score it: ${N8N_BASE}/form/score-call-${CLIENT}?recording=${m.recording_id}`);
   console.log("");
@@ -335,6 +370,12 @@ if (SHARE) {
   // Nothing but the calls and the links. No counts, no reasoning, no house
   // vocabulary — this gets forwarded to people who did not run it.
   console.log(`Calls that were recorded but never scored — ${queue.length} of them.\n`);
+  if (otherOffer.length > 0) {
+    console.log(
+      `(${otherOffer.length} more recordings were left off this list because they say they\n` +
+        `were for a different offer. Nothing to do with them.)\n`
+    );
+  }
   console.log(
     `Each one needs a person to open the second link and confirm it was a sales\n` +
       `call. That scores it and puts it on the dashboard. If it was not a sales\n` +
@@ -367,6 +408,17 @@ if (!SHARE) console.log(
     `them, which is what a sales call looks like from here. Nothing above has\n` +
     `been changed — this only reads. Scoring one is a click on its own link.\n`
 );
+
+if (!SHARE && otherOffer.length > 0) {
+  console.log(
+    `\n${otherOffer.length} more were refused because the recording says they were for a\n` +
+      `DIFFERENT OFFER. That is the rule working, not a backlog. They are listed with\n` +
+      `what each one says it was for, in case a Funded Blueprint call was summarised\n` +
+      `wrongly — scoring one of these would put another business's call on this\n` +
+      `client's tracker and into their revenue.\n`
+  );
+  otherOffer.forEach(line);
+}
 
 if (!SHARE && onPurpose.length > 0) {
   console.log(

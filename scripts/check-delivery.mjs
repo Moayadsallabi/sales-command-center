@@ -33,6 +33,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { readSalesCallFilter, SalesCallFilterError } from "./lib/sales-call-filter.mjs";
+import { readAllRecordings } from "./lib/fathom.mjs";
 import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -122,6 +123,15 @@ if (keys.length === 0) {
   process.exit(1);
 }
 
+/**
+ * Closers whose recordings could not be read.
+ *
+ * A failed read used to leave a stderr line and nothing else, so the report
+ * below still printed its counts and its "everything was delivered" verdict
+ * over a closer it had not read. Silence about a partial read is the same
+ * fault this whole script exists to catch, one level up.
+ */
+const incomplete = [];
 const missing = [];
 const forReview = [];
 let salesRecordings = 0;
@@ -129,28 +139,25 @@ let delivered = 0;
 const perOwner = [];
 
 for (const [owner, key] of keys) {
-  let url =
-    `https://api.fathom.ai/external/v1/meetings` +
-    `?created_after=${encodeURIComponent(since.toISOString())}&include_transcript=true&include_summary=true`;
+  let meetings;
+  try {
+    meetings = await readAllRecordings(key, {
+      createdAfter: since.toISOString(),
+      // Both are part of the sales-call rule: the transcript decides an ad-hoc
+      // call on its second voice, and the summary is where a DIFFERENT offer
+      // names itself. Asking for one and not the other asks a question the rule
+      // does not answer.
+      params: { include_transcript: "true", include_summary: "true" },
+    });
+  } catch (err) {
+    incomplete.push(owner);
+    console.error(`  ! ${owner}: ${err.message}`);
+    perOwner.push({ owner, count: 0 });
+    continue;
+  }
+
   let count = 0;
-  let pages = 0;
-  while (url && pages < 20) {
-    let res = await fetch(url, { headers: { "X-Api-Key": key } });
-    // Asking for transcripts makes these calls heavy and Fathom rate-limits in
-    // bursts. Backing off is the difference between a report and a report with
-    // one closer silently missing — which here would read as calls not being
-    // delivered at all. Same treatment as check-dropped.mjs.
-    for (let attempt = 1; res.status === 429 && attempt <= 4; attempt += 1) {
-      await new Promise((r) => setTimeout(r, attempt * 4000));
-      res = await fetch(url, { headers: { "X-Api-Key": key } });
-    }
-    if (!res.ok) {
-      console.error(`  ! ${owner}: Fathom refused (${res.status})${res.status === 429 ? " — rate-limited and did not recover; this list is INCOMPLETE" : ""}`);
-      break;
-    }
-    const body = await res.json();
-    pages++;
-    for (const meeting of body.items ?? body.data ?? []) {
+  for (const meeting of meetings) {
       count++;
       const title = String(meeting.title ?? meeting.meeting_title ?? "").replace(/\s+/g, " ").trim();
       const when = String(meeting.scheduled_start_time ?? meeting.created_at ?? "").slice(0, 10);
@@ -188,11 +195,6 @@ for (const [owner, key] of keys) {
       const byName = person.length > 2 && trackedNames.has(person);
       if (byId || byName) delivered++;
       else missing.push({ owner, when, title, id });
-    }
-    url = body.next_cursor
-      ? `https://api.fathom.ai/external/v1/meetings?cursor=${encodeURIComponent(body.next_cursor)}` +
-        `&created_after=${encodeURIComponent(since.toISOString())}&include_transcript=true&include_summary=true`
-      : null;
   }
   perOwner.push({ owner, count });
 }
@@ -210,7 +212,26 @@ console.log(`  ${missing.length} did not`);
 
 let bad = false;
 
-const silent = perOwner.filter((o) => o.count === 0);
+/* A PARTIAL READ IS NOT A CLEAN WEEK, AND IT USED TO PRINT LIKE ONE.
+   The counts above, "N reached the tracker" and the ✓ at the bottom are all
+   computed over whatever was read. A closer read halfway therefore produced a
+   smaller, entirely plausible report with no warning attached — the same shape
+   of fault this script exists to catch, one level up. Said first, because it
+   changes what every figure above it means. */
+if (incomplete.length) {
+  console.log(
+    `\n✗ ${[...new Set(incomplete)].join(", ")} could not be read in full, so EVERY` +
+      `\n  figure above counts only part of their calls. Do not read this as a clean` +
+      `\n  window. Wait a minute and run it again.`
+  );
+  bad = true;
+}
+
+// A closer we could not READ also has a count of zero, and "recorded nothing"
+// makes a different claim from "we could not look" — one points at their
+// recorder, the other at ours. Only the ones actually read can be silent.
+const unread = new Set(incomplete);
+const silent = perOwner.filter((o) => o.count === 0 && !unread.has(o.owner));
 if (silent.length) {
   console.log(
     `\n⚠ ${silent.map((o) => o.owner).join(", ")} recorded NOTHING in ${days} days.` +
