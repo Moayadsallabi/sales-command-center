@@ -1,5 +1,5 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "_README": [
     "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
     "",
@@ -36,7 +36,9 @@
       "money taken during the call and typed into Collected On Call"
     ],
     "why_flat_not_percentage": "Under a percentage bar the same $500 deposit was a sale on a $2,000 deal and not one on a $4,000 deal, which judges the closer by the size of the offer rather than by what they actually banked.",
-    "source": "[STATED - Moayad, chat 2026-08-18] 'even if a deposit doesnt pay the rest, its still technically a close unless its under $100 i think then that we shouldnt count as a close.'"
+    "source": "[STATED - Moayad, chat 2026-08-18] 'even if a deposit doesnt pay the rest, its still technically a close unless its under $100 i think then that we shouldnt count as a close.'",
+    "a_membership_signup_is_a_deal": "A first payment for a membership counts as a deal closed on the same footing as a coaching sale, so a $499 sign-up sits in Deals closed beside a $5,000 deal. Renewals of a membership already bought are cash and never a new deal - see IS_RENEWAL in the KPI dashboard's lead-window.js - so the same person cannot be counted again each month.",
+    "why_no_second_floor": "Asked because a $499 sign-up next to $4,000 coaching deals looks like a different kind of event. It is not: the same person can buy either, and a floor high enough to exclude the membership would also exclude every deposit the $100 rule exists to count. [STATED - Moayad, chat 2026-09-05] 'yes a 499$ membership is still a deal.'"
   },
   "data_starts": {
     "date": "2026-08-16",
