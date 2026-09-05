@@ -63,10 +63,10 @@
       "client": "Funded Blueprint",
       "prospect_name": "Alan Campos",
       "call_date": "2026-09-04",
-      "claim": "Collected On Call was $3,250 and Whop has never seen a cent from Alan Campos, under a.campos@rocketmail.com, chrispindec@gmail.com or any name containing Campos.",
+      "claim": "Collected On Call was $3,250 and Whop has never seen a cent from Alan Campos. Checked under a.campos@rocketmail.com, chrispindec@gmail.com and any name containing Campos.",
       "amount": 3250,
       "claimed_on": "2026-09-05",
-      "acted_on": "Collected On Call zeroed. The $5,000 deal value is UNTOUCHED \u2014 the recording owns what was agreed and he did agree to $5,000, so the deal stands with $5,000 outstanding.",
+      "acted_on": "Collected On Call zeroed. The $5,000 deal value is UNTOUCHED \u2014 the recording owns what was agreed and he did agree to $5,000, so the deal stands with $5,000 outstanding. His Prospect Email was also corrected from chrispindec@gmail.com to a.campos@rocketmail.com: the invite carried TWO external attendees and the workflow took the first, so any payment he makes would not have matched his call.",
       "status": "open",
       "why_this_one_is_easy_to_get_wrong": "Fathom's summary says 'Paid a $3,250 deposit via Clarity Pay', which reads as money received. Two lines later the same summary says a plan was DECLINED for want of ~$341 and that Alan still has to move ~$1,500 out of E*Trade. And ClarityPay money does reach Whop: on 2026-08-23 a $3,000 ClarityPay deal landed as $700 plus $2,300. So the processor's silence is not a missing integration, it is an answer.",
       "reopen_if": "Any payment appears in Whop for Alan Campos. It may yet \u2014 his own plan was to transfer the funds. If it lands, put Collected On Call back."
