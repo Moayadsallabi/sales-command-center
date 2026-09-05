@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "_README": [
     "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
     "",
@@ -79,10 +79,26 @@
     "floor": "cash received"
   },
   "source_of_truth": {
-    "bookings_and_cancellations": "Calendly",
-    "money": "Whop",
-    "how_a_call_went": "the Notion tracker",
-    "statement": "Each fact comes from whoever owns it. Secondary sources fill a gap only when the answer is unambiguous."
+    "statement": "Every fact has exactly one owning system. A disagreement between two sources is not a vote — you go and ask the owner. Secondary sources fill a gap only when the answer is unambiguous.",
+    "procedure": "docs/verifying-a-number.md",
+    "owns": {
+      "bookings_and_cancellations": "Calendly — that a call was booked, moved or called off, by whom and with how much notice. It cannot say whether anybody turned up.",
+      "money_received": "Whop — how much arrived, when, and what was refunded. It cannot say what was agreed, and it cannot say a call happened.",
+      "what_was_agreed": "the recording — the price, the payment plan and the dates. The only record of the agreement itself.",
+      "whether_anybody_turned_up": "the recording — that it exists, and how much was said on it.",
+      "how_a_call_went": "the recording. The Notion tracker is a person's reading of it, not the source.",
+      "which_offer_the_call_was_for": "the recording.",
+      "who_took_the_call": "Calendly's assignment, checked against who actually speaks on the recording."
+    },
+    "own_nothing": {
+      "the_closers_sheets": "A claim by the person being measured. Never the deciding answer.",
+      "the_trackers_money_columns": "Typed by hand. The tracker owns how a call went, never what was banked.",
+      "why_they_still_matter": "They are alarms rather than answers. A closer's sheet ahead of the tracker means calls are not reaching the tracker; the tracker ahead of Whop means money was recorded that never arrived; Whop ahead of both means sales are happening on calls nobody logged."
+    },
+    "when_the_owner_cannot_answer": "Say so and stop. Never drop quietly to a weaker source — that substitution is where the repeated arguments came from.",
+    "cash_is_a_floor_not_the_deal": "Whop owns money received, which is a FLOOR on the deal value and never the deal value. Measured 2026-09-05: Brian had $1,000 in Whop, his closer's sheet said $2,000, the tracker said $4,000, and the recording had him agreeing to $4,000 with $3,000 still owed. Letting the processor decide deal size writes off every unpaid instalment and shrinks every payment plan to whatever has been paid so far. See deal_value above, which this restates from the other direction.",
+    "totals_agreeing_proves_nothing_per_row": "September 2026: the two closer sheets came to $35,850 against Whop's $35,396, which reads as healthy. It hid $3,750 marked collected that never arrived and about the same again of real Whop money from August calls and subscription renewals. The gaps cancelled. Whenever the output is a list of PEOPLE, reconcile rows and not totals.",
+    "source": "[STATED — Moayad, chat 2026-09-05] asked for a fixed method after a third round of arguing the same figure from whichever source was nearest to hand."
   },
   "cash_split": {
     "statement": "Cash collected in a period splits four ways, by the call behind each payment: NEW - the call is a win that had not closed before the period; REMAINDER - the call is a win that closed before the period opened; DEPOSITS - the call is not a win; NO CALL - no call could be tied to the payment at all.",
