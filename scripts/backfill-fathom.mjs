@@ -144,8 +144,9 @@ const filter = filterFor(client, phraseOverrides);
    the sales-call rule" hours after the workflow had been widened specifically
    to accept them, and 31 ad-hoc recordings stayed unrecoverable.
 
-   check-dropped.mjs already asked properly. This is the same question, in the
-   same shape the webhook sends. */
+   check-dropped.mjs was cited here as already asking properly. It was not — it
+   passed the transcript and withheld the summary, and was fixed the same day as
+   this line. Nothing in this repo asks the rule a partial question any more. */
 const isSalesCall = (meeting) =>
   filter.isSalesCall(titleOf(meeting), {
     meeting_title: titleOf(meeting),
@@ -153,6 +154,15 @@ const isSalesCall = (meeting) =>
     recording_end_time: meeting.recording_end_time,
     recorded_by: meeting.recorded_by,
     transcript: meeting.transcript,
+    // AND THE SUMMARY, WHICH IS WHERE A DIFFERENT OFFER NAMES ITSELF (2026-09-05).
+    // Already fetched above and simply not handed over, so the rule could never
+    // refuse an FBA or JP Embrace call and the DRY RUN counted seven of them as
+    // Funded Blueprint calls it was about to send. No wrong row ever reached the
+    // tracker — the whole meeting object is posted, so the workflow re-applies
+    // the rule with the summary attached and refuses them there. The cost was
+    // worse than a wasted request: the preview is the thing a person reads
+    // before deciding to write, and it was overstating what would land.
+    default_summary: meeting.default_summary,
   });
 
 function titleOf(meeting) {
