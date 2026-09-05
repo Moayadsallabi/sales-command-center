@@ -360,9 +360,66 @@ export function linkBookings(
 /* ------------------------------------------------------------- the funnel */
 
 export interface FunnelStats {
-  /** Every past booking, cancellations included. What was on the calendar. */
+  /**
+   * Every past booking that was a distinct attempt at a call.
+   *
+   * RESCHEDULES ARE NOT IN HERE, AND THAT IS THE POINT. Calendly leaves the
+   * original behind as a cancelled row when someone moves their slot, so a
+   * prospect who shifts twice put three rows on the calendar and asked for one
+   * call. Counting all three made this the ceiling recordings were measured
+   * against — on Brey's September, 42 against a real 32 — and every rate built
+   * on it read low by the amount of churn rather than by anything anyone did.
+   */
   booked: number;
+  /** Every cancelled booking, whatever the cancellation meant. */
   canceled: number;
+  /**
+   * Cancellations that were a slot MOVED, not a lead lost.
+   *
+   * Kept as a count because the churn is worth seeing, and kept out of `booked`
+   * because the replacement booking is already in the set.
+   *
+   * Read off Calendly's own `rescheduled` flag rather than the wording of the
+   * cancellation reason. Checked on 559 of Brey's bookings: 104 carry the flag,
+   * 92 also say "Rescheduled from connected calendar event", and NOT ONE says it
+   * without the flag — so the flag is the stronger signal and the string is
+   * Calendly prose that a locale or a copy edit could move under us.
+   *
+   * It does not promise the person came back. Three of September's ten had no
+   * later booking on this calendar at all: a replacement can sit beyond the read
+   * window, or be called off in its turn.
+   */
+  rescheduledAway: number;
+  /**
+   * Bookings the team called off in advance — on Brey's account, a prospect
+   * judged unqualified before the call.
+   *
+   * Out of the held-rate denominator on Moayad's ruling (2026-09-05): a lead
+   * you deliberately screened out is not a call that failed to happen, and
+   * counting it as one charges the funnel for its own filtering.
+   *
+   * A cancellation landing AFTER the start time is never counted here however it
+   * is labelled. Nobody screens a prospect once the call was already due; that
+   * is a no-show being cleared off the calendar, and `canceledAfterStart` has it.
+   */
+  screened: number;
+  /** The prospect called it off in advance. A real lost booking. */
+  pulledOut: number;
+  /**
+   * A no-show cleared off the calendar: cancelled after the call was already
+   * due, and not a reschedule.
+   *
+   * NOT the same as `canceledAfterStart`, which counts every late cancellation
+   * including moved slots and therefore overlaps the three fields above it.
+   * This one completes the partition: `rescheduledAway + screened + pulledOut +
+   * clearedAfterStart` equals `canceled` whenever Calendly recorded who
+   * cancelled, which is what `tests/bookings.test.ts` holds it to — and it did
+   * on all 257 of Brey's cancellations. Without this field the four figures on
+   * offer added to MORE than the total they came from: 21 against 19 cancelled
+   * rows in September, 130 against 120 since August. The same fault as the cash
+   * note that would not subtract.
+   */
+  clearedAfterStart: number;
   kept: number;
   noShow: number;
   /** Due, not cancelled, no recording. The honest unknown. */
@@ -382,7 +439,10 @@ export interface FunnelStats {
   showRateRange: { low: number; high: number } | null;
   /** Share of due bookings whose fate is known at all. */
   coverage: number | null;
-  /** Kept against everything booked — what cancellations cost on top. */
+  /**
+   * Kept against the bookings that were a real attempt at a call — so neither a
+   * moved slot nor a lead the team screened out counts against it.
+   */
   heldRate: number | null;
 
   /** Cancellations that landed inside a day of the call, but before it. */
@@ -442,7 +502,6 @@ export function funnelStats(
     else counts.upcoming++;
   }
 
-  const booked = counts.kept + counts.noShow + counts.canceled + counts.unrecorded;
   const due = counts.kept + counts.noShow + counts.unrecorded;
   const accounted = counts.kept + counts.noShow;
 
@@ -450,6 +509,40 @@ export function funnelStats(
   const notice = canceledBookings
     .map((b) => b.cancel_notice_hours)
     .filter((h): h is number => h != null);
+
+  /* WHAT A CANCELLATION ACTUALLY WAS — three different events wearing one word.
+     They were being added together, and the sum was read as lost leads.
+
+     Order matters. A rescheduled booking is taken out first, because Calendly
+     marks the moved slot as cancelled by the host with no notice worth reading,
+     so it would otherwise land in whichever bucket it was tested against next.
+     Then the ones that landed after the call was due, which are no-shows cleared
+     off the calendar whoever pressed the button. Only what is left is somebody
+     making a decision in advance, and which side made it decides the meaning. */
+  const rescheduledAway = canceledBookings.filter((b) => b.rescheduled);
+  /* "Proven late" rather than "not early", so a cancellation whose time Calendly
+     did not record is not silently filed as a no-show. It reads as a decision
+     made in advance instead, which is the weaker claim of the two. All 257
+     cancellations on Brey's account carry both a time and a side, so neither
+     fallback fires there today — they are written this way for the day one
+     does. */
+  const provenLate = (b: LinkedBooking) =>
+    b.cancel_notice_hours != null && b.cancel_notice_hours < 0;
+  const clearedAfterStart = canceledBookings.filter((b) => !b.rescheduled && provenLate(b));
+  const decidedInAdvance = canceledBookings.filter((b) => !b.rescheduled && !provenLate(b));
+  const screened = decidedInAdvance.filter((b) => b.canceled_by_side === "host");
+  const pulledOut = decidedInAdvance.filter((b) => b.canceled_by_side === "invitee");
+
+  /* A MOVED SLOT IS NOT A SECOND BOOKING. Its replacement is already in this
+     set, so leaving the original in counted one request for a call as two — or
+     as three, for the two people in September who moved twice. */
+  const booked =
+    counts.kept + counts.noShow + counts.canceled + counts.unrecorded - rescheduledAway.length;
+
+  /* Kept over the bookings that were a real attempt at a call. Moayad's ruling,
+     2026-09-05: a lead the team screened out is not a call that failed to
+     happen. Reschedules are already gone from `booked`. */
+  const attempts = booked - screened.length;
   // Notice given before the call was due. The negative ones are a different
   // event entirely and are reported on their own rather than averaged in.
   const noticeBefore = notice.filter((h) => h >= 0);
@@ -461,6 +554,10 @@ export function funnelStats(
   return {
     booked,
     canceled: counts.canceled,
+    rescheduledAway: rescheduledAway.length,
+    screened: screened.length,
+    pulledOut: pulledOut.length,
+    clearedAfterStart: clearedAfterStart.length,
     kept: counts.kept,
     noShow: counts.noShow,
     unrecorded: counts.unrecorded,
@@ -475,7 +572,7 @@ export function funnelStats(
             high: ((counts.kept + counts.unrecorded) / due) * 100,
           },
     coverage: due === 0 ? null : (accounted / due) * 100,
-    heldRate: booked === 0 ? null : (counts.kept / booked) * 100,
+    heldRate: attempts <= 0 ? null : (counts.kept / attempts) * 100,
 
     lateCancels: noticeBefore.filter((h) => h < LATE_CANCEL_HOURS).length,
     canceledAfterStart: notice.filter((h) => h < 0).length,

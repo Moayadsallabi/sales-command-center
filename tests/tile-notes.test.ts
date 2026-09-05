@@ -18,6 +18,10 @@ const funnel = (over: Partial<FunnelStats> = {}): FunnelStats =>
   ({
     booked: 0,
     canceled: 0,
+    rescheduledAway: 0,
+    screened: 0,
+    pulledOut: 0,
+    clearedAfterStart: 0,
     kept: 0,
     noShow: 0,
     unrecorded: 0,
@@ -45,8 +49,32 @@ describe("the note under Recorded", () => {
     // a denominator that included every cancellation — so it measured the join
     // and was read as the business.
     const note = recordedNoteFor(funnel({ booked: 218, canceled: 110, kept: 31, heldRate: 14.2 }));
-    expect(note).toBe("218 booked in this window, 110 cancelled");
     expect(note).not.toContain("%");
+    expect(note).toContain("218 booked in this window");
+  });
+
+  it("separates bookings the team called off from ones the prospect called off", () => {
+    // "N cancelled" added three unrelated events together and the sum read as
+    // lost leads. Brey's team cancels a booking when they judge the prospect
+    // unqualified, so most of that number was their own filtering working.
+    const note = recordedNoteFor(
+      funnel({ booked: 32, canceled: 19, rescheduledAway: 10, screened: 6, pulledOut: 1 })
+    );
+    expect(note).toBe("32 booked in this window, 6 you called off, 1 pulled out");
+    // The 19 must not appear: ten of it was the same people moving their slot.
+    expect(note).not.toContain("19");
+  });
+
+  it("leaves out whichever kind did not happen", () => {
+    expect(recordedNoteFor(funnel({ booked: 12, screened: 3 }))).toBe(
+      "12 booked in this window, 3 you called off"
+    );
+    expect(recordedNoteFor(funnel({ booked: 12, pulledOut: 2 }))).toBe(
+      "12 booked in this window, 2 pulled out"
+    );
+    // A window where nothing was called off says so by staying silent, rather
+    // than printing a nought that reads as a missing figure.
+    expect(recordedNoteFor(funnel({ booked: 12 }))).toBe("12 booked in this window");
   });
 
   it("says nothing about bookings when the calendar is not connected", () => {

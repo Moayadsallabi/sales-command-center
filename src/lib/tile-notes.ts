@@ -55,7 +55,22 @@ export interface CashBank {
  */
 export function recordedNoteFor(funnel: FunnelStats | null): string {
   if (!funnel || funnel.booked <= 0) return "every call that reached the tracker";
-  return `${funnel.booked} booked in this window, ${funnel.canceled} cancelled`;
+
+  /* "N CANCELLED" WAS THREE DIFFERENT EVENTS ADDED UP, AND READ AS LOST LEADS.
+     On Brey's September it said "42 booked, 19 cancelled". Ten of the nineteen
+     were people MOVING their slot — Calendly leaves the original behind as a
+     cancelled row, so three of them were counted twice and the same call was
+     still to come. Six were bookings the team called off on purpose, having
+     judged the prospect unqualified. One was the prospect pulling out.
+     Only the last of those is a booking anybody lost.
+
+     So the moved slots are gone from `booked` entirely and the other two are
+     named separately, because "we said no" and "they said no" are opposite
+     facts about the same calendar and one number cannot carry both. */
+  const parts = [`${funnel.booked} booked in this window`];
+  if (funnel.screened > 0) parts.push(`${funnel.screened} you called off`);
+  if (funnel.pulledOut > 0) parts.push(`${funnel.pulledOut} pulled out`);
+  return parts.join(", ");
 }
 
 /**
