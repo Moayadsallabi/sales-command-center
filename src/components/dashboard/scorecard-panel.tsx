@@ -15,7 +15,8 @@ import { LEAD_FACTORS, LEAD_MAX, leadBandFor } from "@/lib/lead-quality";
 import { POOR_SCORE } from "@/lib/stats";
 import { LinkedBooking } from "@/lib/bookings";
 import { withTimestamps } from "@/lib/timestamps";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, isWin } from "@/lib/money";
+import { WINNING_OUTCOMES } from "@/lib/sales-rules";
 import {
   X,
   ExternalLink,
@@ -258,6 +259,29 @@ function ScorecardBody({
           >
             {call.outcome ?? "Unknown"}
           </span>
+          {/* THE TRACKER'S WORD AND WHAT ACTUALLY COUNTED (2026-09-07).
+
+              Since 2026-09-06 a call closes only when money moved, so a row can
+              say Customer while every figure on this page treats it as a loss.
+              The chip above is what the closer typed and stays exactly that —
+              overwriting it would hide the disagreement rather than show it —
+              and this says what the numbers did with it.
+
+              [STATED — Moayad, chat 2026-09-06] "if a price was agreed but no
+              cash was collected then its simply a follow up".
+
+              It is not a note about a state that is about to change: a deposit
+              arriving clears it, and until one does this is the permanent
+              difference between a claim and a sale. */}
+          {WINNING_OUTCOMES.includes(call.outcome ?? "") && !isWin(call) && (
+            <span
+              className="rounded-full px-2.5 py-1 text-[11px] font-medium"
+              style={{ background: "#f59e0b1a", color: "#f59e0b" }}
+              title="No cash was collected on this call and none has been matched to it since, so it is counted as a follow-up rather than a sale — in the close rate, in revenue and in the follow-up list."
+            >
+              Counted as a follow-up · no cash collected
+            </span>
+          )}
           {overall != null && (
             <span className="font-mono text-[13px] tabular-nums" title="How the call was run">
               <span

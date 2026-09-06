@@ -25,13 +25,20 @@ import { call } from "./helpers";
 
 const TODAY = "2026-08-27";
 const open = (over = {}) => call({ outcome: "BAMFAM", ...over });
+/* A REAL CUSTOMER NEEDS MONEY ON IT (2026-09-07). Since the money gate shipped,
+   `outcome: "Customer"` with nothing collected is a follow-up — so a fixture
+   meant to be a settled sale has to bank something, or it lands back on the
+   list and every "ignores settled outcomes" assertion measures the wrong
+   thing. The demoted case is asserted on its own further down. */
+const won = (over = {}) =>
+  call({ outcome: "Customer", collected_on_call: 500, ...over });
 
 describe("who is still on the list", () => {
   it("holds open deals and ignores every settled outcome", () => {
     const result = followUps(
       [
         open({ name: "Ada Lovelace", call_date: "2026-08-20" }),
-        call({ name: "Won", outcome: "Customer", call_date: "2026-08-20" }),
+        won({ name: "Won", call_date: "2026-08-20" }),
         call({ name: "Lost", outcome: "No deal", call_date: "2026-08-20" }),
         call({ name: "Absent", outcome: "No show", call_date: "2026-08-20" }),
       ],
@@ -39,6 +46,45 @@ describe("who is still on the list", () => {
     );
 
     expect(result.items.map((i) => i.call.name)).toEqual(["Ada Lovelace"]);
+  });
+
+  /* A PRICE AGREED WITH NOTHING COLLECTED IS A FOLLOW-UP, AND THIS LIST IS
+     WHERE IT GOES (2026-09-07).
+
+     [STATED — Moayad, chat 2026-09-06] "if a price was agreed but no cash was
+     collected then its simply a follow up". `isWin` enforced that from the day
+     it was said; this list went on finding follow-ups by the word BAMFAM, so
+     twelve of Brey's deals were in no worklist in either app — $29,250 of
+     agreed price nobody could have found.
+
+     Both sides are asserted, because either one alone passes whichever way the
+     code reads: the demoted row IS here, and the paid one beside it is NOT. */
+  it("holds a call the tracker calls won when no money ever moved", () => {
+    const result = followUps(
+      [
+        call({ name: "Agreed Nothing Paid", outcome: "Customer",
+               price_closed: 8000, call_date: "2026-08-20" }),
+        won({ name: "Paid A Deposit", price_closed: 8000, call_date: "2026-08-20" }),
+      ],
+      TODAY
+    );
+
+    expect(result.items.map((i) => i.call.name)).toEqual(["Agreed Nothing Paid"]);
+    // The price agreed is what is on the table. Reading `price_discussed` alone
+    // — which a demoted row does not carry — put it on the list at nothing.
+    expect(result.worth).toBe(8000);
+  });
+
+  it("lets go of it the moment a deposit lands", () => {
+    const result = followUps(
+      [
+        won({ name: "Agreed Nothing Paid", price_closed: 8000,
+              collected_on_call: 200, call_date: "2026-08-20" }),
+      ],
+      TODAY
+    );
+
+    expect(result.items).toHaveLength(0);
   });
 
   it("puts the oldest first, because that is the one going cold", () => {
@@ -101,7 +147,7 @@ describe("how a row leaves the list", () => {
     const result = followUps(
       [
         open({ name: "Zay Mensah", call_date: "2026-08-05" }),
-        call({ name: "Zay Mensah", outcome: "Customer", call_date: "2026-08-14" }),
+        won({ name: "Zay Mensah", call_date: "2026-08-14" }),
       ],
       TODAY
     );
@@ -118,10 +164,9 @@ describe("how a row leaves the list", () => {
           prospect_email: "sam@x.com",
           call_date: "2026-08-05",
         }),
-        call({
+        won({
           name: "Samuel Different-Spelling",
           prospect_email: "sam@x.com",
-          outcome: "Customer",
           call_date: "2026-08-14",
         }),
       ],
@@ -138,7 +183,7 @@ describe("how a row leaves the list", () => {
     const result = followUps(
       [
         open({ name: "Unknown", call_date: "2026-08-05" }),
-        call({ name: "Unknown", outcome: "Customer", call_date: "2026-08-14" }),
+        won({ name: "Unknown", call_date: "2026-08-14" }),
       ],
       TODAY
     );

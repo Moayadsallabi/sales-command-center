@@ -33,10 +33,49 @@
  */
 
 import { CallRecord } from "./types";
-import { reportingDiscussed } from "./money";
+import { isWin, reportingClosed, reportingDiscussed } from "./money";
+import { WINNING_OUTCOMES } from "./sales-rules";
 
 /** The outcome that means the deal is still open and someone owes a call back. */
 const OPEN_OUTCOME = "BAMFAM";
+
+/**
+ * A call that is still open, whatever word is on it.
+ *
+ * ---------------------------------------------------------------------------
+ * THE SECOND ARM IS NEW (2026-09-07), AND IT IS WHERE TWELVE DEALS WENT
+ *
+ * [STATED — Moayad, chat 2026-09-06] "if a price was agreed but no cash was
+ * collected then its simply a follow up". `isWin` started enforcing that the
+ * same day, so those calls stopped being sales — and this list, which finds
+ * follow-ups by looking for the word BAMFAM, never heard about them. They were
+ * out of the close rate, out of revenue, and on no worklist in either app:
+ * $29,250 of agreed price across Brey's account that nobody could have found.
+ *
+ * A follow-up is what the ruling calls them, so this is where they belong.
+ * Reading `isWin` rather than re-deriving it means the two can only ever
+ * disagree if somebody changes one and not the other, which is the arrangement
+ * lib/money.ts already enforces for every other panel.
+ *
+ * A REFUND is not caught here. It is not in WINNING_OUTCOMES, and a deal that
+ * paid and was handed back is not a conversation waiting on a call.
+ */
+function stillOpen(call: CallRecord): boolean {
+  if (call.outcome === OPEN_OUTCOME) return true;
+  return WINNING_OUTCOMES.includes(call.outcome ?? "") && !isWin(call);
+}
+
+/**
+ * What is on the table, for either kind of open call.
+ *
+ * A BAMFAM carries a price DISCUSSED and no price closed; a call demoted by the
+ * money rule carries the opposite, because a price really was agreed on it.
+ * Reading only the discussed one booked every demoted call at zero, which would
+ * have put them on the list and told the reader they were worth nothing.
+ */
+function onTheTable(call: CallRecord): number {
+  return Math.max(reportingDiscussed(call), reportingClosed(call));
+}
 
 /**
  * The two waiting marks, in days, scaled to the window the list now covers.
@@ -141,7 +180,7 @@ function daysBetween(date: string, today: string): number {
  * to again, and last month's calls, which no longer carry over.
  */
 export function followUps(calls: CallRecord[], today: string): FollowUpResult {
-  const open = calls.filter((c) => c.outcome === OPEN_OUTCOME && c.call_date);
+  const open = calls.filter((c) => stillOpen(c) && c.call_date);
   const answered = open.filter((c) => spokeAgain(c, calls));
   const outstanding = open.filter((c) => !answered.includes(c));
 
@@ -156,7 +195,7 @@ export function followUps(calls: CallRecord[], today: string): FollowUpResult {
     .map((call) => ({
       call,
       age: daysBetween(call.call_date as string, today),
-      worth: reportingDiscussed(call),
+      worth: onTheTable(call),
     }))
     .sort((a, b) => b.age - a.age);
 
@@ -167,7 +206,7 @@ export function followUps(calls: CallRecord[], today: string): FollowUpResult {
     cold: items.filter((i) => i.age >= FOLLOW_UP_COLD_DAYS).length,
     spokenAgain: answered.length,
     lapsed: earlier.length,
-    lapsedWorth: earlier.reduce((sum, c) => sum + reportingDiscussed(c), 0),
+    lapsedWorth: earlier.reduce((sum, c) => sum + onTheTable(c), 0),
   };
 }
 
