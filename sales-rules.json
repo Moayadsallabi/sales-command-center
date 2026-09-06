@@ -1,10 +1,10 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "_README": [
     "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
     "",
     "This file exists because the same question was being answered twice, in two",
-    "languages, in two repositories — and the two answers drifted apart four",
+    "languages, in two repositories \u2014 and the two answers drifted apart four",
     "separate times in a single evening (2026-08-18):",
     "",
     "  1. what counts as a sale       tracker said 'outcome typed on the day',",
@@ -40,6 +40,19 @@
     "a_membership_signup_is_a_deal": "A first payment for a membership counts as a deal closed on the same footing as a coaching sale, so a $499 sign-up sits in Deals closed beside a $5,000 deal. Renewals of a membership already bought are cash and never a new deal - see IS_RENEWAL in the KPI dashboard's lead-window.js - so the same person cannot be counted again each month.",
     "why_no_second_floor": "Asked because a $499 sign-up next to $4,000 coaching deals looks like a different kind of event. It is not: the same person can buy either, and a floor high enough to exclude the membership would also exclude every deposit the $100 rule exists to count. [STATED - Moayad, chat 2026-09-05] 'yes a 499$ membership is still a deal.'"
   },
+  "a_close_needs_money_to_have_moved": {
+    "statement": "A call is a close only when money actually moved. A price agreed with nothing collected is a FOLLOW-UP, not a sale \u2014 however the closer recorded the outcome.",
+    "source": "[STATED - Moayad, chat 2026-09-06] 'if it was never taken on the call then it wasnt a close, a close is only counted if cash was collected, if a price was agreed but no cash was collected then its simply a follow up'",
+    "what_counts_as_money_moving": [
+      "a payment through the processor, dated on or after the call, at or above min_deposit",
+      "money taken during the call and typed into Collected On Call, at or above min_deposit"
+    ],
+    "what_does_NOT_count": "the outcome a closer typed. Until now 'closed' on the tracker was enough on its own, so a verbal commitment with nothing banked sat in revenue and in the close rate exactly like a paid deal.",
+    "the_deal_value_is_unchanged": "Once money HAS moved the deal is still worth its agreed price, not the cash. A $6,000 plan with $500 paid is a $6,000 close with $5,500 outstanding. This rule decides WHETHER a call closed, never what it was worth - see deal_value. [STATED - Moayad, chat 2026-09-06] 'yes agreed price stays'.",
+    "why_this_is_not_a_reversal": "The 2026-08-18 rulings in min_deposit and deal_value both presuppose money moved - a deposit IS cash, and an instalment deal has a first payment. Neither covered a deal where nothing ever arrived, which is the case this settles.",
+    "measured_when_it_was_written": "Brey, 2026-09-06: twelve deals across the account had never received a penny, worth $29,250 of recorded revenue. August close rate 57.4% -> 42.6% and revenue $78,758 -> $62,508; September 62.5% -> 50.0%. Each of the twelve was checked against Whop by name as well as by email first, in case the money had arrived under a different address. It had not.",
+    "the_call_that_produced_it": "ABandZz, 5 September, recorded as a customer at $8,000. The recording has him agreeing a $200 deposit and asking to send it by Zelle after a trip to the bank; Christian's closing words are 'let me know when that 200 is ready'. Nothing ever arrived."
+  },
   "data_starts": {
     "date": "2026-08-16",
     "statement": "Nothing before 2026-08-16 is worth reconciling. The reconciliation reports ignore earlier rows; the dashboard still SHOWS the history.",
@@ -69,7 +82,7 @@
       "carries_revenue": false,
       "carries_cash": false,
       "carries_close": false,
-      "statement": "A refunded deal is removed from revenue, from cash collected, and from the close rate — out of BOTH sides of it, not counted as a loss. The closer did close them; the customer later left, and scoring it as a failed call would make a different claim from the one the refund actually makes, on the closer's record.",
+      "statement": "A refunded deal is removed from revenue, from cash collected, and from the close rate \u2014 out of BOTH sides of it, not counted as a loss. The closer did close them; the customer later left, and scoring it as a failed call would make a different claim from the one the refund actually makes, on the closer's record.",
       "source": "[STATED - Moayad, chat 2026-08-18] 'should be removed from revenue and cash collected, should also be removed from close rate.'",
       "cash_needs_no_rule": "The processor reports a refund against the original payment, so refunded money nets to zero before it is ever read as cash. Verified against Whop on 2026-08-18: Vellatino Crawford, final_amount 2000, refunded_amount 2000, read as 0.",
       "outranks_the_arithmetic": "Checked explicitly rather than left to fall out of a status list: a partly-refunded buyer would otherwise be put back by the paid-enough test. A REFUND on the tracker is a statement about the deal and beats what is left of their payments."
@@ -81,13 +94,13 @@
     "floor": "cash received"
   },
   "source_of_truth": {
-    "statement": "Every fact has exactly one owning system. A disagreement between two sources is not a vote — you go and ask the owner. Secondary sources fill a gap only when the answer is unambiguous.",
+    "statement": "Every fact has exactly one owning system. A disagreement between two sources is not a vote \u2014 you go and ask the owner. Secondary sources fill a gap only when the answer is unambiguous.",
     "procedure": "docs/verifying-a-number.md",
     "owns": {
-      "bookings_and_cancellations": "Calendly — that a call was booked, moved or called off, by whom and with how much notice. It cannot say whether anybody turned up.",
-      "money_received": "Whop — how much arrived, when, and what was refunded. It cannot say what was agreed, and it cannot say a call happened.",
-      "what_was_agreed": "the recording — the price, the payment plan and the dates. The only record of the agreement itself.",
-      "whether_anybody_turned_up": "the recording — that it exists, and how much was said on it.",
+      "bookings_and_cancellations": "Calendly \u2014 that a call was booked, moved or called off, by whom and with how much notice. It cannot say whether anybody turned up.",
+      "money_received": "Whop \u2014 how much arrived, when, and what was refunded. It cannot say what was agreed, and it cannot say a call happened.",
+      "what_was_agreed": "the recording \u2014 the price, the payment plan and the dates. The only record of the agreement itself.",
+      "whether_anybody_turned_up": "the recording \u2014 that it exists, and how much was said on it.",
       "how_a_call_went": "the recording. The Notion tracker is a person's reading of it, not the source.",
       "which_offer_the_call_was_for": "the recording.",
       "who_took_the_call": "Calendly's assignment, checked against who actually speaks on the recording."
@@ -97,10 +110,10 @@
       "the_trackers_money_columns": "Typed by hand. The tracker owns how a call went, never what was banked.",
       "why_they_still_matter": "They are alarms rather than answers. A closer's sheet ahead of the tracker means calls are not reaching the tracker; the tracker ahead of Whop means money was recorded that never arrived; Whop ahead of both means sales are happening on calls nobody logged."
     },
-    "when_the_owner_cannot_answer": "Say so and stop. Never drop quietly to a weaker source — that substitution is where the repeated arguments came from.",
+    "when_the_owner_cannot_answer": "Say so and stop. Never drop quietly to a weaker source \u2014 that substitution is where the repeated arguments came from.",
     "cash_is_a_floor_not_the_deal": "Whop owns money received, which is a FLOOR on the deal value and never the deal value. Measured 2026-09-05: Brian had $1,000 in Whop, his closer's sheet said $2,000, the tracker said $4,000, and the recording had him agreeing to $4,000 with $3,000 still owed. Letting the processor decide deal size writes off every unpaid instalment and shrinks every payment plan to whatever has been paid so far. See deal_value above, which this restates from the other direction.",
     "totals_agreeing_proves_nothing_per_row": "September 2026: the two closer sheets came to $35,850 against Whop's $35,396, which reads as healthy. It hid $3,750 marked collected that never arrived and about the same again of real Whop money from August calls and subscription renewals. The gaps cancelled. Whenever the output is a list of PEOPLE, reconcile rows and not totals.",
-    "source": "[STATED — Moayad, chat 2026-09-05] asked for a fixed method after a third round of arguing the same figure from whichever source was nearest to hand."
+    "source": "[STATED \u2014 Moayad, chat 2026-09-05] asked for a fixed method after a third round of arguing the same figure from whichever source was nearest to hand."
   },
   "cash_split": {
     "statement": "Cash collected in a period splits four ways, by the call behind each payment: NEW - the call is a win that had not closed before the period; REMAINDER - the call is a win that closed before the period opened; DEPOSITS - the call is not a win; NO CALL - no call could be tied to the payment at all.",

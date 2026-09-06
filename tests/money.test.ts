@@ -41,7 +41,7 @@ describe("a refunded deal", () => {
   });
 
   it("does not drag a perfect close rate below 100%", () => {
-    const calls = [call({ outcome: "Customer" }), refund];
+    const calls = [call({ outcome: "Customer", collected_on_call: 500 }), refund];
     expect(closeRateOf(calls)).toBe(100);
   });
 });
@@ -54,7 +54,7 @@ describe("a no-show", () => {
   });
 
   it("cannot dilute a close rate", () => {
-    expect(closeRateOf([call({ outcome: "Customer" }), noShow])).toBe(100);
+    expect(closeRateOf([call({ outcome: "Customer", collected_on_call: 500 }), noShow])).toBe(100);
   });
 });
 
@@ -68,7 +68,7 @@ describe("close rate", () => {
 
   it("counts a win over the calls that were held", () => {
     const calls = [
-      call({ outcome: "Customer" }),
+      call({ outcome: "Customer", collected_on_call: 500 }),
       call({ outcome: "No deal" }),
       call({ outcome: "BAMFAM" }),
       call({ outcome: "No show" }),
@@ -78,7 +78,7 @@ describe("close rate", () => {
   });
 
   it("treats only a Customer as a win", () => {
-    expect(isWin(call({ outcome: "Customer" }))).toBe(true);
+    expect(isWin(call({ outcome: "Customer", collected_on_call: 500 }))).toBe(true);
     for (const outcome of ["BAMFAM", "No deal", "No offer made", "REFUND", "No show"]) {
       expect(isWin(call({ outcome }))).toBe(false);
     }

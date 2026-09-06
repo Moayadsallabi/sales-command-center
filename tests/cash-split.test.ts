@@ -23,7 +23,9 @@ import { call } from "./helpers";
 const AUGUST = { from: "2026-08-01", to: "2026-08-31" };
 
 const won = (over: Partial<CallRecord> = {}) =>
-  call({ outcome: "Customer", price_closed: 4000, ...over });
+  // A win now needs money to have moved (sales-rules.json 1.6.0), so the
+  // deposit is part of what makes this a won call rather than a follow-up.
+  call({ outcome: "Customer", price_closed: 4000, collected_on_call: 500, ...over });
 
 const paid = (c: CallRecord, history: PaymentDay[]): MatchedPayment => ({
   call: c,
@@ -209,6 +211,10 @@ describe("a call promoted to a win by its payment", () => {
       ...typedOnTheDay,
       outcome: "Customer",
       recorded_outcome: "BAMFAM",
+      // settleByPayment attaches the matched money as well as the outcome, and
+      // the fixture has to carry it: a win needs money to have moved
+      // (sales-rules.json 1.6.0), and here the payment IS the evidence.
+      paid_total: 5000,
     };
     const settled = cashSplit(
       settleMatched(matched, [asCounted]),

@@ -17,7 +17,7 @@ import { call, scoresAt } from "./helpers";
 describe("the closer leaderboard", () => {
   it("does not count a no-show against the closer's close rate", () => {
     const rows = closerLeaderboard([
-      call({ closer: "Tpan", outcome: "Customer" }),
+      call({ closer: "Tpan", outcome: "Customer", collected_on_call: 500 }),
       call({ closer: "Tpan", outcome: "No show" }),
     ]);
     expect(rows[0].taken).toBe(1);
@@ -26,12 +26,14 @@ describe("the closer leaderboard", () => {
 
   it("does not count a refund against it either", () => {
     const rows = closerLeaderboard([
-      call({ closer: "Tpan", outcome: "Customer" }),
+      call({ closer: "Tpan", outcome: "Customer", collected_on_call: 500 }),
       call({ closer: "Tpan", outcome: "REFUND", price_closed: 2000 }),
     ]);
     expect(rows[0].closeRate).toBe(100);
     expect(rows[0].revenue).toBe(0);
-    expect(rows[0].cashCollected).toBe(0);
+    // The winner's own deposit, and nothing from the refund — which is the
+    // point. It read 0 while a Customer needed no money to count as won.
+    expect(rows[0].cashCollected).toBe(500);
   });
 
   it("credits a deposit taken on a call that did not close", () => {
@@ -68,7 +70,16 @@ describe("the closer leaderboard", () => {
 describe("dimension impact", () => {
   /** Enough calls to clear the panel's own minimums. */
   const bucket = (n: number, score: number, outcome: string) =>
-    Array.from({ length: n }, () => call({ outcome, scores: scoresAt(score) }));
+    Array.from({ length: n }, () =>
+      call({
+        outcome,
+        scores: scoresAt(score),
+        // A win needs money to have moved (sales-rules.json 1.6.0), so a
+        // bucket of Customers has to carry some or it is a bucket of
+        // follow-ups and every close rate below reads zero.
+        collected_on_call: outcome === "Customer" ? 500 : null,
+      })
+    );
 
   it("measures close rate over held calls only", () => {
     // This panel used to run over every scored call, no-shows included, while

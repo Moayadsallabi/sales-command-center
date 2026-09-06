@@ -25,7 +25,9 @@ import { call } from "./helpers";
 const TODAY = "2026-09-03";
 
 const won = (over: Partial<CallRecord> = {}) =>
-  call({ outcome: "Customer", price_closed: 4000, ...over });
+  // A win now needs money to have moved (sales-rules.json 1.6.0), so the
+  // deposit is part of what makes this a won call rather than a follow-up.
+  call({ outcome: "Customer", price_closed: 4000, collected_on_call: 500, ...over });
 
 const paidBy = (
   c: CallRecord,
@@ -123,13 +125,16 @@ describe("how quiet each one has gone", () => {
     expect(result.items[0].lastPaid).toBe("2026-08-01");
   });
 
-  it("counts from the call when no payment has ever arrived", () => {
-    const never = won({ name: "Never Paid", call_date: "2026-08-04", cash_collected: null });
+  it("counts from the call when no DATED payment has arrived", () => {
+    // The deposit taken on the call carries no date of its own, so the clock
+    // still has to start at the call. Money on the row is what makes this a
+    // won deal at all rather than a follow-up (sales-rules.json 1.6.0).
+    const never = won({ name: "Deposit Only", call_date: "2026-08-04", cash_collected: null });
     const result = collectable([never], [], TODAY);
 
     expect(result.items[0].quiet).toBe(30);
     expect(result.items[0].clockFrom).toBe("call");
-    expect(result.items[0].owed).toBe(4000);
+    expect(result.items[0].owed).toBe(3500);
   });
 
   it("distinguishes money with no date from no money at all", () => {
@@ -139,15 +144,17 @@ describe("how quiet each one has gone", () => {
     // to be able to tell them apart: one has been paid and one has not, and
     // saying "nothing yet" over the first contradicts its own figure.
     const undated = won({ name: "Paid, No Date", call_date: "2026-08-04", cash_collected: 3000 });
-    const never = won({ name: "Nothing At All", call_date: "2026-08-04" });
+    const never = won({ name: "Deposit Only", call_date: "2026-08-04" });
     const result = collectable([undated, never], [], TODAY);
 
     const paidRow = result.items.find((i) => i.call.name === "Paid, No Date")!;
-    const emptyRow = result.items.find((i) => i.call.name === "Nothing At All")!;
+    const emptyRow = result.items.find((i) => i.call.name === "Deposit Only")!;
     expect(paidRow.clockFrom).toBe("call");
     expect(paidRow.lastPaid).toBeNull();
     expect(paidRow.paid).toBe(3000);
-    expect(emptyRow.paid).toBe(0);
+    // Its deposit and nothing since, against the other row's running total.
+    // Neither can be zero any more: a won deal has money on it by definition.
+    expect(emptyRow.paid).toBe(500);
   });
 
   it("puts the longest silence at the top, and the bigger balance inside a tie", () => {

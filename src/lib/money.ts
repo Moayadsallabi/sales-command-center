@@ -3,6 +3,7 @@ import {
   WINNING_OUTCOMES,
   REFUND_OUTCOME,
   REFUND_CARRIES_CLOSE,
+  MIN_DEPOSIT,
 } from "./sales-rules";
 
 /**
@@ -135,9 +136,40 @@ export function carriesRevenue(call: CallRecord): boolean {
  *
  * Reads the shared rules file rather than comparing to a literal, so the two
  * dashboards cannot drift about what "won" means.
+ *
+ * ---------------------------------------------------------------------------
+ * THE OUTCOME ALONE IS NOT ENOUGH — MONEY HAS TO HAVE MOVED (2026-09-06)
+ *
+ * [STATED — Moayad, chat 2026-09-06] "if it was never taken on the call then it
+ * wasnt a close, a close is only counted if cash was collected, if a price was
+ * agreed but no cash was collected then its simply a follow up"
+ *
+ * This returned true on the label a closer typed, so a verbal commitment with
+ * nothing banked counted in every close rate, every leaderboard position and
+ * every revenue total exactly like a paid deal. The call that produced the
+ * ruling was recorded as a customer at $8,000 against a $200 deposit the
+ * prospect said he would send by Zelle after going to the bank. It never came.
+ *
+ * The money read here is the tracker's own — Cash Collected, falling back to
+ * what was taken on the call. That is a hand-typed column and sales-rules.json
+ * is explicit that the tracker never owns what was banked, so this is the
+ * weaker of the two evidences; the KPI dashboard tests the processor directly.
+ * Measured on Brey before shipping, they agree: of 41 calls marked Customer
+ * since 1 August, 36 record cash at or above the floor, and the 5 that do not
+ * are exactly the 5 the processor has no money for either.
+ *
+ * It decides WHETHER a call closed, never what it was worth — the deal keeps
+ * its agreed price. [STATED — Moayad, chat 2026-09-06] "yes agreed price stays".
  */
 export function isWin(call: CallRecord): boolean {
-  return call.outcome != null && WINNING_OUTCOMES.includes(call.outcome);
+  if (call.outcome == null || !WINNING_OUTCOMES.includes(call.outcome)) return false;
+  // The greater of what the tracker recorded and what the processor actually
+  // matched. paid_total is set by settleByPayment when a payment promotes a
+  // call the closer typed as something else — that money is the strongest
+  // evidence on the row, and ignoring it would refuse exactly the calls the
+  // reconciliation exists to find.
+  const moved = Math.max(collectedToDate(call) ?? 0, call.paid_total ?? 0);
+  return moved >= MIN_DEPOSIT;
 }
 
 /**
