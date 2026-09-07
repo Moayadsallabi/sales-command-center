@@ -78,15 +78,30 @@ function extractTitle(prop?: NotionProperty): string {
  * as the key of a per-day total, bookings.ts turns it into a day index -- so a
  * stamped row does not merely look odd, it lands in a bucket of its own.
  *
- * It reached the page as a crash rather than a wrong number: weekStart builds
- * `${date}T00:00:00Z`, which on a value that already carries a time is not a
- * date at all, and toISOString threw. Three rows written on 6 and 7 September
- * 2026 took Brey's whole dashboard down with a 500.
+ * THE TIME IS THERE ON PURPOSE, AND THIS APP IS THE READER THAT WAS NOT MOVED.
+ * On 2026-09-06 the Fathom automation began writing the call's exact start into
+ * Call Date, deliberately: the prospect email arrives only on the calendar
+ * invite, and for a call booked without one the clock is the only way back to
+ * the person (workspace commit 415bb45). The KPI dashboard was moved in the
+ * same change and reads the column BOTH ways -- see extractDate and
+ * extractDateTime in perceptionismlabkpis/src/services/notion-calls.js. This
+ * app was not, so a timestamp reached fifty-odd readers that all mean a day.
  *
- * Cutting to the day here rather than in the readers is the point: there are
- * fifty-odd of them across sixteen files, and the next one written would have
- * inherited the same trap. The day is taken as WRITTEN, in the offset the stamp
- * carries, because that is the day the person entering the call saw.
+ * It surfaced as a crash rather than a wrong number: weekStart builds
+ * `${date}T00:00:00Z`, which on a value that already carries a time is not a
+ * date at all, and toISOString threw. Three rows took Brey's whole dashboard
+ * down with a 500 on 2026-09-07.
+ *
+ * So this cuts to the day, matching the KPI dashboard's own extractDate rather
+ * than inventing a second answer. Cutting here rather than in the readers is
+ * the point: the next reader written would have inherited the same trap. The
+ * day is taken as WRITTEN, in the offset the stamp carries, because that is the
+ * day the person entering the call saw.
+ *
+ * Nothing in this app reads the exact start yet, so it is dropped rather than
+ * carried in a field of its own. If that changes, copy extractDateTime -- it
+ * answers null for a row with no time rather than inventing midnight, which
+ * would tie a call to whoever happened to book at 00:00.
  */
 function extractDate(prop?: NotionProperty): string | null {
   const start = prop?.date?.start;
