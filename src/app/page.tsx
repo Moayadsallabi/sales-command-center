@@ -74,7 +74,6 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
       pending: 0,
       total: 0,
       reading: false,
-      timezone: null,
     };
   }
 
@@ -99,7 +98,6 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
       pending: result.pending,
       total: result.total,
       reading: result.reading,
-      timezone: result.timezone,
     };
   } catch (err) {
     if (err instanceof CalendlyError) {
@@ -111,7 +109,6 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
         pending: 0,
         total: 0,
         reading: false,
-        timezone: null,
       };
     }
     throw err;
@@ -186,12 +183,12 @@ export default async function Home() {
           pending: 0,
           total: link?.bookings.length ?? 0,
           reading: false,
-          // The demo's bookings are generated in UTC, so the calendar draws
-          // them in UTC. A zone invented here would move every sample call an
-          // hour off the sample calls it was generated to sit beside.
-          timezone: null,
         }}
         brandName={demoCurrent?.name ?? "Funded Blueprint"}
+        // The sample bookings are generated in UTC, so the demo calendar reads
+        // them in UTC. A zone invented here would slide every invented call an
+        // hour off the invented calls it was built to sit beside.
+        timeZone={null}
         demo
       />
     );
@@ -296,6 +293,7 @@ export default async function Home() {
       calls={calls}
       today={today}
       calendly={calendly}
+      timeZone={cfg.timeZone}
       payments={payments?.days ?? null}
       reconciliation={reconciliation}
       excluded={excluded.map((e) => ({

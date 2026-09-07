@@ -52,6 +52,29 @@ export type ClientConfig = {
   notion: { apiKey: string | null; databaseId: string | null };
   calendly: { apiKey: string | null; eventTypes: string | null };
   whop: { apiKey: string | null };
+  /**
+   * THE CLIENT'S BUSINESS DAY, as an IANA zone. Null when nobody has set one.
+   *
+   * Not a display preference. It is the answer to "when does a day start for
+   * this business", and the same answer has to be given by everything that
+   * turns an instant into a day — otherwise one screen counts money on one
+   * calendar and calls on another, which is exactly what happened to Brey
+   * between 6 and 7 September 2026 and cost twenty calls the wrong date.
+   *
+   * It lives on the WHOP credential in the registry (`config.time_zone`)
+   * because that is where it was first needed and where it is set today; the
+   * KPI dashboard reads the same field as `whopTimeZone`. One field, both
+   * apps. If it ever grows a home of its own on the client record, this is the
+   * only line that has to move.
+   *
+   * NULL IS NOT A LICENCE TO GUESS. Anything reading this renders in UTC and
+   * SAYS it is doing so. The obvious-looking guesses — the Calendly account's
+   * own zone, the browser's — are each some individual's zone rather than the
+   * business's, and a wrong one is invisible: the times still look like
+   * plausible working hours, just an hour or two out, on a day that is
+   * sometimes the wrong day.
+   */
+  timeZone: string | null;
 };
 
 /** What this deployment holds in its own variables. Always available. */
@@ -69,6 +92,9 @@ export function configFromEnvironment(): ClientConfig {
       eventTypes: process.env.CALENDLY_EVENT_TYPES ?? null,
     },
     whop: { apiKey: process.env.WHOP_API_KEY ?? null },
+    // WHOP_TIME_ZONE is the name the KPI dashboard already reads for this, so
+    // a deployment that sets one has set both.
+    timeZone: process.env.WHOP_TIME_ZONE?.trim() || null,
   };
 }
 
@@ -218,6 +244,7 @@ async function readCredentials(clientId: string, token: string): Promise<ClientC
         eventTypes: (calendly.config?.event_types as string) ?? null,
       },
       whop: { apiKey: whop.api_key ?? null },
+      timeZone: (whop.config?.time_zone as string)?.trim() || null,
     };
   } catch {
     return null;

@@ -103,7 +103,7 @@ export function BookingCalendar({
   bookings,
   calls,
   today,
-  timezone,
+  timeZone,
   windowStart,
   reading,
   pending,
@@ -117,8 +117,11 @@ export function BookingCalendar({
   calls: CallRecord[];
   /** Today as `YYYY-MM-DD`, resolved on the server so both renders agree. */
   today: string;
-  /** The Calendly account's zone. Null falls back to UTC, labelled UTC. */
-  timezone: string | null;
+  /**
+   * The CLIENT'S business day, as an IANA zone. Null draws the grid in UTC and
+   * says so on the panel — never a zone belonging to an individual.
+   */
+  timeZone: string | null;
   /** Earliest instant the Calendly read covers. Before it, nothing was asked. */
   windowStart: string | null;
   /** The calendar has never been read at all this process. */
@@ -133,7 +136,15 @@ export function BookingCalendar({
   /** The one day expanded past `CHIPS_PER_CELL`. Only ever one at a time. */
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const zone = usableZone(timezone);
+  const zone = usableZone(timeZone);
+  /**
+   * Nobody has told this dashboard when the client's day starts, so the grid is
+   * on UTC and has to say so. Said out loud rather than quietly defaulted:
+   * a calendar on the wrong business day looks completely normal — the times
+   * are still working hours, just shifted, and only the calls at either end of
+   * the day land on the wrong square.
+   */
+  const zoneUnset = !timeZone;
   const grid = useMemo(() => monthGrid(month), [month]);
   const { days, dropped } = useMemo(
     () => groupByDay(bookings, zone),
@@ -174,9 +185,13 @@ export function BookingCalendar({
       <PanelHeader
         icon={CalendarDays}
         title="Calendar"
-        subtitle={`Every booking on the Calendly calendar, held or not. Times in ${zoneLabel(
-          zone
-        )}.`}
+        subtitle={
+          zoneUnset
+            ? "Every booking on the Calendly calendar, held or not. Times in UTC — no business timezone is set for this client."
+            : `Every booking on the Calendly calendar, held or not. Times in ${zoneLabel(
+                zone
+              )}.`
+        }
         info={
           <div className="space-y-2.5">
             <p>
@@ -207,14 +222,36 @@ export function BookingCalendar({
               mark, or a call logged as one on the tracker, gets that colour.
             </p>
             <p>
-              <strong className="text-zinc-200">Times are the account&apos;s.</strong>{" "}
+              <strong className="text-zinc-200">
+                Times are on the business&apos;s own day.
+              </strong>{" "}
               Calendly hands over every start time in UTC, and the rest of this
-              page reads dates as UTC on purpose. A calendar cannot: a booking
-              at 00:30 UTC is a call at half seven the previous evening for the
-              team taking it, and drawing it as UTC puts it on the wrong day.
-              So the grid uses the zone set on the Calendly account —{" "}
-              {zoneLabel(zone)} — and nothing on this panel is used as a
-              denominator anywhere else.
+              page reads dates as UTC on purpose — a call date is a calendar day
+              with no time in it. A calendar is the one surface that cannot work
+              that way: a booking at 00:30 UTC is a call at half eight the
+              previous evening for the team taking it, and drawing it as UTC
+              puts it on the wrong day.
+              {zoneUnset ? (
+                <>
+                  {" "}
+                  <strong className="text-amber-300">
+                    No business timezone is set for this client
+                  </strong>
+                  , so the grid is drawn in UTC. It deliberately does not guess
+                  — not from the Calendly login, whose zone belongs to whoever
+                  created the account, and not from your browser. Set it and
+                  this panel, the ad spend and the call dates all count the same
+                  day.
+                </>
+              ) : (
+                <>
+                  {" "}
+                  So the grid uses this client&apos;s business day —{" "}
+                  {zoneLabel(zone)} — which is the same day the ad spend and the
+                  call dates are counted on. Nothing on this panel is used as a
+                  denominator anywhere else.
+                </>
+              )}
             </p>
             <p>
               Chips for calls that were held open that call&apos;s scorecard.

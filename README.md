@@ -105,7 +105,8 @@ prospect, how many landed inside the last day, the utm source on the booking
 link, and the prospect's booking-form answers on each call's scorecard.
 
 It also adds a **Calendar** section — the month as a grid, one chip per booking,
-held or not, in the zone set on the Calendly account. It sits directly under the
+held or not, drawn on the client's own business day (`WHOP_TIME_ZONE`, or the
+`time_zone` on their Whop credential in the registry; UTC and a note when unset). It sits directly under the
 call table because the two are halves of one picture: the table is what was
 recorded, the calendar is everything that was booked. Without a token the
 section is not on the page.

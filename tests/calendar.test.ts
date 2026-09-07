@@ -6,11 +6,12 @@
  * that is right. A booking is the other kind of value: an instant, which only
  * becomes a day once you say whose day you mean.
  *
- * On the live Calendly account there are bookings at 00:30 and 01:30 UTC. In
- * the zone set on that account those are calls at half seven and half eight
- * the PREVIOUS EVENING. Drawn as UTC they land one cell to the right of where
- * everyone involved remembers them, in the small hours, and the grid says the
- * team took two calls at one in the morning.
+ * On the live Calendly account there are bookings at 00:30 and 01:30 UTC. On
+ * the client's own business day — `America/New_York`, settled for this client
+ * on 2026-09-06 and used for the ad spend and the call dates too — those are
+ * calls at half eight and half nine the PREVIOUS EVENING. Drawn as UTC they
+ * land one cell to the right of where everyone involved remembers them, in the
+ * small hours, and the grid says the team took two calls at one in the morning.
  *
  * That is the case the first block below holds the code to, and it is
  * deliberately written so that reverting to a UTC slice fails it. Every date
@@ -63,42 +64,69 @@ function booking(over: Partial<LinkedBooking> = {}): LinkedBooking {
   } as LinkedBooking;
 }
 
+/** The client's business day. Not the Calendly login's — see below. */
+const BUSINESS = "America/New_York";
+
 describe("what day an evening call falls on", () => {
-  // 26 August 2026, 00:30 UTC. Chicago is on CDT (UTC-5) in August, so this is
-  // half seven on the EVENING OF THE 25th for the team taking it.
+  // 26 August 2026, 00:30 UTC. New York is on EDT (UTC-4) in August, so this
+  // is half eight on the EVENING OF THE 25th for the team taking it.
   const evening = "2026-08-26T00:30:00Z";
 
   it("puts a late-evening booking on the evening it happened, not the next morning", () => {
-    expect(dayInZone(evening, "America/Chicago")).toBe("2026-08-25");
+    expect(dayInZone(evening, BUSINESS)).toBe("2026-08-25");
     // The failing behaviour this exists to prevent, stated so the difference
     // is on the page rather than implied: a UTC slice gives the 26th.
     expect(evening.slice(0, 10)).toBe("2026-08-26");
   });
 
   it("prints it as an evening time, not as half past midnight", () => {
-    expect(timeInZone(evening, "America/Chicago")).toBe("19:30");
+    expect(timeInZone(evening, BUSINESS)).toBe("20:30");
   });
 
   it("groups it onto the evening's cell", () => {
-    const { days } = groupByDay([booking({ scheduled_at: evening })], "America/Chicago");
+    const { days } = groupByDay([booking({ scheduled_at: evening })], BUSINESS);
     expect([...days.keys()]).toEqual(["2026-08-25"]);
   });
 
   it("still agrees with UTC for a booking in the middle of a working day", () => {
     const midday = "2026-08-26T15:00:00Z";
-    expect(dayInZone(midday, "America/Chicago")).toBe("2026-08-26");
-    expect(timeInZone(midday, "America/Chicago")).toBe("10:00");
+    expect(dayInZone(midday, BUSINESS)).toBe("2026-08-26");
+    expect(timeInZone(midday, BUSINESS)).toBe("11:00");
   });
 
-  it("follows the account's zone across a daylight-saving change", () => {
-    // Same clock time either side of the US change on 1 November 2026: CDT is
-    // UTC-5, CST is UTC-6, so the same UTC instant is an hour apart locally.
-    expect(timeInZone("2026-10-30T15:00:00Z", "America/Chicago")).toBe("10:00");
-    expect(timeInZone("2026-11-06T15:00:00Z", "America/Chicago")).toBe("09:00");
+  it("follows the business zone across a daylight-saving change", () => {
+    // Same clock time either side of the US change on 1 November 2026: EDT is
+    // UTC-4, EST is UTC-5, so the same UTC instant is an hour apart locally.
+    // This is why the zone is stored as `America/New_York` and never as the
+    // literal "EST" — a fixed offset would be an hour out for half the year.
+    expect(timeInZone("2026-10-30T15:00:00Z", BUSINESS)).toBe("11:00");
+    expect(timeInZone("2026-11-06T15:00:00Z", BUSINESS)).toBe("10:00");
   });
 
   it("renders midnight as 00:00, never as 24:00", () => {
-    expect(timeInZone("2026-08-26T05:00:00Z", "America/Chicago")).toBe("00:00");
+    expect(timeInZone("2026-08-26T04:00:00Z", BUSINESS)).toBe("00:00");
+  });
+
+  /**
+   * THE NEAR MISS, which is the one that actually shipped.
+   *
+   * The first version of this panel read the zone off the CALENDLY ACCOUNT —
+   * whoever created the login, America/Chicago here, against a business that
+   * runs on America/New_York. One hour out, and nothing looks wrong: the times
+   * are still working hours. Only the calls at either end of the day land on
+   * the wrong square, which is a fault you find by being told, not by looking.
+   */
+  it("is an hour out on the Calendly login's zone, and can cross a day", () => {
+    expect(timeInZone("2026-08-26T15:00:00Z", "America/Chicago")).toBe("10:00");
+    expect(timeInZone("2026-08-26T15:00:00Z", BUSINESS)).toBe("11:00");
+
+    // 9pm Eastern on the 25th. Chicago calls it the 25th too — agreeing for
+    // the wrong reason — but an hour later the two zones disagree on the day.
+    const ninePmEastern = "2026-08-26T01:00:00Z";
+    expect(dayInZone(ninePmEastern, BUSINESS)).toBe("2026-08-25");
+    const midnightEastern = "2026-08-26T04:00:00Z";
+    expect(dayInZone(midnightEastern, BUSINESS)).toBe("2026-08-26");
+    expect(dayInZone(midnightEastern, "America/Chicago")).toBe("2026-08-25");
   });
 });
 
@@ -238,20 +266,21 @@ describe("how much of a month was read", () => {
    * the single thing it exists to refuse.
    */
   it("names the day a reader can find on the grid, not the UTC one", () => {
-    // 02:00 UTC on 1 June is 21:00 on 31 May in Chicago.
+    // 02:00 UTC on 1 June is 22:00 on 31 May in New York.
     const opensLateOn31May = "2026-06-01T02:00:00Z";
     expect(monthCoverage("2026-06", opensLateOn31May, "UTC")).toEqual({
       kind: "covered",
     });
-    expect(monthCoverage("2026-06", opensLateOn31May, "America/Chicago")).toEqual({
+    expect(monthCoverage("2026-06", opensLateOn31May, BUSINESS)).toEqual({
       kind: "covered",
     });
     // And the month before, where the two answers actually differ: UTC says
-    // May was never read; Chicago says it was read from its last evening.
+    // May was never read; the business day says it was read from its last
+    // evening.
     expect(monthCoverage("2026-05", opensLateOn31May, "UTC")).toEqual({
       kind: "unread",
     });
-    expect(monthCoverage("2026-05", opensLateOn31May, "America/Chicago")).toEqual({
+    expect(monthCoverage("2026-05", opensLateOn31May, BUSINESS)).toEqual({
       kind: "partial",
       from: "2026-05-31",
     });

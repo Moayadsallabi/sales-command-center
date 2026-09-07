@@ -109,13 +109,34 @@ zone slides it either side of midnight depending on who is looking.
 A calendar is the one surface that cannot work that way. Calendly hands over
 every start time as an instant — `2026-08-26T00:30:00Z` — and an instant only
 becomes a day once you say whose day you mean. On a live account that exact time
-is a call at half seven the previous evening for the team taking it; drawn as
+is a call at half eight the previous evening for the team taking it; drawn as
 UTC it lands in the small hours of the following morning, one cell to the right
 of where everyone involved remembers it.
 
-So the grid groups and prints in **the zone set on the Calendly account**, read
-from the account itself and named on the panel. Nothing on it is used as a
-denominator anywhere else, so no rate on the page changes.
+So the grid groups and prints in **the client's business day**, and names it on
+the panel. That is one answer for the whole client — the same zone the ad spend
+and the call dates are counted on — and it comes from the `time_zone` on their
+Whop credential in the registry, or `WHOP_TIME_ZONE` on a deployment with no
+registry. The KPI dashboard reads the same field. Nothing on this panel is used
+as a denominator anywhere else, so no rate on the page changes.
+
+**Unset, the grid is drawn in UTC and says so.** It does not guess, and the
+plausible guesses are the trap rather than the safe option:
+
+- **Not the Calendly account's own zone.** That is whoever created the login.
+  This panel shipped that way on 7 September 2026 and was corrected the next
+  day: the login is `America/Chicago`, the business is `America/New_York`. Every
+  time on the grid was an hour early and nothing looked broken, because the
+  times were still working hours. Measured across the 567 bookings in the read
+  window, no chip was actually on the wrong *day* — the last call of Brey's
+  evening is around 21:00 Eastern, and it would take one after 23:00 to cross.
+  That is luck rather than design, which is the argument for the field being the
+  business's own answer rather than the nearest zone to hand.
+- **Not the reader's browser.** Two people would then see two calendars.
+
+Set it to an IANA name (`America/New_York`), never the literal `EST`. A fixed
+offset does not follow daylight saving and would be an hour out for half the
+year.
 
 ## How a booking is matched to a call
 

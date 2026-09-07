@@ -98,6 +98,7 @@ export function Dashboard({
   duplicates = [],
   demo = false,
   brandName: brandNameProp,
+  timeZone = null,
 }: {
   calls: CallRecord[];
   today: string;
@@ -115,6 +116,21 @@ export function Dashboard({
    * deployments render exactly as they do today.
    */
   brandName?: string | null;
+  /**
+   * THE CLIENT'S BUSINESS DAY, as an IANA zone — `America/New_York` for Brey.
+   *
+   * Only the calendar reads it, because it is the only surface here that turns
+   * an INSTANT into a day. Everything else on this page starts from a
+   * `call_date`, which is a calendar day already, and those stay UTC-parsed
+   * for the reason lib/periods.ts gives.
+   *
+   * Null renders the calendar in UTC and says so on the panel. It never falls
+   * back to a zone belonging to some individual — the Calendly login's, or the
+   * reader's browser — because a wrong business day is invisible: the times
+   * still look like working hours, an hour or two out, on a day that is
+   * sometimes the wrong day.
+   */
+  timeZone?: string | null;
   /** Present only when Whop is connected. Null keeps the tracker's figure. */
   payments?: PaymentDay[] | null;
   /** Rows where the processor and the tracker disagree. Null without Whop. */
@@ -926,7 +942,7 @@ export function Dashboard({
               bookings={calendarBookings}
               calls={calls}
               today={today}
-              timezone={calendly.timezone}
+              timeZone={timeZone}
               windowStart={calendly.windowStart}
               reading={calendly.reading}
               pending={calendly.pending}

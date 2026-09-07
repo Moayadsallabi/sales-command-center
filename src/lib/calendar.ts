@@ -16,14 +16,24 @@
  * A booking is the other kind of value. It is an INSTANT — Calendly hands over
  * `2026-08-26T00:30:00Z` — and an instant only becomes a day once you say
  * whose day you mean. On the live account that exact time is a call at half
- * seven on the EVENING OF THE 25th for the team taking it, and printing it as
+ * eight on the EVENING OF THE 25th for the team taking it, and printing it as
  * UTC puts it in the small hours of the following morning, one cell to the
- * right of where everyone involved remembers it.
+ * right of where everyone involved remembers it. Measured on 2026-09-08:
+ * 27 of 567 bookings in the read window fall on a different day under UTC.
  *
- * So the grid works in the zone set on the Calendly account, which is the zone
- * the team books in, and the panel says which zone that is. The rest of the
- * page is untouched: nothing here is a denominator, and no rate is computed
- * from these groupings.
+ * So the grid works in THE CLIENT'S BUSINESS DAY — `ClientConfig.timeZone`,
+ * one answer for the whole client, the same one the ad spend and the call
+ * dates are counted on — and the panel says which zone that is. The rest of
+ * the page is untouched: nothing here is a denominator, and no rate is
+ * computed from these groupings.
+ *
+ * WHICH ZONE IS NOT A DETAIL, AND THE NEAR MISSES ARE THE DANGEROUS ONES.
+ * This first shipped reading the zone off the Calendly ACCOUNT, which is
+ * whoever created the login — America/Chicago on Brey's, where the business
+ * runs on America/New_York. One hour out. Nothing looks wrong: the times are
+ * still working hours, and only the calls at either end of the day land on the
+ * wrong square. An hour is harder to spot than five, which is why the source
+ * has to be the business's own answer rather than the nearest zone to hand.
  */
 
 import { LinkedBooking, BookingState } from "./bookings";
@@ -103,7 +113,7 @@ export function timeInZone(iso: string, zone: string): string | null {
 }
 
 /**
- * How a zone is named on screen: `America/Chicago · CDT`.
+ * How a zone is named on screen: `America/New_York · GMT-4`.
  *
  * Both halves, because neither is enough on its own. The abbreviation is what
  * a person recognises; the IANA name is what they can check against Calendly,
