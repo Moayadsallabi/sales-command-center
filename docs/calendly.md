@@ -75,6 +75,48 @@ email, utm tag, form answers.
 It **fails** if `CALENDLY_EVENT_TYPES` matches nothing, because that case is
 otherwise indistinguishable from a quiet month.
 
+## The calendar
+
+Connecting Calendly adds a **Calendar** section to the page: one cell per day,
+one chip per booking, held or not. It is there for the things a count cannot
+show — which days fill and which stay empty, whether cancellations land on the
+same weekday every week, and what is still on the book for the rest of the
+month. Without a token the section is not on the page at all.
+
+Three things it will not do:
+
+- **It never calls an unmatched booking a no-show.** A booking with no recording
+  behind it is drawn as *Not recorded*. Only Calendly's own no-show mark, or a
+  call logged as one on the tracker, gets the no-show colour. Same rule as
+  everywhere else here, and the same reason: "nobody turned up" and "nobody
+  recorded it" want opposite fixes.
+- **It never draws an unread month as an empty one.** Calendly is read over a
+  window — `CALENDLY_LOOKBACK_DAYS`, ninety days by default, and a year ahead.
+  Step back beyond it and the panel says the calendar was never asked about
+  those weeks, rather than showing blank cells that read as a quiet quarter.
+- **It does not follow the date buttons at the top of the page**, and says so on
+  the panel. You move around a calendar by the month, so its own arrows do that.
+  The closer filter does apply; the outcome and lead-source pills do not,
+  because both describe a recording and most of what is drawn here never
+  produced one.
+
+### Why the times are not UTC
+
+Every other date on this dashboard is read and printed as UTC on purpose: a call
+date is a calendar day with no time in it, so handing it to the reader's own
+zone slides it either side of midnight depending on who is looking.
+
+A calendar is the one surface that cannot work that way. Calendly hands over
+every start time as an instant — `2026-08-26T00:30:00Z` — and an instant only
+becomes a day once you say whose day you mean. On a live account that exact time
+is a call at half seven the previous evening for the team taking it; drawn as
+UTC it lands in the small hours of the following morning, one cell to the right
+of where everyone involved remembers it.
+
+So the grid groups and prints in **the zone set on the Calendly account**, read
+from the account itself and named on the panel. Nothing on it is used as a
+denominator anywhere else, so no rate on the page changes.
+
 ## How a booking is matched to a call
 
 On the prospect's email, then on how close the two sit in time — a booking and a

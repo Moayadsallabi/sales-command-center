@@ -98,6 +98,13 @@ export interface BookingsResult {
   window_start: string;
   /** Whether the token reached the whole organisation or just one user. */
   scope: "organization" | "user";
+  /**
+   * The IANA zone set on the Calendly account, e.g. `America/Chicago`. Null
+   * when Calendly did not give one, or before the first read has landed.
+   *
+   * Only the calendar grid uses it. See the note where it is read.
+   */
+  timezone: string | null;
   /** Event type names kept, or null when every type counted. */
   event_types: string[] | null;
   /** Bookings dropped for being on a non-sales event type. */
@@ -456,6 +463,8 @@ type Store = {
   key: string;
   listedAt: number;
   scope: BookingsResult["scope"];
+  /** The Calendly account's own zone, for the calendar grid. Null if unset. */
+  timezone: string | null;
   windowStart: string;
   events: ScheduledEvent[];
   typeNames: Map<string, string>;
@@ -560,11 +569,27 @@ async function refreshEventList(token: string, now: Date, key: string): Promise<
   const wanted = salesEventTypes();
 
   const me = await request<{
-    resource?: { uri?: string; current_organization?: string };
+    resource?: { uri?: string; current_organization?: string; timezone?: string };
   }>("/users/me", token);
 
   const userUri = me.resource?.uri;
   const orgUri = me.resource?.current_organization;
+  /**
+   * THE ZONE THE TEAM BOOKS IN, and the only reason it is read at all.
+   *
+   * Every timestamp Calendly returns is UTC, and every other date on this page
+   * is rendered as UTC on purpose — a `call_date` is a calendar day with no
+   * time in it, so handing it to the browser's zone slides it either side of
+   * midnight depending on who is looking.
+   *
+   * A CALENDAR CANNOT DO THAT. On the live account there are bookings at
+   * 00:30 and 01:30 UTC, which are half seven and half eight the previous
+   * evening in the account's own zone: rendered as UTC they land on the wrong
+   * day, in the small hours, and the grid says the team took two calls at
+   * one in the morning. So the calendar grid — and only the calendar grid —
+   * groups and prints in this zone, and says on screen which one it is.
+   */
+  const timezone = me.resource?.timezone ?? null;
 
   // Organisation scope covers every closer's calendar, which is the point on a
   // team. It needs an admin or owner token, so a member's token falls back to
@@ -633,6 +658,7 @@ async function refreshEventList(token: string, now: Date, key: string): Promise<
     key,
     listedAt: Date.now(),
     scope,
+    timezone,
     windowStart,
     events: kept,
     typeNames,
@@ -793,6 +819,7 @@ export async function queryBookings(
       bookings: [],
       window_start: new Date(now.getTime() - lookbackDays() * 864e5).toISOString(),
       scope: "organization",
+      timezone: null,
       event_types: wanted,
       filtered_out: 0,
       pending: 0,
@@ -833,6 +860,7 @@ export async function queryBookings(
     bookings,
     window_start: current.windowStart,
     scope: current.scope,
+    timezone: current.timezone,
     event_types: wanted,
     filtered_out: current.filteredOut,
     pending: neverRead(current).length,

@@ -67,7 +67,15 @@ async function loadCalls(cfg: ClientConfig): Promise<LoadResult> {
  */
 async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<CalendlyState> {
   if (!isCalendlyConfigured(cfg.calendly)) {
-    return { link: null, windowStart: null, failure: null, pending: 0, total: 0, reading: false };
+    return {
+      link: null,
+      windowStart: null,
+      failure: null,
+      pending: 0,
+      total: 0,
+      reading: false,
+      timezone: null,
+    };
   }
 
   try {
@@ -91,6 +99,7 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
       pending: result.pending,
       total: result.total,
       reading: result.reading,
+      timezone: result.timezone,
     };
   } catch (err) {
     if (err instanceof CalendlyError) {
@@ -102,6 +111,7 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
         pending: 0,
         total: 0,
         reading: false,
+        timezone: null,
       };
     }
     throw err;
@@ -153,11 +163,33 @@ export default async function Home() {
         today={today}
         calendly={{
           link,
-          windowStart: null,
+          // THE DEMO GETS A REAL READ WINDOW, and it is the demo's OWN earliest
+          // booking rather than a round ninety days.
+          //
+          // Null would mean every month reads as covered, so the two notices
+          // that say "this month was never fetched" could never be previewed —
+          // and those are among the states worth seeing before you connect a
+          // calendar. A round number would be worse than null: the generator
+          // invents bookings on its own schedule, so a window that disagrees
+          // with them puts "nothing here was ever fetched" above a grid with
+          // calls on it, which is the exact confusion the notice exists to
+          // prevent. Derived from the data, the demo cannot contradict itself.
+          windowStart:
+            link && link.bookings.length > 0
+              ? link.bookings.reduce(
+                  (earliest, b) =>
+                    b.scheduled_at < earliest ? b.scheduled_at : earliest,
+                  link.bookings[0].scheduled_at
+                )
+              : null,
           failure: null,
           pending: 0,
           total: link?.bookings.length ?? 0,
           reading: false,
+          // The demo's bookings are generated in UTC, so the calendar draws
+          // them in UTC. A zone invented here would move every sample call an
+          // hour off the sample calls it was generated to sit beside.
+          timezone: null,
         }}
         brandName={demoCurrent?.name ?? "Funded Blueprint"}
         demo

@@ -82,6 +82,14 @@ export interface CalendlyState {
   reading: boolean;
   /** Sales bookings in the window, read or not. */
   total: number;
+  /**
+   * The IANA zone set on the Calendly account, e.g. `America/Chicago`.
+   *
+   * Read by the calendar grid and nothing else — every other date on this page
+   * is UTC on purpose. The note in lib/calendar.ts says why a calendar is the
+   * one surface that cannot be.
+   */
+  timezone: string | null;
 }
 
 /* ------------------------------------------------------------------ dates */

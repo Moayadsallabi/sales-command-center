@@ -104,6 +104,12 @@ what was held, how many cancellations came from your own side rather than the
 prospect, how many landed inside the last day, the utm source on the booking
 link, and the prospect's booking-form answers on each call's scorecard.
 
+It also adds a **Calendar** section — the month as a grid, one chip per booking,
+held or not, in the zone set on the Calendly account. It sits directly under the
+call table because the two are halves of one picture: the table is what was
+recorded, the calendar is everything that was booked. Without a token the
+section is not on the page.
+
 A booking with no recording is never called a no-show. It is counted in the open
 as unaccounted for — "nobody turned up" and "nobody recorded it" need opposite
 fixes. There is deliberately no show-rate figure anywhere: while most of the

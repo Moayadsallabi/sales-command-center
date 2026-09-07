@@ -41,12 +41,14 @@ import { DimensionImpact } from "./dimension-impact";
 import { LeadImpact } from "./lead-impact";
 import { ObjectionPanel } from "./objection-panel";
 import { ScorecardPanel } from "./scorecard-panel";
+import { BookingCalendar } from "./booking-calendar";
 import { LiveIndicator } from "./live-indicator";
 import { NavSection, SectionNav, useSectionNav } from "./section-nav";
 import { SalesCommandMark } from "@/components/brand/logo";
 import {
   Activity,
   AlertTriangle,
+  CalendarDays,
   Coins,
   Gauge,
   List,
@@ -66,18 +68,25 @@ import {
  * has to match the wrapper it names in the markup below; nothing else on the
  * page carries these strings.
  */
-const SECTIONS: NavSection[] = [
-  { id: "numbers", label: "The numbers", icon: Gauge },
-  { id: "closers", label: "Closers", icon: Trophy },
-  { id: "costing", label: "What is costing you", icon: AlertTriangle },
-  { id: "call-parts", label: "Parts of the call", icon: Coins },
-  { id: "leads", label: "What leads are worth", icon: UserSearch },
-  { id: "objections", label: "Objections", icon: MessageSquareWarning },
-  { id: "calls", label: "All calls", icon: List },
-  { id: "follow-ups", label: "Follow-ups", icon: PhoneForwarded },
-  { id: "to-collect", label: "To collect", icon: HandCoins },
-  { id: "data-health", label: "Data health", icon: Activity },
-];
+function sectionsFor({ calendar }: { calendar: boolean }): NavSection[] {
+  return [
+    { id: "numbers", label: "The numbers", icon: Gauge },
+    { id: "closers", label: "Closers", icon: Trophy },
+    { id: "costing", label: "What is costing you", icon: AlertTriangle },
+    { id: "call-parts", label: "Parts of the call", icon: Coins },
+    { id: "leads", label: "What leads are worth", icon: UserSearch },
+    { id: "objections", label: "Objections", icon: MessageSquareWarning },
+    { id: "calls", label: "All calls", icon: List },
+    // Only when Calendly is connected. A rail entry that scrolls to nothing is
+    // worse than a missing one — it reads as a section that failed to load.
+    ...(calendar
+      ? [{ id: "calendar", label: "Calendar", icon: CalendarDays } as NavSection]
+      : []),
+    { id: "follow-ups", label: "Follow-ups", icon: PhoneForwarded },
+    { id: "to-collect", label: "To collect", icon: HandCoins },
+    { id: "data-health", label: "Data health", icon: Activity },
+  ];
+}
 
 export function Dashboard({
   calls,
@@ -414,6 +423,45 @@ export function Dashboard({
     });
   }, [calendly.link, calls, visibleWindow, selectedCloser]);
 
+  /**
+   * THE SAME BOOKINGS, WITHOUT THE DATE WINDOW — what the calendar grid draws.
+   *
+   * It keeps the closer filter and drops the window, which is the only
+   * combination that makes sense for a calendar: you move around one by the
+   * month, so its own arrows own the period, while "whose calendar is this"
+   * is still a question the leaderboard is allowed to answer.
+   *
+   * The panel says both of those on screen. An exemption from the date buttons
+   * that is only true in the code reads to everyone else as a broken filter.
+   */
+  const calendarBookings = useMemo<LinkedBooking[]>(() => {
+    if (!calendly.link) return [];
+    const closerOf = (booking: LinkedBooking) =>
+      (booking.call_id ? calls.find((c) => c.id === booking.call_id)?.closer : null) ??
+      booking.host ??
+      UNASSIGNED;
+
+    return selectedCloser === null
+      ? calendly.link.bookings
+      : calendly.link.bookings.filter((b) => closerOf(b) === selectedCloser);
+  }, [calendly.link, calls, selectedCloser]);
+
+  /**
+   * WHETHER THE CALENDAR IS ON THE PAGE AT ALL.
+   *
+   * Connected covers the states where there is something to draw or something
+   * honest to say about why there is not — still reading, half read, or read
+   * and empty. Not connected is the one state with nothing to say, and a
+   * permanently blank panel does not read as "we do not do this", it reads as
+   * a feed that has failed.
+   */
+  const hasCalendar = calendly.link !== null || calendly.reading;
+
+  const sections = useMemo(
+    () => sectionsFor({ calendar: hasCalendar }),
+    [hasCalendar]
+  );
+
   // Outcome and source pills filter the recordings, not the calendar, so the
   // funnel is left out when either is on rather than shown against a
   // denominator that no longer matches what is being counted. A read that is
@@ -549,7 +597,7 @@ export function Dashboard({
       }`}
     >
       <SectionNav
-        sections={SECTIONS}
+        sections={sections}
         collapsed={nav.collapsed}
         onToggle={nav.toggle}
       />
@@ -862,6 +910,32 @@ export function Dashboard({
           />
         </div>
 
+        {/* THE OTHER HALF OF THE TABLE ABOVE, and why it sits directly under it.
+            All calls is what was RECORDED; the calendar is everything that was
+            BOOKED, cancellations and no-shows and next Tuesday included. Read
+            one against the other and the gap between them is visible as a
+            shape rather than as a count — which is the whole reason it is a
+            grid and not another set of tiles.
+
+            It also leads into the follow-ups below it, being the one panel on
+            the page that shows anything still ahead of us. */}
+        {hasCalendar && (
+          <div id="calendar" className="scroll-mt-32">
+            <BookingCalendar
+              order={8}
+              bookings={calendarBookings}
+              calls={calls}
+              today={today}
+              timezone={calendly.timezone}
+              windowStart={calendly.windowStart}
+              reading={calendly.reading}
+              pending={calendly.pending}
+              closer={selectedCloser}
+              onSelectCall={setOpenCall}
+            />
+          </div>
+        )}
+
         {/* ACT. The one panel here that asks you to do something rather than
             telling you how things went, so it comes after everything that
             describes and before the band that only says how much of the
@@ -870,7 +944,7 @@ export function Dashboard({
             Reads the unfiltered call list: an unworked follow-up does not stop
             being owed when the date filter moves. */}
         <div id="follow-ups" className="scroll-mt-32">
-          <FollowUps order={8} calls={calls} today={today} />
+          <FollowUps order={9} calls={calls} today={today} />
         </div>
 
         {/* THE SECOND JOB ON THE PAGE, and the same reasoning about the filter:
@@ -886,7 +960,7 @@ export function Dashboard({
             with the deadline goes first. */}
         <div id="to-collect" className="scroll-mt-32">
           <PaymentsToCollect
-            order={9}
+            order={10}
             calls={calls}
             matched={reconciliation?.matched ?? []}
             processorRead={reconciliation !== null}
@@ -916,7 +990,7 @@ export function Dashboard({
           </div>
 
           {issues.map((issue) => (
-            <Panel key={issue.id} order={10} tone="alert">
+            <Panel key={issue.id} order={11} tone="alert">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle
                   className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400"
@@ -933,7 +1007,7 @@ export function Dashboard({
           ))}
 
           <CoverageAlarm
-            order={11}
+            order={12}
             calls={calls}
             today={today}
             booked={funnel?.booked ?? null}
@@ -941,7 +1015,7 @@ export function Dashboard({
 
           {scopedReconciliation && (
             <WhopGap
-              order={12}
+              order={13}
               reconciliation={scopedReconciliation}
               windowLabel={
                 visibleWindow.from === null && visibleWindow.to === null
