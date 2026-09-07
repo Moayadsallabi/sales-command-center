@@ -115,10 +115,10 @@ of where everyone involved remembers it.
 
 So the grid groups and prints in **the client's business day**, and names it on
 the panel. That is one answer for the whole client — the same zone the ad spend
-and the call dates are counted on — and it comes from the `time_zone` on their
-Whop credential in the registry, or `WHOP_TIME_ZONE` on a deployment with no
-registry. The KPI dashboard reads the same field. Nothing on this panel is used
-as a denominator anywhere else, so no rate on the page changes.
+and the call dates are counted on — and it comes from `clients.time_zone` in the
+registry, or `CLIENT_TIME_ZONE` on a deployment with no registry. The KPI
+dashboard reads the same column. Nothing on this panel is used as a denominator
+anywhere else, so no rate on the page changes.
 
 **Unset, the grid is drawn in UTC and says so.** It does not guess, and the
 plausible guesses are the trap rather than the safe option:

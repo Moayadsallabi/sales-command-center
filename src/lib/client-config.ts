@@ -61,11 +61,16 @@ export type ClientConfig = {
    * calendar and calls on another, which is exactly what happened to Brey
    * between 6 and 7 September 2026 and cost twenty calls the wrong date.
    *
-   * It lives on the WHOP credential in the registry (`config.time_zone`)
-   * because that is where it was first needed and where it is set today; the
-   * KPI dashboard reads the same field as `whopTimeZone`. One field, both
-   * apps. If it ever grows a home of its own on the client record, this is the
-   * only line that has to move.
+   * It lives on the CLIENT record in the registry (`clients.time_zone`),
+   * beside `currency` — another client-level reporting property. The KPI
+   * dashboard reads the same column. One field, both apps.
+   *
+   * The Whop credential's `config.time_zone` is read as a fallback and is a
+   * genuinely different question: that one is the AD ACCOUNT'S reporting
+   * boundary. For every client today the two agree, which is why the business
+   * day lived there first — but Karan has no Whop account at all and still has
+   * a working day, and recording it under the old shape would have meant
+   * inventing a payment credential for a client who does not use one.
    *
    * NULL IS NOT A LICENCE TO GUESS. Anything reading this renders in UTC and
    * SAYS it is doing so. The obvious-looking guesses — the Calendly account's
@@ -94,7 +99,7 @@ export function configFromEnvironment(): ClientConfig {
     whop: { apiKey: process.env.WHOP_API_KEY ?? null },
     // WHOP_TIME_ZONE is the name the KPI dashboard already reads for this, so
     // a deployment that sets one has set both.
-    timeZone: process.env.WHOP_TIME_ZONE?.trim() || null,
+    timeZone: process.env.CLIENT_TIME_ZONE?.trim() || process.env.WHOP_TIME_ZONE?.trim() || null,
   };
 }
 
@@ -244,7 +249,13 @@ async function readCredentials(clientId: string, token: string): Promise<ClientC
         eventTypes: (calendly.config?.event_types as string) ?? null,
       },
       whop: { apiKey: whop.api_key ?? null },
-      timeZone: (whop.config?.time_zone as string)?.trim() || null,
+      /* The client's own answer first, the ad account's second. See the note on
+         ClientConfig.timeZone for why they are two questions that happen to
+         have one answer today. */
+      timeZone:
+        (body?.client?.time_zone as string)?.trim() ||
+        (whop.config?.time_zone as string)?.trim() ||
+        null,
     };
   } catch {
     return null;
