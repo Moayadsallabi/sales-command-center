@@ -353,4 +353,29 @@ describe("recordingWeeks", () => {
     const weeks = recordingWeeks([call({ call_date: null })], TODAY, 2);
     expect(weeks.every((w) => w.calls === 0)).toBe(true);
   });
+
+  it("drops a date it cannot read instead of taking the whole page down", () => {
+    // This threw. weekStart built `${date}T00:00:00Z`, which on a value that
+    // already carries a time is not a date, and toISOString raised a
+    // RangeError -- so one unreadable row out of 148 returned a 500 for every
+    // number on Brey's dashboard on 2026-09-07. notion.ts now cuts call dates
+    // back to a day, and this is the second lock behind it.
+    expect(() =>
+      recordingWeeks([call({ call_date: "2026-09-07T20:56:00.000+00:00" })], TODAY, 2)
+    ).not.toThrow();
+
+    const weeks = recordingWeeks(
+      [call({ call_date: "nonsense" }), call({ call_date: "2026-08-24" })],
+      TODAY,
+      2
+    );
+    // The readable row still counts. A bad row costs its own bar, nothing else.
+    expect(weeks.reduce((n, w) => n + w.calls, 0)).toBe(1);
+  });
+
+  it("draws no chart at all when today itself cannot be read", () => {
+    // Rather than a run of weeks computed from an invented date, which would be
+    // a chart of the wrong dates instead of no chart.
+    expect(recordingWeeks([call({ call_date: "2026-08-24" })], "not a day", 4)).toEqual([]);
+  });
 });

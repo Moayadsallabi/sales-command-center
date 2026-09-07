@@ -269,9 +269,24 @@ export interface RecordingWeek {
   calls: number;
 }
 
-/** The Monday on or before `date`. */
-function weekStart(date: string): string {
+/**
+ * The Monday on or before `date`, or null when that is not a date at all.
+ *
+ * ANSWERING NULL RATHER THAN THROWING IS THE POINT. This built
+ * `${date}T00:00:00Z` and called toISOString on the result, so a value that
+ * already carried a time -- three rows in Brey's tracker on 6 and 7 September
+ * 2026 -- produced an Invalid Date and threw, and one unreadable row returned
+ * a 500 for the entire dashboard. Notion cannot promise the shape, so this
+ * cannot assume it.
+ *
+ * extractDate in notion.ts now cuts every call date back to a day, which is
+ * the real fix and the one that keeps the other fifty readers honest. This is
+ * the second lock: a row nobody can read should cost its own line on a chart,
+ * never every number on the page.
+ */
+function weekStart(date: string): string | null {
   const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
   // getUTCDay is 0 on Sunday, so Sunday belongs to the week that began six
   // days earlier rather than starting one of its own.
   const shift = (d.getUTCDay() + 6) % 7;
@@ -294,11 +309,17 @@ export function recordingWeeks(
   for (const call of calls) {
     if (!call.call_date) continue;
     const week = weekStart(call.call_date);
+    if (!week) continue;   // an unreadable date is one missing bar, not a dead page
     counts.set(week, (counts.get(week) ?? 0) + 1);
   }
 
+  // Without a readable today there is no run of weeks to draw, and an invented
+  // one would be a chart of the wrong dates rather than no chart.
+  const thisWeek = weekStart(today);
+  if (!thisWeek) return [];
+
   const out: RecordingWeek[] = [];
-  const cursor = new Date(`${weekStart(today)}T00:00:00Z`);
+  const cursor = new Date(`${thisWeek}T00:00:00Z`);
   for (let i = 0; i < weeks; i++) {
     const week = cursor.toISOString().slice(0, 10);
     out.unshift({ week, calls: counts.get(week) ?? 0 });

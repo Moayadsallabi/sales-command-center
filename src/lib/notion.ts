@@ -68,8 +68,31 @@ function extractTitle(prop?: NotionProperty): string {
   return prop.title.map((t) => t.plain_text ?? "").join("");
 }
 
+/**
+ * A CALL DATE IS A CALENDAR DAY, AND NOTION WILL NOT PROMISE THAT.
+ *
+ * A Notion date property answers "2026-09-07" when it holds a date and
+ * "2026-09-07T20:56:00.000+00:00" when whoever wrote it included a time. Both
+ * are valid there; only the first is valid here. Every reader of `call_date`
+ * treats it as a day -- periods.ts reads it as one by design, series.ts uses it
+ * as the key of a per-day total, bookings.ts turns it into a day index -- so a
+ * stamped row does not merely look odd, it lands in a bucket of its own.
+ *
+ * It reached the page as a crash rather than a wrong number: weekStart builds
+ * `${date}T00:00:00Z`, which on a value that already carries a time is not a
+ * date at all, and toISOString threw. Three rows written on 6 and 7 September
+ * 2026 took Brey's whole dashboard down with a 500.
+ *
+ * Cutting to the day here rather than in the readers is the point: there are
+ * fifty-odd of them across sixteen files, and the next one written would have
+ * inherited the same trap. The day is taken as WRITTEN, in the offset the stamp
+ * carries, because that is the day the person entering the call saw.
+ */
 function extractDate(prop?: NotionProperty): string | null {
-  return prop?.date?.start ?? null;
+  const start = prop?.date?.start;
+  if (!start) return null;
+  const day = start.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
 function extractSelect(prop?: NotionProperty): string | null {

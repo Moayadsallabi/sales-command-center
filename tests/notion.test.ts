@@ -139,6 +139,41 @@ describe("fields that are read rather than copied", () => {
     expect(rows[2].prospect_email).toBeNull();
   });
 
+  it("cuts a call date that arrives with a time back to the calendar day", async () => {
+    // Notion answers a date property either way, depending on whether whoever
+    // wrote the row included a time. Three rows in Brey's tracker arrived
+    // stamped on 6 and 7 September 2026 and returned a 500 for the whole
+    // dashboard, because weekStart appends "T00:00:00Z" to whatever it is
+    // given. Fifty-odd readers treat this field as a day; it has to be one.
+    respondWith([
+      res([
+        page("a", { "Call Date": { date: { start: "2026-09-07T20:56:00.000+00:00" } } }),
+        page("b", { "Call Date": { date: { start: "2026-09-07" } } }),
+      ]),
+    ]);
+
+    const rows = await queryAllCalls(CFG);
+
+    expect(rows[0].call_date).toBe("2026-09-07");
+    // And the two shapes land on the SAME day, which is what stops one call
+    // opening a per-day bucket of its own in series.ts.
+    expect(rows[0].call_date).toBe(rows[1].call_date);
+  });
+
+  it("answers null for a date it cannot read, rather than passing it on", async () => {
+    respondWith([
+      res([
+        page("a", { "Call Date": { date: { start: "not a date" } } }),
+        page("b", { "Call Date": { date: { start: "" } } }),
+        page("c", { "Call Date": { date: null } }),
+      ]),
+    ]);
+
+    const rows = await queryAllCalls(CFG);
+
+    expect(rows.map((r) => r.call_date)).toEqual([null, null, null]);
+  });
+
   it("files ManyChat under IG and leaves every other source alone", async () => {
     respondWith([
       res([
