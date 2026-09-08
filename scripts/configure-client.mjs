@@ -52,6 +52,31 @@
 //     --timezone "America/New_York" \
 //     --offer rubric/clients/brey.local.md
 //
+// AND THESE ARE MOAYAD'S OWN. Recorded here on 2026-09-08 because they were
+// nowhere: his tracker could not be regenerated for a day, since regenerating
+// without an argument the file already has is a silent downgrade and nothing
+// said what his were. They were recovered by reading them back out of the
+// generated file — the filter carries the phrases and exclusions, the alert
+// carries the channel and the client name, the Notion nodes carry the database
+// — and the recovery was proved by regenerating and checking every one of those
+// came back byte-identical.
+//
+//   npm run configure:client -- \
+//     --client moayad \
+//     --name "Moayad" \
+//     --database 75ba6b94d53c82c9b8e70165d38b0822 \
+//     --phrase "perceptionism" \
+//     --exclude "onboarding" --exclude "team meeting" \
+//     --exclude "standup" --exclude "internal" --exclude "quran" \
+//     --channel "sales-tracker" \
+//     --currency GBP \
+//     --no-evidence-fallback \
+//     --timezone "Europe/London" \
+//     --offer rubric/clients/moayad.local.md
+//
+// A CLIENT WHOSE ARGUMENTS ARE NOT WRITTEN DOWN CANNOT BE REGENERATED SAFELY.
+// Add the invocation here when you set one up, in the same commit.
+//
 // Import the written file into n8n, attach that client's Notion credential and
 // the shared Anthropic one, then switch it on.
 
