@@ -67,11 +67,12 @@
       "amount": 3250,
       "claimed_on": "2026-09-05",
       "acted_on": "Collected On Call zeroed. The $5,000 deal value is UNTOUCHED — the recording owns what was agreed and he did agree to $5,000, so the deal stands with $5,000 outstanding. His Prospect Email was also corrected from chrispindec@gmail.com to a.campos@rocketmail.com: the invite carried TWO external attendees and the workflow took the first, so any payment he makes would not have matched his call.",
-      "status": "reopened",
+      "status": "closed",
       "why_this_one_is_easy_to_get_wrong": "Fathom's summary says 'Paid a $3,250 deposit via Clarity Pay', which reads as money received. Two lines later the same summary says a plan was DECLINED for want of ~$341 and that Alan still has to move ~$1,500 out of E*Trade. And ClarityPay money does reach Whop: on 2026-08-23 a $3,000 ClarityPay deal landed as $700 plus $2,300. So the processor's silence is not a missing integration, it is an answer.",
       "reopen_if": "Any payment appears in Whop for Alan Campos. It may yet — his own plan was to transfer the funds. If it lands, put Collected On Call back.",
       "resolution": "2026-09-08: the money arrived. Whop payment pay_OXidn65eTlZSYR — $3,250, status paid, paid_at 2026-09-08, nothing refunded, under a.campos@rocketmail.com (username acamposde) on prod_Fd6veZjzB3bjg. Three further instalments of $1,750 sit open on the same plan, and the earlier $5,000 and $3,500 attempts on prod_GVE7xfWfaNuF1 are void. So the claim was right on 5 September and is wrong now: the $3,250 zeroed out of Collected On Call has to go back. Price Closed is still $5,000 and is not in question.",
-      "still_to_do": "Set Collected On Call back to 3250 on the tracker row https://www.notion.so/3d2a6b94d53c816da4e6c1f564aff1d0 (Alan Campos, 2026-09-04, closer Tpan A). It reads 0 as of 2026-09-08. This claim stays reopened — and npm run check:claims keeps exiting non-zero — until somebody makes that edit and closes it with a reason and a date."
+      "closed_on": "2026-09-08",
+      "closed_because": "The undo is done. Collected On Call is back to $3,250 on the tracker row (read back from Notion after the write; Price Closed still $5,000, Outcome still Customer). The claim was true when it was made on 5 September and stopped being true on the 8th, which is exactly what this file exists to catch — three days between somebody zeroing a figure and the money arriving."
     }
   ]
 }
