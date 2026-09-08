@@ -33,9 +33,9 @@
  * judgement is a check people learn to route around.
  */
 import { readFileSync } from "node:fs";
-import { loadEnv } from "./lib/notion-env.mjs";
 import { readTracker, readPayments, LiveReadError } from "./lib/live-read.mjs";
 import { matchBuyers, normalise } from "./lib/buyer-match.mjs";
+import { requireEnv } from "./lib/required-env.mjs";
 
 /* THE OUTCOME LISTS COME FROM sales-rules.json, never from a literal here.
    That file exists because the same question was answered twice in two
@@ -60,12 +60,12 @@ function fail(message, hint) {
   process.exit(2);
 }
 
-loadEnv();
+// Loads the env files and leaves with exit 3 if this deploy is missing any of
+// them, so "not configured" can never be read as a clean list or as a finding.
+requireEnv("check-collect.mjs");
 const notionKey = process.env.NOTION_API_KEY;
 const databaseId = process.env.NOTION_DATABASE_ID;
 const whopKey = process.env.WHOP_API_KEY;
-if (!notionKey || !databaseId) fail("NOTION_API_KEY and NOTION_DATABASE_ID are both needed.", "They are in .env.local.");
-if (!whopKey) fail("WHOP_API_KEY is not set.", "The collect list cannot be checked without the processor it reads.");
 
 let rows, buyers;
 try {

@@ -18,8 +18,9 @@
 // processor is where the money actually moved.
 
 import { readFileSync } from "node:fs";
-import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 import { readTracker, readPayments, LiveReadError } from "./lib/live-read.mjs";
+import { requireEnv } from "./lib/required-env.mjs";
 // ONE MATCHER, SHARED WITH THE DASHBOARD. It used to be a second copy here and
 // the two drifted apart on live data; `scripts/lib/buyer-match.mjs` opens with
 // what each divergence cost.
@@ -128,25 +129,11 @@ function fail(message, hint) {
 
 const money = (n) => `$${Math.round(n).toLocaleString()}`;
 
-loadEnv();
+requireEnv("check-payments.mjs");
 
 const notionKey = process.env.NOTION_API_KEY;
 const databaseId = process.env.NOTION_DATABASE_ID;
 const whopKey = process.env.WHOP_API_KEY;
-
-if (!notionKey || !databaseId) {
-  fail(
-    "NOTION_API_KEY and NOTION_DATABASE_ID are both needed.",
-    "They are in .env.local. Run `npm run check:notion` first if that fails."
-  );
-}
-if (!whopKey) {
-  fail(
-    "WHOP_API_KEY is not set.",
-    "Add this client's Whop key to .env.local. It needs the payment:basic:read " +
-      "permission, from Whop's developer settings page."
-  );
-}
 
 /* --------------------------------------------------- reading the two systems */
 

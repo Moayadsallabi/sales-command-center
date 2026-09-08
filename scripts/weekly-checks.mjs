@@ -39,6 +39,10 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { decide, reasonLine, readState, writeState } from "./lib/report-state.mjs";
+import { loadEnv } from "./lib/notion-env.mjs";
+import { missingFor, outcomeOf, NOT_CONFIGURED, CLEAN, FINDING, UNCONFIGURED } from "./lib/required-env.mjs";
+import { workflowPathFor, handleFrom } from "./lib/sales-call-filter.mjs";
+import { existsSync, readdirSync } from "node:fs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "..");
@@ -46,6 +50,21 @@ const ROOT = join(HERE, "..");
 const TIMEOUT_MS = 6 * 60 * 1000;
 
 const CLIENT = process.env.WEEKLY_CHECK_CLIENT || process.env.NEXT_PUBLIC_BRAND_NAME || "the tracker";
+
+/**
+ * The client's HANDLE, which is a different thing from the name above.
+ *
+ * WEEKLY_CHECK_CLIENT is a display name — it titles the Slack message, and on
+ * this deploy it is "Brey" with a capital B. It was also being passed to the
+ * two checks that look up a file named after the client, and
+ * `automation/generated/sales-call-tracker-Brey.json` does not exist: the files
+ * are lower-case handles. A Mac hid this completely, because its filesystem
+ * does not care about case and the container's does.
+ *
+ * So the two uses are separated. Set CLIENT_HANDLE when the handle is not just
+ * the display name lower-cased; otherwise this derives it, which covers Brey.
+ */
+const HANDLE = handleFrom(process.env.CLIENT_HANDLE || CLIENT);
 /**
  * Where the last run's fingerprint is kept.
  *
@@ -57,6 +76,91 @@ const CLIENT = process.env.WEEKLY_CHECK_CLIENT || process.env.NEXT_PUBLIC_BRAND_
 const STATE_DIR = process.env.STATE_DIR || "/data";
 /** Set to skip the "has anything changed" logic and always report. */
 const ALWAYS_REPORT = process.env.ALWAYS_REPORT === "1";
+
+/* --------------------------------------------------------------- PREFLIGHT
+
+   WHICH CHECKS CAN EVEN RUN HERE, asked before any of them is run.
+
+   Added 2026-09-08, after a morning in which three of the six checks below had
+   never run once on this server and the report said so in three different ways,
+   none of which named the cause. The full account is in lib/required-env.mjs;
+   the short version is that the scheduled service was never given a
+   FATHOM_KEY_*, and two scripts read .env.local — a file no container has.
+
+   This asks the same question of the same declaration the scripts themselves
+   use, so the answer here and the child's own answer cannot disagree. The env
+   files are loaded first for the laptop's benefit: a person running this by
+   hand has the variables in .env.local, and the children inherit what is
+   loaded here.
+
+   It is reported at the TOP of the message, because every "UNKNOWN" further
+   down is explained by it. */
+loadEnv();
+
+const CHECKS_RUN = [
+  "check-payments.mjs",
+  "check-collect.mjs",
+  "check-claims.mjs",
+  "check-delivery.mjs",
+  "check-dropped.mjs",
+  "check-identified.mjs",
+];
+
+const unconfigured = CHECKS_RUN
+  .map((name) => ({ name, missing: missingFor(name) }))
+  .filter((c) => c.missing.length > 0);
+
+/**
+ * The two arrival checks read the sales-call rule out of this client's own
+ * generated workflow, so a handle with no file is the same kind of fault as a
+ * missing variable — this deploy is not set up for this client — and belongs in
+ * the same place, at the top, named. Left to the checks themselves it surfaces
+ * as "the check could not complete", which sends somebody to look at Fathom.
+ */
+const handleFile = workflowPathFor(HANDLE);
+const handleMissing = !existsSync(handleFile);
+const handlesOnDisk = existsSync(join(ROOT, "automation", "generated"))
+  ? readdirSync(join(ROOT, "automation", "generated"))
+      .map((f) => /^sales-call-tracker-(.+)\.json$/.exec(f)?.[1])
+      .filter(Boolean)
+  : [];
+
+/** The name a person types, out of the filename. */
+const commandOf = (file) => `npm run ${file.replace(/\.mjs$/, "").replace("check-", "check:")}`;
+
+function configurationSection() {
+  if (unconfigured.length === 0 && !handleMissing) return { mustFix: [], lines: [] };
+
+  const lines = [];
+  if (unconfigured.length) {
+    lines.push(
+      `🚨 *Not configured* — ${unconfigured.length} of ${CHECKS_RUN.length} checks cannot run here, ` +
+        "so what they cover is unknown rather than clean:"
+    );
+    for (const { name, missing } of unconfigured) {
+      lines.push(`  • \`${commandOf(name)}\` — missing ${missing.join(", ")}`);
+    }
+    lines.push("  • These are variables on this service. Nothing below covers what these checks would have found.");
+  }
+  if (handleMissing) {
+    lines.push(
+      `🚨 *Unknown client* — nothing on this deploy is set up for the handle \`${HANDLE}\`, ` +
+        `so the arrival checks have no sales-call rule to read.` +
+        (handlesOnDisk.length ? ` Handles that do exist: ${handlesOnDisk.join(", ")}.` : "") +
+        " Set CLIENT_HANDLE to the right one."
+    );
+  }
+
+  return {
+    // One entry per fault, so fixing one of them changes the fingerprint and the
+    // next run says so instead of staying quiet.
+    mustFix: [
+      ...unconfigured.map((c) => `${c.name} is not configured`),
+      ...(handleMissing ? [`no workflow for the handle ${HANDLE}`] : []),
+    ],
+    lines,
+  };
+}
 
 /** Run one check and collect everything it printed. Never throws. */
 function runScript(file, args = []) {
@@ -147,6 +251,14 @@ function cap(lines, max = 6) {
  * check looks exactly like a permanently clean one.
  */
 function paymentsSection({ code, output }) {
+  // Not configured is named once at the top of the report; repeating the cause
+  // in every section would bury the sections that DID run.
+  if (code === NOT_CONFIGURED) {
+    return {
+      mustFix: [],
+      lines: ["🚨 *Payments* — not configured here, so the tracker's money was not checked against Whop."],
+    };
+  }
   if (code === 2) {
     return {
       mustFix: ["the payments check could not run"],
@@ -217,7 +329,11 @@ function arrivalSection(delivery, dropped) {
   const backlog = (dropped.output.match(/(\d+) recording\(s\) had a title that named nothing/) || [])[1];
   const lines = [];
 
-  if (delivery.code !== 0 && missing === undefined) {
+  if (delivery.code === NOT_CONFIGURED) {
+    // Named at the top with the variable it wants, so this line says what is
+    // not covered rather than repeating the cause.
+    lines.push("🚨 *Delivery* — not configured here, so whether calls are reaching the tracker at all is unknown.");
+  } else if (delivery.code !== 0 && missing === undefined) {
     lines.push("⚠ *Delivery* — the check could not complete, so whether calls are arriving is UNKNOWN. Run `npm run check:delivery` by hand.");
   } else if (Number(missing) > 0) {
     lines.push(`⚠️ *Delivery* — ${missing} recording(s) the automation should have scored never reached the tracker. Run \`npm run check:delivery\` for which.`);
@@ -225,7 +341,15 @@ function arrivalSection(delivery, dropped) {
     lines.push("✅ *Delivery* — every sales recording of the last two weeks reached the tracker.");
   }
 
-  if (Number(backlog) > 0) {
+  // THE BACKLOG USED TO DISAPPEAR RATHER THAN REPORT. This reads a count out of
+  // check-dropped's output, so a run that never produced output produced no
+  // count, no line, and a report that looked like it had nothing to say. An
+  // absent sentence is not a zero.
+  if (dropped.code === NOT_CONFIGURED) {
+    lines.push("• The ad-hoc backlog was not counted — that check is not configured here either.");
+  } else if (dropped.code !== 0 && backlog === undefined) {
+    lines.push("• The ad-hoc backlog could not be counted this run, so it is unknown rather than empty.");
+  } else if (Number(backlog) > 0) {
     lines.push(`• ${backlog} ad-hoc recording(s) are waiting on a human ruling. \`npm run check:dropped\` lists them with a link each.`);
   }
   return lines;
@@ -250,6 +374,12 @@ function arrivalSection(delivery, dropped) {
  * quiet week is not evidence of a habit taking.
  */
 function identifiedSection({ code, output }) {
+  if (code === NOT_CONFIGURED) {
+    return {
+      mustFix: [],
+      lines: ["🚨 *Identification* — not configured here, so whether recent calls can be tied to a payment is unknown."],
+    };
+  }
   if (code === 2) {
     return {
       mustFix: ["the identification check could not run"],
@@ -324,6 +454,12 @@ async function postAlert(text) {
  * mechanically resolve is one people stop opening.
  */
 function collectSection({ code, output }) {
+  if (code === NOT_CONFIGURED) {
+    return {
+      mustFix: [],
+      lines: ["🚨 *To collect* — not configured here, so whether the chase list is safe to work from is unknown."],
+    };
+  }
   if (code === 2) {
     return {
       mustFix: ["the collect-list check could not run"],
@@ -365,13 +501,29 @@ const collect = collectSection(await runScript("check-collect.mjs"));
 // morning turns a corrected figure into a wrong one with nothing to say so.
 // See money-claims.json. It reads only; closing a claim stays a person's job.
 const claims = await runScript("check-claims.mjs");
-const claimsHold = claims.code === 0;
-const claimLines = claimsHold
-  ? ["Every claim about missing money still holds."]
-  : [
-      "⚠ A claim that money was missing no longer holds — a figure somebody",
-      "  corrected is now wrong. Run `npm run check:claims` for which one.",
-    ];
+
+/*
+ * THREE STATES, NOT TWO. This read `claims.code === 0` as "every claim holds"
+ * and EVERYTHING ELSE as "a claim no longer holds" — so a check that could not
+ * start was published as a finding about a client's money. It did exactly that
+ * every day from the moment it moved onto a server, because check-claims read
+ * .env.local and a container has none.
+ *
+ * A check that did not run has nothing to say about claims, and saying so is
+ * the whole point: the reader can tell an alarm from an absence.
+ */
+const claimsOutcome = outcomeOf(claims.code);
+const claimsRan = claimsOutcome === CLEAN || claimsOutcome === FINDING;
+const claimsReopened = claimsOutcome === FINDING;
+const claimLines = {
+  [UNCONFIGURED]: ["🚨 *Claims* — not configured here, so no acted-on claim was re-asked of the processor."],
+  broke: ["🚨 *Claims* — the check could not run, so whether a corrected figure has since been paid is UNKNOWN."],
+  [FINDING]: [
+    "⚠ A claim that money was missing no longer holds — a figure somebody",
+    "  corrected is now wrong. Run `npm run check:claims` for which one.",
+  ],
+  [CLEAN]: ["Every claim about missing money still holds."],
+}[claimsOutcome];
 
 /* ARE CALLS EVEN ARRIVING? Added 2026-08-25.
 
@@ -385,8 +537,13 @@ const claimLines = claimsHold
 
    Both read only, and both are scoped to the last two weeks, because a
    recording nobody rescued a month ago is not this week's news. */
-const delivery = await runScript("check-delivery.mjs", ["--client", CLIENT, "--since", twoWeeksAgo()]);
-const dropped = await runScript("check-dropped.mjs", ["--client", CLIENT, "--since", twoWeeksAgo()]);
+// check-delivery ignored `--since` until 2026-09-08 and quietly used its own
+// seven-day default, so the "last two weeks" sentence below described a window
+// nobody had measured. It understands the argument now, and rejects one it does
+// not recognise rather than dropping it — but the fortnight is stated here, in
+// the caller, so the two can be read side by side.
+const delivery = await runScript("check-delivery.mjs", ["--client", HANDLE, "--since", twoWeeksAgo()]);
+const dropped = await runScript("check-dropped.mjs", ["--client", HANDLE, "--since", twoWeeksAgo()]);
 const arrivalLines = arrivalSection(delivery, dropped);
 
 const identified = identifiedSection(await runScript("check-identified.mjs"));
@@ -407,11 +564,15 @@ const previous = ALWAYS_REPORT ? null : readState(STATE_DIR);
 // Every contributor is now a STRING IN ONE ARRAY, because that is the shape
 // `decide` fingerprints. A boolean folded in with `||` cannot be fingerprinted
 // and cannot be seen to have gone missing.
+const configuration = configurationSection();
+
 const verdict = decide({
   mustFix: [
+    ...configuration.mustFix,
     ...pay.mustFix,
     ...collect.mustFix,
-    ...(claimsHold ? [] : ["a money claim has been reopened"]),
+    ...(claimsReopened ? ["a money claim has been reopened"] : []),
+    ...(claimsRan ? [] : ["the claims check did not run"]),
     ...identified.mustFix,
   ],
   previous,
@@ -438,6 +599,8 @@ const heading = verdict.reason === "heartbeat" ? "Weekly check" : "Payments chec
 const report = [
   `*${heading} — ${CLIENT}*`,
   "",
+  // First, because every "unknown" below it is explained by it.
+  ...(configuration.lines.length ? [...configuration.lines, ""] : []),
   ...pay.lines,
   "",
   ...claimLines,

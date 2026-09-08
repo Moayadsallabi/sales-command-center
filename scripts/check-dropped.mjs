@@ -22,14 +22,10 @@
  *
  * It changes nothing. It only tells you what is missing.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
 import { readSalesCallFilter, phraseListsIn } from "./lib/sales-call-filter.mjs";
 import { NOTION_VERSION } from "./lib/notion-env.mjs";
 import { readAllRecordings } from "./lib/fathom.mjs";
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+import { requireEnv } from "./lib/required-env.mjs";
 
 function arg(name, fallback = null) {
   const i = process.argv.indexOf(`--${name}`);
@@ -42,25 +38,15 @@ function arg(name, fallback = null) {
   return value;
 }
 
-/** .env.local, read the same way the dashboard reads it. */
-function env() {
-  const out = {};
-  let raw;
-  try {
-    raw = readFileSync(join(ROOT, ".env.local"), "utf8");
-  } catch {
-    console.error("\n✗ No .env.local. Copy .env.example and fill it in first.");
-    process.exit(1);
-  }
-  for (const line of raw.split("\n")) {
-    const i = line.indexOf("=");
-    if (i === -1 || line.trimStart().startsWith("#")) continue;
-    out[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, "");
-  }
-  return out;
-}
-
-const E = env();
+/*
+ * SAME CORRECTION AS check-claims, and its failure was the quietest of the
+ * three. Reading .env.local alone meant this exited before doing anything on
+ * every scheduled run; the weekly report pulls a COUNT out of this output, so
+ * no output meant no count meant no line at all — the ad-hoc backlog simply was
+ * not mentioned, and an absent sentence looks like nothing to report.
+ */
+requireEnv("check-dropped.mjs");
+const E = process.env;
 const CLIENT = arg("client", "brey");
 /**
  * `--share` prints the backlog as something you can paste to the client's team.
@@ -77,7 +63,7 @@ const N8N_BASE = (E.N8N_BASE_URL ?? "https://moayad.app.n8n.cloud").replace(/\/$
 /**
  * The recorder keys, one per closer.
  *
- * Named FATHOM_KEY_<CLOSER> so adding a closer is adding a line to .env.local
+ * Named FATHOM_KEY_<CLOSER> so adding a closer is adding one variable
  * rather than editing this file — the last time a closer went missing, nobody
  * could tell whether he had stopped recording or was never being read.
  */
@@ -85,10 +71,6 @@ const RECORDERS = Object.entries(E)
   .filter(([k, v]) => k.startsWith("FATHOM_KEY_") && v)
   .map(([k, v]) => ({ who: k.replace("FATHOM_KEY_", ""), key: v }));
 
-if (RECORDERS.length === 0) {
-  console.error("\n✗ No FATHOM_KEY_* in .env.local, so there is nothing to compare against.");
-  process.exit(1);
-}
 
 function recordings(key) {
   return readAllRecordings(key, {

@@ -37,6 +37,27 @@ export function workflowPathFor(client, root = ROOT) {
 }
 
 /**
+ * A client's HANDLE from whatever name a deploy happens to be carrying.
+ *
+ * These files are named by handle — lower case, no spaces. The scheduled report
+ * was passing a DISPLAY name instead ("Brey", set to title a Slack message),
+ * and asked for `sales-call-tracker-Brey.json`. A Mac's filesystem ignores case
+ * and served the right file; the Linux container it actually runs on does not,
+ * so the arrival checks reported "could not complete" and sent people looking
+ * at the recorder for a fault that was a capital letter.
+ *
+ * Lives here because this file owns the client-to-workflow mapping. Anything
+ * deriving that name a second way is the drift this repo keeps paying for.
+ */
+export function handleFrom(name) {
+  return String(name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
  * The literal phrase lists inside the expression, FOR DISPLAY ONLY.
  *
  * Never decide anything with these. The expression is the rule; this is a way

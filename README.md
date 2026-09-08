@@ -549,7 +549,7 @@ Add a **second service from this same repo** in the same project:
 | Start command | `npm run check:scheduled` |
 | Cron schedule | `0 10 * * *` (every day, 10:00 UTC) |
 | Volume | mount at `/data` — see below |
-| Variables | the same `NOTION_*`, `WHOP_API_KEY` and `CALENDLY_*` as the client's service, plus `OPS_ALERT_WEBHOOK` |
+| Variables | the same `NOTION_*`, `WHOP_API_KEY` and `CALENDLY_*` as the client's service, plus `FATHOM_KEY_<closer>` (one per closer), `CLIENT_HANDLE`, and `OPS_ALERT_WEBHOOK` |
 
 **The volume is what makes it quiet.** Every scheduled run is a fresh container
 with a fresh filesystem, so without somewhere persistent to keep the last run's
@@ -563,6 +563,30 @@ degrades rather than breaks. The run says so in its log when it cannot write.
 | `WEEKLY_CHECK_CLIENT` | Name in the message heading. Defaults to `NEXT_PUBLIC_BRAND_NAME` |
 | `STATE_DIR` | Where the fingerprint is kept. Defaults to `/data` |
 | `ALWAYS_REPORT` | Set to `1` to skip the change detection and post every run |
+| `CLIENT_HANDLE` | The client's handle — lower case, the name their generated workflow file is called after (`brey`). Defaults to `WEEKLY_CHECK_CLIENT` lower-cased, which is right for most clients |
+| `FATHOM_KEY_<closer>` | One recorder key per closer. Without them the arrival checks cannot run at all |
+
+**THE VARIABLE LIST ABOVE USED TO BE WRONG, and nothing said so for weeks.** It
+named the Notion, Whop and Calendly keys and stopped there, so the service was
+built without a single `FATHOM_KEY_*` — and the two checks that ask whether
+calls are reaching the tracker have never once run on the schedule. The report
+said "the check could not complete" every morning and nobody could tell from the
+message that a variable was the reason.
+
+That cannot happen silently again: `scripts/lib/required-env.mjs` declares what
+each check needs, the check itself is the first thing to read that declaration,
+and the report opens with a **Not configured** section naming any check that
+cannot run and the exact variable it wants. A check that did not run is now
+reported as neither clean nor a finding — see that file's header for what each
+of the three checks did wrong before, which was a different wrong thing each
+time.
+
+`WEEKLY_CHECK_CLIENT` and `CLIENT_HANDLE` are two different facts and were one
+variable until 2026-09-08. The first titles the Slack message ("Brey"); the
+second finds `automation/generated/sales-call-tracker-brey.json`. Passing the
+display name to the arrival checks asked for `sales-call-tracker-Brey.json` —
+which a Mac serves happily, because its filesystem ignores case, and a Linux
+container does not have at all.
 
 **It never writes to Notion.** `check-payments` can apply its corrections with
 `--apply`, and that is deliberately not what the schedule runs. Its own header

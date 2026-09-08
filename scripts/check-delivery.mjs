@@ -26,34 +26,69 @@
  * workflow file. A second copy of that rule here would agree until the day it
  * did not, and this whole system has spent a week paying for duplicated rules.
  *
- *   npm run check:delivery                 last 7 days
+ *   npm run check:delivery                        last 7 days
  *   npm run check:delivery -- --days 30
+ *   npm run check:delivery -- --since 2026-08-25
  */
-import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { readSalesCallFilter, SalesCallFilterError } from "./lib/sales-call-filter.mjs";
 import { readAllRecordings } from "./lib/fathom.mjs";
 import { NOTION_VERSION } from "./lib/notion-env.mjs";
+import { requireEnv } from "./lib/required-env.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-for (const file of [".env.local", ".env"]) {
-  const path = join(root, file);
-  if (!existsSync(path)) continue;
-  for (const line of readFileSync(path, "utf8").split("\n")) {
-    const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
-  }
+// Loads the env files and stops with exit 3 if this deploy has none of what
+// the comparison needs. Declared in lib/required-env.mjs, which the weekly
+// report reads too — see its header for the morning that made it necessary.
+requireEnv("check-delivery.mjs");
+
+/**
+ * Arguments, with an unknown one treated as an ERROR rather than ignored.
+ *
+ * The weekly report asked this script for two weeks by passing `--since`, which
+ * it did not understand and silently dropped — so it checked seven days while
+ * the Slack message it fed said "the last two weeks". Nothing failed; the
+ * sentence was simply about a window nobody had measured.
+ *
+ * A caller and a script are two readers of one argument list. Ignoring what it
+ * does not recognise is how they drift without anyone finding out, so an
+ * unrecognised flag stops the run.
+ */
+const KNOWN = new Set(["days", "since", "client"]);
+for (const token of process.argv.slice(2)) {
+  if (!token.startsWith("--")) continue;
+  if (KNOWN.has(token.slice(2))) continue;
+  console.error(`\n✗ ${token} is not an option this check understands.`);
+  console.error(`  It takes: ${[...KNOWN].map((k) => "--" + k).join(", ")}.\n`);
+  process.exit(2);
 }
 
 const argOf = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
   return i === -1 ? fallback : process.argv[i + 1];
 };
-const days = Number(argOf("days", 7));
 const client = argOf("client", "brey");
-const since = new Date(Date.now() - days * 864e5);
+
+/**
+ * The start of the window, from either `--since YYYY-MM-DD` or `--days N`.
+ * `--since` wins when both are given, because it is the more specific of the
+ * two — check-dropped takes the same argument and means the same thing by it.
+ */
+const sinceArg = argOf("since", null);
+const days = Number(argOf("days", 7));
+let since;
+if (sinceArg) {
+  since = new Date(`${sinceArg}T00:00:00Z`);
+  if (Number.isNaN(since.getTime())) {
+    console.error(`\n✗ --since ${sinceArg} is not a date. Use YYYY-MM-DD.\n`);
+    process.exit(2);
+  }
+} else {
+  since = new Date(Date.now() - days * 864e5);
+}
+const windowLabel = sinceArg ? `since ${sinceArg}` : `last ${days} days`;
 
 /* ------------------------------------- the workflow's own sales-call rule */
 
@@ -72,10 +107,6 @@ try {
 
 const notionKey = process.env.NOTION_API_KEY;
 const database = process.env.NOTION_DATABASE_ID;
-if (!notionKey || !database) {
-  console.error("\n✗ NOTION_API_KEY and NOTION_DATABASE_ID are needed.\n");
-  process.exit(1);
-}
 
 const rows = [];
 let cursor;
@@ -118,10 +149,6 @@ const keys = Object.entries(process.env)
   .filter(([k, v]) => k.startsWith("FATHOM_KEY_") && v)
   .map(([k, v]) => [k.replace("FATHOM_KEY_", ""), v]);
 
-if (keys.length === 0) {
-  console.error("\n✗ No FATHOM_KEY_* set, so there is nothing to compare against.\n");
-  process.exit(1);
-}
 
 /**
  * Closers whose recordings could not be read.
@@ -201,7 +228,7 @@ for (const [owner, key] of keys) {
 
 /* -------------------------------------------------------------- reporting */
 
-console.log(`\nDelivery check — last ${days} days, client "${client}"\n`);
+console.log(`\nDelivery check — ${windowLabel}, client "${client}"\n`);
 for (const { owner, count } of perOwner) {
   const note = count === 0 ? "   ← nothing recorded at all" : "";
   console.log(`  ${String(count).padStart(4)} recordings   ${owner}${note}`);
@@ -234,7 +261,7 @@ const unread = new Set(incomplete);
 const silent = perOwner.filter((o) => o.count === 0 && !unread.has(o.owner));
 if (silent.length) {
   console.log(
-    `\n⚠ ${silent.map((o) => o.owner).join(", ")} recorded NOTHING in ${days} days.` +
+    `\n⚠ ${silent.map((o) => o.owner).join(", ")} recorded NOTHING (${windowLabel}).` +
       `\n  Either they took no calls, or their recorder is no longer joining them.`
   );
   bad = true;

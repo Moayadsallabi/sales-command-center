@@ -40,6 +40,7 @@
  * to give a verdict, rather than producing a percentage that reads like one.
  */
 import { loadEnv, notionHeaders } from "./lib/notion-env.mjs";
+import { requireEnv } from "./lib/required-env.mjs";
 
 loadEnv();
 
@@ -54,12 +55,9 @@ const BAR = Number(process.env.IDENTIFIED_BAR || 0.2);
 /** Below this many calls the window cannot support a percentage at all. */
 const MIN_CALLS = 10;
 
+requireEnv("check-identified.mjs");
 const apiKey = process.env.NOTION_API_KEY;
 const databaseId = (process.env.NOTION_DATABASE_ID || "").replace(/-/g, "");
-if (!apiKey || !databaseId) {
-  console.error("NOTION_API_KEY and NOTION_DATABASE_ID must be set.");
-  process.exit(2);
-}
 
 const since = new Date();
 since.setUTCDate(since.getUTCDate() - DAYS);

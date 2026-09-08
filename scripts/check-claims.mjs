@@ -24,32 +24,25 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
+import { requireEnv } from "./lib/required-env.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FILE = join(ROOT, "money-claims.json");
 
-function env() {
-  const out = {};
-  let raw;
-  try {
-    raw = readFileSync(join(ROOT, ".env.local"), "utf8");
-  } catch {
-    console.error("\n✗ No .env.local to read the processor key from.");
-    process.exit(1);
-  }
-  for (const line of raw.split("\n")) {
-    const i = line.indexOf("=");
-    if (i === -1 || line.trimStart().startsWith("#")) continue;
-    out[line.slice(0, i).trim()] = line.slice(i + 1).trim().replace(/^["']|["']$/g, "");
-  }
-  return out;
-}
-
-const E = env();
-if (!E.WHOP_API_KEY) {
-  console.error("\n✗ No WHOP_API_KEY, so no claim can be re-checked. Nothing has been verified.");
-  process.exit(1);
-}
+/*
+ * THIS USED TO READ .env.local AND NOTHING ELSE, which was fine on a laptop and
+ * false everywhere else. A deployed container has no such file — it has the
+ * service's variables — so on the schedule this script exited 1 before reading
+ * a single claim, every run since the day it moved off the laptop.
+ *
+ * Exiting 1 is what made it dangerous rather than merely broken. The weekly
+ * report read any non-zero exit as "a claim about missing money no longer
+ * holds", so a check that had never run published that alarm about a client's
+ * books daily. requireEnv loads the env files AND the real environment, and
+ * leaves with exit 3 — a code the report reads as "this did not happen".
+ */
+requireEnv("check-claims.mjs");
+const E = process.env;
 
 let ledger;
 try {
