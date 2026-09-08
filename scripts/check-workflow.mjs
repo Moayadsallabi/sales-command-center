@@ -767,6 +767,45 @@ if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep", "Alex Morgan",
   fail("an impromptu call is not named from the one speaker who is not ours");
 else pass("an impromptu call is named from the one speaker who is not ours");
 
+// THE CLOSER'S OWN TITLE FORMAT. Brey's team books calls as "<prospect> and
+// <closer>", or with x / w / & between. Where the person on the call set their
+// Google name to a handle, the transcript offers "LETHAL JIT" and the title
+// offers "Joe" — so a name the closer typed beats a display name, and seven of
+// 227 rows read as a person rather than a gamertag because of this.
+//
+// IT FIRES ONLY WHEN ONE SIDE IS OURS. That is what stops it guessing: with no
+// closer in the title there is nothing to say which half is the prospect.
+const closerTitle = (title, invitees = [], transcript = []) =>
+  nameFrom(title, invitees, transcript, "Christian Pinto");
+
+if (closerTitle("Joe and Christian Pinto", [], said(...Array(4).fill("LETHAL JIT"))) !== "Joe")
+  fail("a name beside the closer in the title loses to a handle from the transcript");
+else pass("a name beside the closer in the title beats a handle from the transcript");
+
+// The title carries the closer's FIRST name only, which is how they type it.
+if (closerTitle("Justin x Christian", [], said(...Array(4).fill("Jusstoo Swendle"))) !== "Justin")
+  fail("the closer's first name in a title is not recognised as ours");
+else pass("the closer's first name in a title is recognised as ours");
+
+// A CALL LABEL IS NOT A PERSON. "Strategy Call with Sam Rep" splits into the
+// closer and a label, and without this the label would be returned as the
+// prospect — which the fixture below the previous check would have shipped.
+if (closerTitle("Discovery Session and Christian Pinto", [], said(...Array(4).fill("Alex Morgan"))) !== "Alex Morgan")
+  fail("a call label beside the closer is taken as the prospect");
+else pass("a call label beside the closer is not taken as the prospect");
+
+// Neither side is ours, so there is nothing to say which is the prospect.
+if (closerTitle("Alex Morgan and Jo Guest", [], said(...Array(4).fill("Alex Morgan"))) !== "Alex Morgan")
+  fail("a title with no closer in it is guessed at rather than left alone");
+else pass("a title with nobody of ours in it is left alone");
+
+// The invite is the person's own account name; a typed title does not override
+// it. This is the ordering choice — the title only ever beats a handle or an
+// address, never a name the prospect gave themselves.
+if (closerTitle("Trey and Christian Pinto", externalInvitee) !== "Alex Morgan")
+  fail("a typed title overrides the name on the calendar invite");
+else pass("the name on the calendar invite beats a name typed in the title");
+
 // ONE LINE IS NOT A PARTICIPANT. A voice that says a single thing in a
 // forty-minute call is as likely to be a colleague putting their head round the
 // door as the prospect, and a wrong human's name on a row is worse than none —
