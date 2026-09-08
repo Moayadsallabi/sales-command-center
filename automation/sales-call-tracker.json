@@ -179,7 +179,7 @@
             {
               "id": "direct-call-date",
               "name": "call_date",
-              "value": "={{ $json.created_at.slice(0, 10) }}",
+              "value": "={{ (() => { const s = $('Fathom Webhook').item.json.body.recording_start_time; const ZONE = '__CALL_TIMEZONE__'; if (s) { const d = new Date(s); if (!isNaN(d.getTime())) { const p = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(d); const g = (t) => (p.find((x) => x.type === t) || {}).value; const o = new Intl.DateTimeFormat('en-US', { timeZone: ZONE, timeZoneName: 'longOffset' }).formatToParts(d).find((x) => x.type === 'timeZoneName'); const off = ((o && o.value) || 'GMT+00:00').replace('GMT', '') || '+00:00'; return g('year') + '-' + g('month') + '-' + g('day') + 'T' + g('hour') + ':' + g('minute') + ':' + g('second') + '.000' + off; } } return String($json.created_at || '').slice(0, 10); })() }}",
               "type": "string"
             },
             {

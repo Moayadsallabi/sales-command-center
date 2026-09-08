@@ -782,6 +782,82 @@ if (nameFrom("Impromptu Google Meet Meeting", []) !== "Unknown")
   fail("an impromptu call with no invitees and no transcript is not named Unknown");
 else pass("an impromptu call with nothing to read is named Unknown");
 
+/* --------------------------------------------- 4b-ii. The day a call is on */
+
+// WHICH CALENDAR A CALL IS FILED ON, checked by RUNNING the expression rather
+// than reading it, because every fault this has had was a real date that was
+// simply the wrong one — nothing looks broken.
+//
+// Two things are asserted together and they pull in opposite directions. The
+// exact start must SURVIVE: it is the only route back to a prospect whose call
+// carried no calendar invite, so cutting it to a bare day would undo the
+// recovery added on 2026-09-06. And the DAY must be the client's, not UTC:
+// 20 of Brey's 231 calls were filed a day late before the zone was carried,
+// three of them into the wrong month. Writing the stamp with the client's
+// offset satisfies both — same instant, right day — which is why the day is
+// read off the string rather than by parsing it back.
+const rawDateExpr = nodeByName["Extract Direct Fields"].parameters.assignments.assignments.find(
+  (a) => a.name === "call_date"
+).value;
+
+// THE ZONE IS PER CLIENT, so the master carries a placeholder rather than
+// anybody's clock. Asserting it is here is half the check: without it the
+// generator has nothing to substitute and every client silently gets UTC.
+const TZ_PLACEHOLDER = "__CALL_TIMEZONE__";
+if (!rawDateExpr.includes(TZ_PLACEHOLDER)) {
+  fail("call_date names a zone directly — it must carry the per-client placeholder");
+} else pass("call_date leaves the zone to the client rather than naming one");
+
+// Substituted here the way configure-client does it, so the behaviour below is
+// the behaviour a real client's workflow gets.
+const dateExpr = rawDateExpr.split(TZ_PLACEHOLDER).join("America/New_York");
+
+const dateFrom = (start, createdAt = "2026-08-11") =>
+  evalExpr(dateExpr, {
+    $json: { created_at: createdAt },
+    $: () => ({ item: { json: { body: { recording_start_time: start } } } }),
+  });
+
+{
+  // A call at 21:14 Eastern. UTC calls it the 1st; the team worked the 31st.
+  const late = dateFrom("2026-09-01T01:14:08Z");
+  if (late.slice(0, 10) !== "2026-08-31") {
+    fail(`an evening call is filed on the client's day, not UTC's — got ${late}`);
+  } else pass("an evening call is filed on the client's day, not UTC's");
+
+  if (new Date(late).getTime() !== new Date("2026-09-01T01:14:08Z").getTime()) {
+    fail(`the exact start survives the zone change — got ${late}`);
+  } else pass("the exact start survives, so a call with no invite can still be traced");
+
+  // Pinned abbreviations are an hour out for eight months of the year; a
+  // Region/City zone follows the change. January proves it moved.
+  const winter = dateFrom("2026-01-15T02:30:00Z");
+  if (!winter.endsWith("-05:00") || winter.slice(0, 10) !== "2026-01-14") {
+    fail(`the offset follows daylight saving — got ${winter}`);
+  } else pass("the offset follows daylight saving rather than being pinned");
+
+  // Fathom has sent a recording with no start time. Falling back to the day
+  // the record was created is worse than the start, and far better than null.
+  const noStart = dateFrom(null, "2026-08-11T09:00:00Z");
+  if (noStart !== "2026-08-11") {
+    fail(`a recording with no start time falls back to its created day — got ${noStart}`);
+  } else pass("a recording with no start time falls back to the day it was created");
+
+  // A THROW HERE WOULD BE INVISIBLE. n8n swallows it and the expression
+  // resolves to undefined, so the failure surfaces four nodes downstream as
+  // "not valid JSON" on the Notion write. Unreadable input must return
+  // something, not raise.
+  let threw = null;
+  try {
+    dateFrom("not a timestamp", "2026-08-11");
+  } catch (e) {
+    threw = e;
+  }
+  if (threw) {
+    fail(`an unreadable start time must not throw — n8n hides it (${threw.message})`);
+  } else pass("an unreadable start time falls back instead of throwing");
+}
+
 /* ------------------------------------------- 4c. Untracked recordings */
 
 const untracked = nodeByName["Untracked — Alert"];

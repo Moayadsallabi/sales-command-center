@@ -49,6 +49,7 @@
 //     --exclude "Standup" --exclude "Internal" \
 //     --block-offer "fba" --block-offer "amazon" --block-offer "jp embrace" \
 //     --channel "brey-sales-alerts" \
+//     --timezone "America/New_York" \
 //     --offer rubric/clients/brey.local.md
 //
 // Import the written file into n8n, attach that client's Notion credential and
@@ -102,6 +103,14 @@ const offerPath = arg("offer");
 const display = arg("name") ?? client;
 const currency = arg("currency");
 const channel = arg("channel");
+// WHICH CLOCK A CALL'S DATE IS READ ON. Required, and deliberately not
+// defaulted: with no zone the day is UTC, and a UTC day is wrong for every
+// client who does not work in one. Brey's evening calls spent months dated a
+// day late that way — 20 of 231, three of them landing in the wrong month —
+// and nothing looked broken, because a UTC day is a real date. Making it an
+// argument somebody types is what stops the next client inheriting the same
+// silence. See clients/brey/call-date-timezone-2026-09-07.md in the workspace.
+const timezone = arg("timezone");
 // WHEN THE EVIDENCE TEST HAS NOTHING TO WORK WITH, TURN IT OFF.
 //
 // An untitled call is normally judged on its shape — 15+ minutes with a voice
@@ -352,6 +361,52 @@ assign("output_schema", JSON.stringify(outputSchema));
 // has to say whose tracker it came from or you cannot act on it.
 const alert = nodeBy("Untracked — Alert");
 
+/* ------------------------------------------------------------- the clock */
+
+/**
+ * The zone a call's DATE is read on, substituted into the tracker's call_date
+ * expression. The exact start is still written — that is what ties a call with
+ * no calendar invite back to a person — but it now carries this zone's offset,
+ * so every reader takes the client's working day from it rather than a UTC one.
+ *
+ * A REGION/CITY NAME, NOT AN ABBREVIATION. Intl accepts "EST" and it is a trap:
+ * it is pinned at -5 all year, so it is an hour wrong for the eight months of
+ * daylight saving. "America/New_York" follows the change. This was settled on
+ * Brey's ad spend on 2026-09-06 and the same reasoning applies here.
+ *
+ * IT MUST MATCH `clients.time_zone` IN THE REGISTRY, which is the authority —
+ * the KPI dashboard and this app's calendar both read the business day from
+ * there. This argument exists because an n8n expression is baked in at
+ * generation time and cannot ask the registry, not because the answer lives
+ * in two places by design. Two answers to one question is the fault this whole
+ * area has been paying for: set the registry first, then pass the same value
+ * here. If they ever disagree, the registry is right and this file is stale.
+ */
+if (!timezone) {
+  fail(
+    "--timezone is required: without one a call's date is read on a UTC day.",
+    "Pass the same value as `clients.time_zone` in the registry, which is the authority.\n" +
+      "  Region/City — America/New_York, Europe/London — never an abbreviation.\n" +
+      "  A UTC day is a real date, so this fails silently: an evening call is simply\n" +
+      "  filed on the next day, and three of Brey's landed in the wrong month that way."
+  );
+}
+// "UTC" is a real answer — a team spread across enough zones to report on none
+// of them — so it is allowed by name. Everything else must be Region/City.
+if (timezone !== "UTC" && !timezone.includes("/")) {
+  fail(
+    `--timezone "${timezone}" is an abbreviation, not a zone.`,
+    "Use Region/City, or \"UTC\" if that is genuinely the reporting day.\n" +
+      "  \"EST\" is a trap: Intl accepts it, and it is pinned at -5 all year, so it is\n" +
+      "  an hour wrong through daylight saving. \"America/New_York\" follows the change."
+  );
+}
+try {
+  new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+} catch {
+  fail(`--timezone "${timezone}" is not a zone this machine knows.`, "Check the spelling against the IANA list.");
+}
+
 // THE ALERT MUST POINT AT A CHANNEL THAT EXISTS.
 //
 // Brey's ran for weeks posting to "sales-tracker". Slack answered
@@ -443,7 +498,18 @@ if (occurrences !== DB_NODES.length) {
       "  A node added to the master since this list was written is the usual cause."
   );
 }
-const configured = JSON.parse(serialised.split(DB_PLACEHOLDER).join(databaseId));
+const TZ_PLACEHOLDER = "__CALL_TIMEZONE__";
+const zoneCount = serialised.split(TZ_PLACEHOLDER).length - 1;
+if (zoneCount !== 1) {
+  fail(
+    `Expected 1 timezone placeholder in the master, found ${zoneCount}.`,
+    "It belongs in Extract Direct Fields -> call_date. A master rebuilt from a\n" +
+      "  template that predates it is the usual cause — run the rubric build first."
+  );
+}
+const configured = JSON.parse(
+  serialised.split(DB_PLACEHOLDER).join(databaseId).split(TZ_PLACEHOLDER).join(timezone)
+);
 
 // Nothing below this line should still look like the master copy.
 const finalText = JSON.stringify(configured);
@@ -451,6 +517,7 @@ if (finalText.includes(DB_PLACEHOLDER)) fail("A database-id placeholder survived
 if (finalText.includes("[OFFER CONTEXT")) fail("The offer placeholder survived.");
 if (finalText.includes("__CLIENT_NAME__")) fail("The client-name placeholder survived.");
 if (finalText.includes("__SCORE_FORM_URL__")) fail("The score-form placeholder survived.");
+if (finalText.includes(TZ_PLACEHOLDER)) fail("The timezone placeholder survived.");
 if (configured.nodes.find((n) => n.name === "Fathom Webhook").parameters.path !== `fathom-webhook-${client}`) {
   fail("The webhook path did not take.");
 }
@@ -619,6 +686,11 @@ console.log(
   }`
 );
 console.log(`  offer context:  ${offer.length} characters`);
+console.log(
+  // Printed so a zone that disagrees with the registry is seen at generation
+  // time. Nothing here can ask the registry, so being visible is the check.
+  `  call day read on: ${timezone}  (must match clients.time_zone in the registry)`
+);
 console.log(
   `  currency:       ${rubric.commercial.defaultCurrency} when the call does not say` +
     `${currency ? "" : "  (default — pass --currency to change)"}`
