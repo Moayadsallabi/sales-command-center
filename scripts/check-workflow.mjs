@@ -750,7 +750,7 @@ if (nameFrom("Profitability Game Plan Call with Kevin", []) !== "Kevin")
   fail("a name written after \"with\" in the title is not read");
 else pass("a name written after \"with\" in the title is read");
 
-if (nameFrom("Strategy Call with Sam Rep", [], said("Sam Rep", "Alex Morgan")) !== "Alex Morgan")
+if (nameFrom("Strategy Call with Sam Rep", [], said("Sam Rep", "Alex Morgan", "Alex Morgan", "Alex Morgan")) !== "Alex Morgan")
   fail("a title naming the closer after \"with\" is taken as the prospect");
 else pass("a title naming the closer after \"with\" is skipped, not taken as the prospect");
 
@@ -759,13 +759,24 @@ else pass("a title naming the closer after \"with\" is skipped, not taken as the
 const addressAsName = [
   { name: "alex@prospect.com", email: "alex@prospect.com", is_external: true },
 ];
-if (nameFrom("Impromptu Google Meet Meeting", addressAsName, said("Sam Rep", "Alex Morgan")) !== "Alex Morgan")
+if (nameFrom("Impromptu Google Meet Meeting", addressAsName, said("Sam Rep", "Alex Morgan", "Alex Morgan", "Alex Morgan")) !== "Alex Morgan")
   fail("an invitee whose name is just their address wins over the transcript");
 else pass("an invitee whose name is just their address loses to the transcript");
 
-if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep", "Alex Morgan")) !== "Alex Morgan")
+if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep", "Alex Morgan", "Alex Morgan", "Alex Morgan")) !== "Alex Morgan")
   fail("an impromptu call is not named from the one speaker who is not ours");
 else pass("an impromptu call is named from the one speaker who is not ours");
+
+// ONE LINE IS NOT A PARTICIPANT. A voice that says a single thing in a
+// forty-minute call is as likely to be a colleague putting their head round the
+// door as the prospect, and a wrong human's name on a row is worse than none —
+// nothing downstream can tell it is wrong. This is the guard that separates the
+// shipped rule from the version in this repo before 2026-09-08, which named a
+// call from any single unaccounted speaker and so put "Speaker 2" and a
+// handful of gamertags on real rows.
+if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep", "Alex Morgan")) !== "Unknown")
+  fail("one line from one speaker is enough to name a call — it must not be");
+else pass("one line from one speaker is not enough to name a call");
 
 if (nameFrom("Impromptu Google Meet Meeting", [], said("Sam Rep")) !== "Unknown")
   fail("a call where only our own side spoke is not named Unknown");
