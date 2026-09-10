@@ -296,7 +296,28 @@ export default async function Home() {
   // report — the disagreement would vanish from the page instead of being
   // named, and the Notion rows would never get corrected.
   const reconciliation = payments ? reconcile(kept, payments.buyers) : null;
-  const calls = settle(kept, reconciliation);
+  const settled = settle(kept, reconciliation);
+
+  /**
+   * THE PROSE STAYS ON THE SERVER UNTIL SOMEBODY OPENS A CALL.
+   *
+   * Measured on this account 2026-09-10: the five written fields were 245 KB of
+   * a 655 KB payload, 59% of it gzipped, and the page re-renders itself every
+   * sixty seconds and on every tab focus — so all of it went again each minute
+   * for calls nobody had read. Everything left here is counted in bulk by some
+   * panel; the prose is read one call at a time, by someone who clicked, and
+   * app/call-detail.ts hands it over then.
+   *
+   * DELIBERATELY AFTER reconcile and settle. Both run on the whole record, and
+   * excluded-calls has already read the one prose field the server itself
+   * needs. Stripping earlier would mean each of them being handed a different
+   * shape from the one they were written against.
+   *
+   * `null`, not empty strings: a call whose scorer wrote nothing has a detail
+   * object full of empty strings, and the panel must not report the two the
+   * same way. See CallDetail in lib/types.ts.
+   */
+  const calls = settled.map((call) => ({ ...call, detail: null }));
 
   return (
     <Dashboard

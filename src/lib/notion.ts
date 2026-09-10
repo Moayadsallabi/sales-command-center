@@ -412,10 +412,8 @@ async function crawlAllCalls(
         duration: extractNumber(props["Duration (min)"]),
         recording_url: extractUrl(props["Recording URL"]),
         recording_id: extractNumber(props["Recording ID"]),
-        summary: extractRichText(props.Summary),
         scores: extractScores(props),
         lead: extractLead(props),
-        lead_read: extractRichText(props[LEAD_READ_COLUMN]),
         objections: extractObjections(props[OBJECTIONS_COLUMN]),
         primary_objection: extractSelect(props[PRIMARY_OBJECTION_COLUMN]),
         flags: {
@@ -424,10 +422,16 @@ async function crawlAllCalls(
           early_price_drop: extractCheckbox(props["Early Price Drop"]),
           weakest_belief: extractSelect(props["Weakest Belief"]),
         },
-        the_moment: extractRichText(props["The Moment"]),
-        next_call_drill: extractRichText(props["Next Call Drill"]),
         offer_match: extractSelect(props["Offer Match"]),
-        offer_evidence: extractRichText(props["Offer Evidence"]),
+        // The prose, kept together so the page can strip it in one move
+        // before sending calls to the browser. See CallDetail.
+        detail: {
+          summary: extractRichText(props.Summary),
+          lead_read: extractRichText(props[LEAD_READ_COLUMN]),
+          the_moment: extractRichText(props["The Moment"]),
+          next_call_drill: extractRichText(props["Next Call Drill"]),
+          offer_evidence: extractRichText(props["Offer Evidence"]),
+        },
         notion_url: pageUrl(page.id),
       });
     }

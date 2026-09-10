@@ -2,6 +2,36 @@ import { DIMENSIONS, DimensionKey, MIN_SCORED_DIMENSIONS } from "./dimensions";
 import { LEAD_FACTORS, LeadFactorKey, leadScore } from "./lead-quality";
 import { AMBER, CRIMSON, GOLD, NEGATIVE, NEUTRAL } from "./palette";
 
+/**
+ * THE WRITTEN HALF OF A CALL, FETCHED ONLY WHEN SOMEONE OPENS IT.
+ *
+ * These five are prose, and prose is where a call's bytes are. Measured on
+ * Brey's account 2026-09-10: across 143 calls they were 245 KB of a 655 KB
+ * page payload — 59% of it once gzipped. The dashboard re-renders itself every
+ * sixty seconds and on every tab focus, so all of it went down the wire again
+ * every minute, for calls nobody had opened.
+ *
+ * The numbers on a call are read in bulk: every average, every leaderboard,
+ * every panel counts across all of them. The prose is read one call at a time,
+ * by someone who clicked. So the numbers travel with the page and the prose is
+ * asked for on open — see loadCallDetail in app/call-detail.ts. A call that has
+ * finished does not change, so the browser keeps what it fetched.
+ *
+ * `offer_evidence` is here because it never reaches the browser at all: it is
+ * read once on the server, to say why a call belonging to another offer was
+ * left out. See lib/excluded-calls.ts.
+ */
+export interface CallDetail {
+  /** The scorer's write-up of the whole call. */
+  summary: string;
+  /** What the lead factors add up to, and the move that fits them. */
+  lead_read: string;
+  the_moment: string;
+  next_call_drill: string;
+  /** Why the scorer decided whose product this call was selling. */
+  offer_evidence: string;
+}
+
 export interface CallRecord {
   id: string;
   name: string;
@@ -74,7 +104,6 @@ export interface CallRecord {
    * under it; see there for why the net lives in the reader.
    */
   recording_id: number | null;
-  summary: string;
 
   /** Per-dimension scores, 1-10. Null when the call predates the scorecard. */
   scores: Record<DimensionKey, number | null>;
@@ -84,8 +113,6 @@ export interface CallRecord {
    * attributable to one or the other.
    */
   lead: Record<LeadFactorKey, number | null>;
-  /** What the lead factors add up to, and the move that fits them. */
-  lead_read: string;
   /** Every objection the prospect voiced. Empty when none was. */
   objections: string[];
   /** The one that decided the call. Null when it closed or none was raised. */
@@ -96,8 +123,6 @@ export interface CallRecord {
     early_price_drop: boolean;
     weakest_belief: string | null;
   };
-  the_moment: string;
-  next_call_drill: string;
   /** Link to the call's Notion page, where the full written breakdown lives. */
   notion_url: string;
   /**
@@ -110,7 +135,15 @@ export interface CallRecord {
    * "unclear": counted, not hidden.
    */
   offer_match: string | null;
-  offer_evidence: string;
+  /**
+   * NULL MEANS "NOT SENT", NEVER "NOTHING WAS WRITTEN".
+   *
+   * A call whose scorer wrote no summary carries a detail object with empty
+   * strings in it. A call the page stripped before sending carries null, and
+   * the panel knows to ask. Rendering those two the same way would put "no
+   * summary was written" under a call that has one.
+   */
+  detail: CallDetail | null;
 }
 
 /** How many of the eight dimensions the scorer found evidence for. */

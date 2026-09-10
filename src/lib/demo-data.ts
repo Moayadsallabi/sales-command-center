@@ -386,10 +386,8 @@ function buildCall({
     duration: noShow ? 0 : 32 + Math.floor(rand() * 30),
     recording_url: "https://example.com/demo-recording",
     recording_id: 900_000 + i,
-    summary: `Sample call with ${NAMES[i % NAMES.length]}. This row is demo data, not a real call.`,
     scores,
     lead,
-    lead_read: weakestLead ? LEAD_READ[weakestLead.key] : "",
     objections,
     // The one that decided it. A call that closed was not decided by an
     // objection, so it has none even when one was raised along the way.
@@ -405,10 +403,18 @@ function buildCall({
         ? ["Money", "Trust", "Support", "Cost"][Math.floor(rand() * 4)]
         : "None",
     },
-    the_moment: feedback ? `${feedback.moment} [${stamp}]` : "",
-    next_call_drill: feedback?.drill ?? "",
     offer_match: "this offer",
-    offer_evidence: "",
+    /* THE DEMO CARRIES ITS PROSE INLINE, and is the reason the panel reads
+       `detail` before asking for it. There is no Notion behind the demo to
+       ask, so a fetch-only panel would show every sample call with no
+       write-up — which is most of what the scorecard is FOR. */
+    detail: {
+      summary: `Sample call with ${NAMES[i % NAMES.length]}. This row is demo data, not a real call.`,
+      lead_read: weakestLead ? LEAD_READ[weakestLead.key] : "",
+      the_moment: feedback ? `${feedback.moment} [${stamp}]` : "",
+      next_call_drill: feedback?.drill ?? "",
+      offer_evidence: "",
+    },
     notion_url: "https://www.notion.so/",
   };
 }

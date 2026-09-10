@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { loadCallDetail } from "@/app/call-detail";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
+  CallDetail,
   CallRecord,
   OUTCOME_COLORS,
   overallScore,
@@ -152,6 +154,80 @@ export function ScorecardPanel({
   );
 }
 
+
+/**
+ * A call's written half, kept once it has been fetched.
+ *
+ * Module-level rather than component state on purpose: the panel is keyed on
+ * the call id and remounts every time one is opened, so per-component state
+ * would re-fetch the same call on every open. A finished call's write-up does
+ * not change, so the first fetch is the only one — the same reasoning the
+ * Calendly store uses for invitees.
+ *
+ * WHAT THAT COSTS, SAID PLAINLY: a write-up EDITED in Notion while the tab is
+ * open keeps showing the copy already fetched, and the sixty-second refresh
+ * will not correct it, because the refresh no longer carries the prose. A
+ * reload does. That is the honest price of not sending 245 KB a minute for
+ * calls nobody opened, and it is bounded — the scorer writes these once, when
+ * the call is processed.
+ *
+ * A FAILURE IS NEVER STORED HERE. Only a successful answer is written, so a
+ * call that could not be fetched is asked for again the next time it is
+ * opened rather than showing the same error for the life of the page.
+ * Verified in the browser: block the request, open a call, see the notice;
+ * unblock, open another, come back, and the write-up is there.
+ */
+const fetched = new Map<string, CallDetail | null>();
+
+type DetailState =
+  /** Asked, still waiting. Say nothing rather than "nothing was written". */
+  | { status: "loading" }
+  /** Answered. `detail` is null when the server has no write-up for this call. */
+  | { status: "ready"; detail: CallDetail | null }
+  /** The ask failed. This MUST look different from a call with no write-up. */
+  | { status: "failed" };
+
+/**
+ * THE PROSE IS NOT ON THE CALL, so the panel asks for it.
+ *
+ * page.tsx strips it before sending calls to the browser — 59% of the payload,
+ * re-sent every sixty seconds, for calls nobody opened. The demo has no server
+ * to ask, and carries its prose inline, so a call that ALREADY has detail is
+ * used as-is and nothing is fetched.
+ *
+ * The three states are the point. An empty summary and an unanswered request
+ * both render as no summary, and only one of them means the scorer wrote
+ * nothing — so a failure says so instead of quietly showing a blank call.
+ */
+function useCallDetail(call: CallRecord): DetailState {
+  const [state, setState] = useState<DetailState>(() =>
+    call.detail
+      ? { status: "ready", detail: call.detail }
+      : fetched.has(call.id)
+        ? { status: "ready", detail: fetched.get(call.id) ?? null }
+        : { status: "loading" }
+  );
+
+  useEffect(() => {
+    if (state.status !== "loading") return;
+    let live = true;
+    loadCallDetail(call.id)
+      .then((detail) => {
+        fetched.set(call.id, detail);
+        if (live) setState({ status: "ready", detail });
+      })
+      .catch(() => {
+        // Not cached: a failure must be retried the next time it is opened.
+        if (live) setState({ status: "failed" });
+      });
+    return () => {
+      live = false;
+    };
+  }, [call.id, state.status]);
+
+  return state;
+}
+
 function ScorecardBody({
   call,
   booking,
@@ -164,6 +240,9 @@ function ScorecardBody({
   const still = useReducedMotion();
   const [showAllScores, setShowAllScores] = useState(false);
   const [showAllFactors, setShowAllFactors] = useState(false);
+
+  const detailState = useCallDetail(call);
+  const detail = detailState.status === "ready" ? detailState.detail : null;
 
   const overall = overallScore(call);
   const scoredCount = scoredDimensionCount(call);
@@ -352,8 +431,22 @@ function ScorecardBody({
           </p>
         ) : (
           <>
+            {/* THE WRITE-UP COULD NOT BE FETCHED, and that is not the same as a
+                call nobody wrote up. Both leave this panel with no prose on it,
+                so the one that is a fault has to say so — otherwise a broken
+                request reads as a scorer who said nothing, and nobody goes
+                looking. The scores and the facts below are already on the page
+                and are unaffected. */}
+            {detailState.status === "failed" && (
+              <p className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] p-4 text-[13px] leading-relaxed text-amber-200">
+                The written breakdown could not be loaded — the scores below are
+                still this call&apos;s own. Close and reopen the call to try
+                again, or read it on its Notion page.
+              </p>
+            )}
+
             {/* The drill leads, because it is the only part anyone acts on. */}
-            {call.next_call_drill && (
+            {detail?.next_call_drill && (
               <div className="rounded-lg border border-gold-500/25 bg-gold-500/[0.07] p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <Zap className="h-3.5 w-3.5 text-gold-400" strokeWidth={2} />
@@ -362,15 +455,15 @@ function ScorecardBody({
                   </h4>
                 </div>
                 <p className="text-[14px] leading-relaxed text-zinc-100">
-                  {withTimestamps(call.next_call_drill, call.recording_url)}
+                  {withTimestamps(detail!.next_call_drill, call.recording_url)}
                 </p>
               </div>
             )}
 
-            {call.the_moment && (
+            {detail?.the_moment && (
               <Section title="Where it turned">
                 <p className="text-[13px] leading-relaxed text-zinc-300">
-                  {withTimestamps(call.the_moment, call.recording_url)}
+                  {withTimestamps(detail!.the_moment, call.recording_url)}
                 </p>
               </Section>
             )}
@@ -455,9 +548,9 @@ function ScorecardBody({
                   </p>
                 ) : (
                   <>
-                    {call.lead_read && (
+                    {detail?.lead_read && (
                       <p className="mb-3 text-[13px] leading-relaxed text-zinc-300">
-                        {withTimestamps(call.lead_read, call.recording_url)}
+                        {withTimestamps(detail!.lead_read, call.recording_url)}
                       </p>
                     )}
 
@@ -658,10 +751,10 @@ function ScorecardBody({
           </>
         )}
 
-        {call.summary && (
+        {detail?.summary && (
           <Section title="What happened">
             <p className="text-[13px] leading-relaxed text-zinc-400">
-              {withTimestamps(call.summary, call.recording_url)}
+              {withTimestamps(detail!.summary, call.recording_url)}
             </p>
           </Section>
         )}

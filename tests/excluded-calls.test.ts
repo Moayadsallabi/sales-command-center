@@ -89,7 +89,7 @@ describe("excluded calls", () => {
     const review = call({
       name: "Unknown",
       offer_match: "not a sales call",
-      offer_evidence: "'so on this call what I would have done is' [01:12] — a review of another call",
+      detail: { summary: "", lead_read: "", the_moment: "", next_call_drill: "", offer_evidence: "'so on this call what I would have done is' [01:12] — a review of another call" },
     });
     const sale = call({ name: "Angel", offer_match: "this offer" });
     const { kept, excluded } = partitionCalls([review, sale], fileWith({}));
@@ -99,7 +99,7 @@ describe("excluded calls", () => {
   });
 
   it("drops a row the scorer marked as a different offer, with no list entry", () => {
-    const foreign = call({ name: "Ludgero", offer_match: "different offer", offer_evidence: "\"I'm part of Kevin's team\" [00:02]" });
+    const foreign = call({ name: "Ludgero", offer_match: "different offer", detail: { summary: "", lead_read: "", the_moment: "", next_call_drill: "", offer_evidence: "\"I'm part of Kevin's team\" [00:02]" } });
     const ours = call({ name: "Alan", offer_match: "this offer" });
     const unsure = call({ name: "Maybe", offer_match: "unclear" });
     // Scored before the column existed. Must be counted, not hidden.

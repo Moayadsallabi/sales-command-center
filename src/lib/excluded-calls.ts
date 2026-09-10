@@ -204,7 +204,7 @@ function foreignOffer(call: CallRecord): Exclusion | null {
     kind: verdict === NOT_A_SALES_CALL ? "not-a-sales-call" : "other-offer",
     call_date: call.call_date ?? undefined,
     prospect_name: call.name,
-    reason: call.offer_evidence?.trim() || stock,
+    reason: call.detail?.offer_evidence?.trim() || stock,
     ruled_by: "the scorer, from the transcript",
   };
 }

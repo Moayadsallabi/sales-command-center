@@ -69,10 +69,9 @@ export function call(over: Partial<CallRecord> = {}): CallRecord {
     // Unique per fixture call, so a test that builds several never trips the
     // duplicate collapse by accident and wonders where its rows went.
     recording_id: 100_000 + seq,
-    summary: "",
     scores: blankScores(),
     lead: blankLead(),
-    lead_read: "",
+    detail: { summary: "", lead_read: "", the_moment: "", next_call_drill: "", offer_evidence: "" },
     objections: [],
     primary_objection: null,
     flags: {
@@ -81,10 +80,7 @@ export function call(over: Partial<CallRecord> = {}): CallRecord {
       early_price_drop: false,
       weakest_belief: null,
     },
-    the_moment: "",
-    next_call_drill: "",
     offer_match: null,
-    offer_evidence: "",
     notion_url: "",
     ...over,
   };

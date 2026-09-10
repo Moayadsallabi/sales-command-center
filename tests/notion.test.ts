@@ -224,7 +224,7 @@ describe("fields that are read rather than copied", () => {
     const [row] = await queryAllCalls(CFG);
 
     expect(row.name).toBe("Sam Jones");
-    expect(row.summary).toBe("Went well");
+    expect(row.detail?.summary).toBe("Went well");
   });
 
   it("builds a Notion link the browser accepts", async () => {
