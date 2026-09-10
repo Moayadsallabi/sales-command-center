@@ -39,7 +39,8 @@
  * is 33% and means nothing. Below MIN_CALLS it reports the count and declines
  * to give a verdict, rather than producing a percentage that reads like one.
  */
-import { loadEnv, notionHeaders } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
+import { notionHeaders } from "./lib/notion-env.mjs";
 import { requireEnv } from "./lib/required-env.mjs";
 
 loadEnv();

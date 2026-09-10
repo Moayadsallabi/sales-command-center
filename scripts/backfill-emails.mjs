@@ -44,7 +44,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
 const FATHOM_API = "https://api.fathom.ai/external/v1/meetings";
 /**

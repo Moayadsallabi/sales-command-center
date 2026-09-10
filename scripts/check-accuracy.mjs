@@ -20,7 +20,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { loadEnv } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
 
 const DEFAULT_TRUTH = "fixtures/accuracy-truth.json";
 /** How many days apart a booking and the answer key's date may sit. */

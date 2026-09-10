@@ -4,7 +4,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
 
 const rubric = JSON.parse(

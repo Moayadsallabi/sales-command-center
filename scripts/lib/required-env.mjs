@@ -43,7 +43,7 @@
  * That is what keeps it true: a wrong entry here breaks the check that owns it,
  * loudly, on the next run — rather than sitting in a list nobody executes.
  */
-import { loadEnv } from "./notion-env.mjs";
+import { loadEnv } from "./env-file.mjs";
 
 /**
  * Exit code for "I was not configured, so I checked nothing".

@@ -44,7 +44,8 @@
 //   - Two unaccounted speakers is not a name. Those rows are reported for a
 //     human to rule on, never written.
 
-import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
 const FATHOM_API = "https://api.fathom.ai/external/v1/meetings";
 /** Notion allows roughly three writes a second. */

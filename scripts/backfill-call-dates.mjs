@@ -35,7 +35,8 @@
 //   already there — possibly one a person typed in by hand.
 //
 // It prints every change and writes nothing without --apply.
-import { loadEnv, NOTION_VERSION } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
+import { NOTION_VERSION } from "./lib/notion-env.mjs";
 loadEnv();
 import { readAllRecordings } from "./lib/fathom.mjs";
 import { mkdtempSync, rmSync } from "node:fs";

@@ -596,21 +596,53 @@ async function refreshEventList(token: string, now: Date, key: string): Promise<
       max_start_time: windowEnd,
     });
 
+  /**
+   * THE TWO STATUS CRAWLS RUN TOGETHER, because neither needs anything the
+   * other finds. They ran one after the other, and each is several sequential
+   * pages of its own — a page token is only valid against the query that
+   * issued it, so the pages WITHIN a status cannot be parallelised, but the
+   * two statuses can.
+   *
+   * Measured against Brey's account on 2026-09-10, three runs: active 3.3s and
+   * canceled 2.9s one after the other, against 3.4-4.6s for the pair together.
+   * The same eight requests either way, so it costs nothing against Calendly's
+   * 500-per-minute allowance — 439 of 500 were still free after a run.
+   *
+   * Promise.all subscribes to both immediately, so a rejection from one is
+   * never left unhandled while the other is still in flight.
+   */
+  const bothStatuses = async (): Promise<ScheduledEvent[]> => {
+    const [active, canceled] = await Promise.all([
+      listEvents("active"),
+      listEvents("canceled"),
+    ]);
+    return active.concat(canceled);
+  };
+
   let events: ScheduledEvent[];
   try {
-    events = (await listEvents("active")).concat(await listEvents("canceled"));
+    events = await bothStatuses();
   } catch (err) {
     if (err instanceof CalendlyError && err.failure.kind === "forbidden" && userUri) {
       scope = "user";
-      events = (await listEvents("active")).concat(await listEvents("canceled"));
+      events = await bothStatuses();
     } else {
       throw err;
     }
   }
 
-  // Event types are named on their own resource; the event only carries a uri.
-  // Resolving them means the filter below can be written as the name a human
-  // sees in Calendly rather than an opaque id.
+  /* Event types are named on their own resource; the event only carries a uri.
+     Resolving them means the filter below can be written as the name a human
+     sees in Calendly rather than an opaque id.
+
+     THIS ONE CANNOT JOIN THE PAIR ABOVE, and the reason is easy to miss:
+     scopeParams() reads `scope`, which the catch above may have just changed
+     from organization to user. Started alongside the events it would capture
+     the ORIGINAL scope, get the same 403 the events got, and be swallowed by
+     the catch below — leaving every booking filtered on its own name instead
+     of its type name, silently, on exactly the accounts where the fallback
+     matters. It is one request and a third of a second; the pair above is the
+     six seconds. */
   const typeNames = new Map<string, string>();
   try {
     for (const type of await collect<EventType>("/event_types", token, scopeParams())) {

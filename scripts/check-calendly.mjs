@@ -8,7 +8,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { loadEnv } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

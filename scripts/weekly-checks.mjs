@@ -39,7 +39,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { decide, reasonLine, readState, writeState } from "./lib/report-state.mjs";
-import { loadEnv } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
 import { missingFor, outcomeOf, NOT_CONFIGURED, CLEAN, FINDING, UNCONFIGURED } from "./lib/required-env.mjs";
 import { workflowPathFor, handleFrom } from "./lib/sales-call-filter.mjs";
 import { existsSync, readdirSync } from "node:fs";

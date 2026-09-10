@@ -31,7 +31,8 @@
 
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { loadEnv, notionHeaders } from "./lib/notion-env.mjs";
+import { loadEnv } from "./lib/env-file.mjs";
+import { notionHeaders } from "./lib/notion-env.mjs";
 import { fetchPage } from "./lib/fathom.mjs";
 
 loadEnv();

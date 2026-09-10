@@ -1,6 +1,14 @@
 /**
  * The two things every check script needs before it can talk to Notion.
  *
+ * NOTHING HERE TOUCHES THE FILESYSTEM, and that is now load-bearing rather
+ * than incidental: the web app shares this module (src/lib/whop.ts ->
+ * live-read.mjs -> NOTION_VERSION), and a file read with a non-static path
+ * makes Turbopack trace the whole project into the deployed server bundle.
+ * loadEnv used to live here and moved to env-file.mjs for exactly that
+ * reason -- see the note at the top of that file before adding anything
+ * here that reads from disk.
+ *
  * ---------------------------------------------------------------------------
  * WHY THIS EXISTS
  *
@@ -13,8 +21,6 @@
  * One fact, one place -- the same rule the dashboard already applies to every
  * number it puts on screen.
  */
-import { readFileSync } from "node:fs";
-
 /**
  * The Notion API version every script and the app itself quote.
  *
@@ -32,28 +38,4 @@ export function notionHeaders(apiKey) {
     "Notion-Version": NOTION_VERSION,
     "Content-Type": "application/json",
   };
-}
-
-/**
- * Reads .env.local, then .env, into process.env.
- *
- * Anything already set in the real environment WINS -- that is what lets a CI
- * run or a one-off `NOTION_DATABASE_ID=... npm run check:notion` override the
- * file without editing it.
- */
-export function loadEnv() {
-  for (const file of [".env.local", ".env"]) {
-    let raw;
-    try {
-      raw = readFileSync(file, "utf8");
-    } catch {
-      continue;
-    }
-    for (const line of raw.split("\n")) {
-      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)$/);
-      if (!match) continue;
-      const value = match[2].trim().replace(/^["']|["']$/g, "");
-      if (!(match[1] in process.env)) process.env[match[1]] = value;
-    }
-  }
 }
