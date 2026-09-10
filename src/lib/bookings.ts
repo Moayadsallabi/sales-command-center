@@ -15,6 +15,7 @@
  */
 
 import { BookingRecord, CalendlyFailure } from "./calendly";
+import { businessDay } from "./business-day";
 import { CallRecord } from "./types";
 
 /** How far apart a booking and a recording can sit and still be the same call. */
@@ -47,6 +48,18 @@ export interface LinkedBooking extends BookingRecord {
   call_id: string | null;
   /** Null when this booking produced no recording. */
   match_method: MatchMethod | null;
+  /**
+   * THE CALENDAR DAY THIS BOOKING FALLS ON, IN THE CLIENT'S OWN ZONE.
+   *
+   * Stamped once, in `linkBookings`, and read by everything that needs a day:
+   * the matcher below, the window filter on the dashboard, and the month grid.
+   * Null only when `scheduled_at` will not parse.
+   *
+   * It exists because those three used to work it out separately and two of
+   * them used UTC. See lib/business-day.ts for the two calls that were joined
+   * to the wrong slot as a result.
+   */
+  business_day: string | null;
 }
 
 export interface BookingLink {
@@ -86,22 +99,38 @@ export interface CalendlyState {
 
 /* ------------------------------------------------------------------ dates */
 
-/** Whole days since the epoch, in UTC. Works on dates and datetimes alike. */
+/**
+ * Whole days since the epoch, for a `YYYY-MM-DD`.
+ *
+ * A DAY GOES IN, NEVER AN INSTANT. It used to accept both — `value.length === 10`
+ * chose between them — which is how a Calendly timestamp came to be turned into
+ * a day here, in UTC, while the calendar grid turned the same timestamp into a
+ * different day in the client's zone. Callers now convert first, through
+ * `businessDay`, so there is one answer rather than one per caller.
+ */
 function dayIndex(value: string): number | null {
-  const ms = Date.parse(value.length === 10 ? `${value}T12:00:00Z` : value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const ms = Date.parse(`${value}T12:00:00Z`);
   if (Number.isNaN(ms)) return null;
   return Math.floor(ms / 864e5);
 }
 
-/** The YYYY-MM-DD a booking's start time falls on, for filtering by window. */
-export function bookingDate(booking: BookingRecord): string {
-  return booking.scheduled_at.slice(0, 10);
+/**
+ * The day a booking is filed under, for filtering by window.
+ *
+ * Reads the field the booking arrives carrying rather than re-deriving it —
+ * see `LinkedBooking.business_day`. Falls back to the UTC slice only for a
+ * booking whose timestamp would not parse at all, where there is nothing
+ * better to say and no window it can honestly sit in.
+ */
+export function bookingDate(booking: LinkedBooking): string {
+  return booking.business_day ?? booking.scheduled_at.slice(0, 10);
 }
 
 /* ---------------------------------------------------------------- matching */
 
 type Pair = {
-  booking: BookingRecord;
+  booking: StampedBooking;
   call: CallRecord;
   distance: number;
   method: MatchMethod;
@@ -141,10 +170,65 @@ function sharedNameParts(callTokens: Set<string>, name: string): number {
  * unmatched instead of attaching the recording to whichever booking happened
  * to be read first.
  */
+/**
+ * A SLOT THE PROSPECT MOVED AWAY FROM **IN ADVANCE** CANNOT BE THE CALL THAT
+ * HAPPENED.
+ *
+ * Calendly leaves the original behind as a cancelled row when someone
+ * reschedules, and the replacement is already in the set. So an abandoned row
+ * is not a candidate for anything: no recording was ever made on it. Without
+ * this, two bookings for one prospect on one evening leave the matcher with two
+ * candidates and it refuses both — honest, and the call is still lost.
+ *
+ * ---------------------------------------------------------------------------
+ * THE THIRD CONDITION IS THE ONE THAT MATTERS, AND IT COST THREE REAL JOINS
+ *
+ * The first version of this asked only whether the row was rescheduled and
+ * cancelled. Run against Brey's live account it moved nine joins — and three of
+ * them it broke: Wincho (11 Aug), Pluto (27 Aug) and Jaden Pierce (26 Aug) each
+ * lost the booking behind a call that really happened.
+ *
+ * Their cancellation times say why. Every one was "rescheduled" between ten and
+ * fifty minutes AFTER the slot was due to start:
+ *
+ *   Wincho        −0.49h      Jaden Pierce  −0.80h      Danny    −0.19h
+ *   Pluto 27 Aug  −0.16h      Vellatino     −0.54h      Javon    −0.36h
+ *
+ * That is not a prospect moving an appointment. That is a call that HAPPENED,
+ * ended on "let's speak again", and was rebooked from inside the meeting —
+ * Calendly marks the original cancelled-because-rescheduled either way. 31 of
+ * the 105 rescheduled-away slots in the read window are this shape.
+ *
+ * The two faults this whole change exists to fix have the opposite sign:
+ * Thomas Totall +1.31h and Pluto's 31 August slot +8.17h, both moved before the
+ * call was due. So the sign of the notice is the whole distinction.
+ *
+ * `provenLate` rather than "not early", and shared with `funnelStats` below
+ * rather than restated: a cancellation whose time Calendly did not record must
+ * not be silently filed as one that happened after the call.
+ */
+function movedAwayInAdvance(booking: BookingRecord): boolean {
+  if (!booking.rescheduled || booking.status !== "canceled") return false;
+  return !provenLate(booking);
+}
+
+/**
+ * A cancellation recorded AFTER the call was due to start.
+ *
+ * Module-level because two things need it and they must agree: the matcher
+ * above, deciding whether a moved slot could still hold a recording, and
+ * `funnelStats`, deciding whether a cancellation was a decision made in advance
+ * or a no-show cleared off the calendar afterwards.
+ */
+function provenLate(booking: { cancel_notice_hours: number | null }): boolean {
+  return booking.cancel_notice_hours != null && booking.cancel_notice_hours < 0;
+}
+
 function matchBookingsToCalls(
-  bookings: BookingRecord[],
+  all: StampedBooking[],
   calls: CallRecord[]
 ): Map<string, { callId: string; method: MatchMethod }> {
+  const bookings = all.filter((b) => !movedAwayInAdvance(b));
   const callsByEmail = new Map<string, CallRecord[]>();
   for (const call of calls) {
     const email = callEmail(call);
@@ -156,7 +240,11 @@ function matchBookingsToCalls(
 
   const pairs: Pair[] = [];
   for (const booking of bookings) {
-    const bookingDay = dayIndex(booking.scheduled_at);
+    // The client's day, stamped upstream — not `scheduled_at` read as UTC.
+    // A call at 20:55 and its own 21:00 booking used to land on two different
+    // days here, which is how a call came to be matched to the slot its
+    // prospect had already moved away from. See lib/business-day.ts.
+    const bookingDay = booking.business_day ? dayIndex(booking.business_day) : null;
     if (bookingDay == null) continue;
 
     for (const call of callsByEmail.get(booking.email) ?? []) {
@@ -230,7 +318,7 @@ function matchBookingsToCalls(
  * or the prospect came another way — and papering over it with a name would
  * bury the signal.
  */
-function nameAndDatePairs(bookings: BookingRecord[], calls: CallRecord[]): Pair[] {
+function nameAndDatePairs(bookings: StampedBooking[], calls: CallRecord[]): Pair[] {
   const emaillessCalls = calls.filter(
     (c) => !callEmail(c) && c.call_date && c.name.trim() !== ""
   );
@@ -247,9 +335,9 @@ function nameAndDatePairs(bookings: BookingRecord[], calls: CallRecord[]): Pair[
   // 0.7ms after, for byte-identical output. At 2,000 x 600 it was 163.6ms
   // against 2.1ms. Bookings keep their original order within a day, because
   // the tie-breaking below is order-sensitive.
-  const byDay = new Map<number, BookingRecord[]>();
+  const byDay = new Map<number, StampedBooking[]>();
   for (const booking of bookings) {
-    const day = dayIndex(booking.scheduled_at);
+    const day = booking.business_day ? dayIndex(booking.business_day) : null;
     if (day == null) continue;
     const filed = byDay.get(day);
     if (filed) filed.push(booking);
@@ -328,15 +416,37 @@ function classify(
   return "unrecorded";
 }
 
+/** A booking with its day already decided. Nothing downstream re-decides it. */
+type StampedBooking = BookingRecord & { business_day: string | null };
+
+/**
+ * Bookings joined to the calls they produced.
+ *
+ * `timeZone` is the CLIENT'S business zone — `ClientConfig.timeZone`. Every
+ * booking is stamped with its day in that zone before anything else happens,
+ * and the matcher, the window filter and the calendar grid all read that stamp.
+ * They used to work it out separately, and two of the three used UTC.
+ *
+ * Passing no zone falls back to UTC, which is the answer this had before the
+ * zone existed: worse, but stated, and the calendar panel says which zone it
+ * drew.
+ */
 export function linkBookings(
   bookings: BookingRecord[],
   calls: CallRecord[],
-  now: Date = new Date()
+  options: { timeZone?: string | null; now?: Date } = {}
 ): BookingLink {
-  const bookingToCall = matchBookingsToCalls(bookings, calls);
+  const { timeZone = null, now = new Date() } = options;
+
+  const stamped: StampedBooking[] = bookings.map((booking) => ({
+    ...booking,
+    business_day: businessDay(booking.scheduled_at, timeZone),
+  }));
+
+  const bookingToCall = matchBookingsToCalls(stamped, calls);
   const callsById = new Map(calls.map((c) => [c.id, c]));
 
-  const linked: LinkedBooking[] = bookings.map((booking) => {
+  const linked: LinkedBooking[] = stamped.map((booking) => {
     const match = bookingToCall.get(booking.id) ?? null;
     const call = match ? callsById.get(match.callId) : undefined;
     return {
@@ -525,9 +635,8 @@ export function funnelStats(
      made in advance instead, which is the weaker claim of the two. All 257
      cancellations on Brey's account carry both a time and a side, so neither
      fallback fires there today — they are written this way for the day one
-     does. */
-  const provenLate = (b: LinkedBooking) =>
-    b.cancel_notice_hours != null && b.cancel_notice_hours < 0;
+     does. Defined at module level now, because the matcher draws the same
+     distinction and the two must not drift. */
   const clearedAfterStart = canceledBookings.filter((b) => !b.rescheduled && provenLate(b));
   const decidedInAdvance = canceledBookings.filter((b) => !b.rescheduled && !provenLate(b));
   const screened = decidedInAdvance.filter((b) => b.canceled_by_side === "host");

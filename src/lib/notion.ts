@@ -9,6 +9,7 @@ import {
   LEAD_READ_COLUMN,
 } from "./lead-quality";
 import { accountKey, cachedRead, cacheSecondsFrom } from "./live-cache";
+import { businessDay } from "./business-day";
 
 /**
  * How long a set of calls is served before a re-read is started behind the
@@ -102,12 +103,28 @@ function extractTitle(prop?: NotionProperty): string {
  * carried in a field of its own. If that changes, copy extractDateTime -- it
  * answers null for a row with no time rather than inventing midnight, which
  * would tie a call to whoever happened to book at 00:00.
+ *
+ * IT IS THE CLIENT'S DAY, NOT THE DAY THE OFFSET HAPPENS TO NAME (2026-09-10).
+ * This used to slice the string, which takes the day as WRITTEN in whatever
+ * offset the writer used -- and Brey's tracker writes two. Since 25 August, 11
+ * stamped rows carry `-04:00` and 4 carry `+00:00`. Today those agree, because
+ * no `+00:00` row is late enough in the evening to cross midnight. The first
+ * one that is would be filed a day late, silently, on a screen whose whole
+ * subject is which day work happened -- the fault that had to be corrected for
+ * 24 rows in workspace commit f5f4073.
+ *
+ * A date-only value is returned untouched, which is why the conversion lives
+ * in `businessDay` and not here: parsing a bare day in a zone hands midnight to
+ * whoever is looking and slides it either side.
  */
-function extractDate(prop?: NotionProperty): string | null {
+function extractDate(
+  prop: NotionProperty | undefined,
+  timeZone: string | null
+): string | null {
   const start = prop?.date?.start;
   if (!start) return null;
-  const day = start.slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
+  const day = businessDay(start, timeZone);
+  return day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : null;
 }
 
 function extractSelect(prop?: NotionProperty): string | null {
@@ -201,11 +218,29 @@ function extractLead(
  * today's behaviour, which is what keeps the existing deployments working
  * while the two paths overlap.
  */
-export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: string | null }): Promise<CallRecord[]> {
+export async function queryAllCalls(cfg?: {
+  apiKey: string | null;
+  databaseId: string | null;
+  /**
+   * The client's business zone, for reading a Call Date that carries a time.
+   * Unset falls back to the day the stamp's own offset names, which is what
+   * this did before the zone existed. See extractDate.
+   */
+  timeZone?: string | null;
+}): Promise<CallRecord[]> {
   // Read at call time, not module load, so a .env change takes effect on the
   // next request rather than needing a cold start.
   const apiKey = cfg ? cfg.apiKey : process.env.NOTION_API_KEY;
   const databaseId = cfg ? cfg.databaseId : process.env.NOTION_DATABASE_ID;
+  /* The registry's answer when the app asks, and the environment's when a
+     script does — the same two variables ClientConfig falls back to. Without
+     this a check script transpiling this module got no zone at all, and an
+     evening call read a day later here than on the page it is checking. */
+  const timeZone =
+    cfg?.timeZone ??
+    process.env.CLIENT_TIME_ZONE?.trim() ??
+    process.env.WHOP_TIME_ZONE?.trim() ??
+    null;
 
   // OUTSIDE THE CACHE ON PURPOSE. A deployment with no credentials must say so
   // on every render, not once — otherwise the setup notice would depend on
@@ -224,8 +259,11 @@ export async function queryAllCalls(cfg?: { apiKey: string | null; databaseId: s
     // The DATABASE as well as the key: one integration token can be granted
     // several clients' trackers, and keying on the token alone would serve the
     // first one's calls to all of them.
-    accountKey("notion", apiKey, databaseId),
-    () => crawlAllCalls(apiKey as string, databaseId as string),
+    // The zone joins the key: two clients can share one integration token and
+    // one tracker while sitting in different zones, and a cached read stamped
+    // in the first one's day would be served to the second.
+    accountKey("notion", apiKey, databaseId, timeZone ?? ""),
+    () => crawlAllCalls(apiKey as string, databaseId as string, timeZone),
     {
       ttlMs: cacheSecondsFrom("NOTION_CACHE_SECONDS", DEFAULT_CACHE_SECONDS) * 1000,
       maxStaleMs: MAX_STALE_MS,
@@ -303,7 +341,11 @@ export function dedupeByRecording(calls: CallRecord[]): {
 }
 
 /** Every page of the tracker, read fresh. Callers go through queryAllCalls. */
-async function crawlAllCalls(apiKey: string, databaseId: string): Promise<CallRecord[]> {
+async function crawlAllCalls(
+  apiKey: string,
+  databaseId: string,
+  timeZone: string | null
+): Promise<CallRecord[]> {
   const headers = {
     Authorization: `Bearer ${apiKey}`,
     // The one other place this string lives is scripts/lib/notion-env.mjs, and
@@ -352,7 +394,7 @@ async function crawlAllCalls(apiKey: string, databaseId: string): Promise<CallRe
         name: extractTitle(props.Name),
         prospect_email: extractEmail(props["Prospect Email"]),
         closer: extractSelect(props.Closer),
-        call_date: extractDate(props["Call Date"]),
+        call_date: extractDate(props["Call Date"], timeZone),
         outcome: extractSelect(props.Outcome),
         price_discussed: extractNumber(props["Price Discussed"]),
         price_closed: extractNumber(props["Price Closed"]),

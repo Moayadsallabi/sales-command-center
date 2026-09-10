@@ -35,8 +35,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CallRecord } from "./types";
+// The kind, and the sentence built from it, live in a module with no node:fs in
+// it — `call-table.tsx` is a client component and importing this file from there
+// pulled the filesystem into the browser bundle.
+import { ExclusionKind } from "./exclusion-note";
+export type { ExclusionKind };
 
 export interface Exclusion {
+  /**
+   * Set by the scorer path below. Absent on an entry from the JSON list, which
+   * a PERSON ruled on with a written reason — those are counted as
+   * "ruled-by-hand" rather than guessed at from their prose.
+   */
+  kind?: ExclusionKind;
   call_date?: string;
   prospect_name?: string;
   /**
@@ -190,6 +201,7 @@ function foreignOffer(call: CallRecord): Exclusion | null {
   const stock = SCORER_EXCLUSIONS[verdict];
   if (!stock) return null;
   return {
+    kind: verdict === NOT_A_SALES_CALL ? "not-a-sales-call" : "other-offer",
     call_date: call.call_date ?? undefined,
     prospect_name: call.name,
     reason: call.offer_evidence?.trim() || stock,

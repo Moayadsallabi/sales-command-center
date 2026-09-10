@@ -162,13 +162,13 @@ describe("the four figures under Cash Collected", () => {
       newCash: 3000,
       remainder: 0,
       deposits: 500,
-      noCall: 250,
+      unmatched: 250,
     })!;
     expect(rows.map((r) => r.label)).toEqual([
       "new",
       "remainder",
       "deposits",
-      "no call",
+      "unmatched",
     ]);
     expect(rows.map((r) => r.value)).toEqual(["$3,000", "$0", "$500", "$250"]);
   });

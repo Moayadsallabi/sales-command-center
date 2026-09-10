@@ -118,12 +118,28 @@ export function CloserLeaderboard({
                 {/* Alignment is declared per column rather than by index, so
                     adding one does not silently shift another's alignment. */}
                 {[
-                  { label: "Closer", align: "left" },
+                  { label: "Closer", align: "left" } as {
+                    label: string;
+                    align: string;
+                    note?: string;
+                  },
                   { label: "Calls", align: "right" },
                   { label: "Taken", align: "right" },
                   { label: "Closed", align: "right" },
                   { label: "Close rate", align: "right" },
-                  { label: "Cash", align: "right" },
+                  {
+                    label: "Cash",
+                    align: "right",
+                    // WHOSE FIGURE THIS IS, SAID WHERE IT IS READ.
+                    // The Cash Collected tile at the top is the payment
+                    // processor's; this column is what closers typed into the
+                    // tracker, because money is attributed to a PERSON here and
+                    // an unmatched payment belongs to nobody. On Brey's
+                    // September the two were $50,094 and $18,450. The tile says
+                    // which source it is and this column did not, so the gap
+                    // read as an error rather than as two questions.
+                    note: "As typed on the call rows, not the processor's total — a payment nothing matched belongs to no closer",
+                  },
                   { label: "Avg score", align: "right" },
                   // Sits next to the close rate on purpose: a lower close rate
                   // against lower-quality leads is a different finding from a
@@ -131,9 +147,10 @@ export function CloserLeaderboard({
                   { label: "Lead quality", align: "right" },
                   ...(showTrend ? [{ label: "Trend", align: "right" }] : []),
                   { label: "Weakest part of their call", align: "left" },
-                ].map(({ label, align }) => (
+                ].map(({ label, align, note }) => (
                   <th
                     key={label}
+                    title={note}
                     className={`text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 px-5 py-3 whitespace-nowrap ${
                       align === "left" ? "text-left" : "text-right"
                     }`}
@@ -169,7 +186,10 @@ export function CloserLeaderboard({
                     <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-200">
                       {row.closeRate == null ? "—" : `${Math.round(row.closeRate)}%`}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-gold-400">
+                    <td
+                      className="px-5 py-3 text-right font-mono tabular-nums text-gold-400"
+                      title="From the tracker's own Cash Collected, typed by the closer. The tile at the top of the page is the processor's figure and counts money no closer can be credited with."
+                    >
                       {currency(row.cashCollected)}
                     </td>
                     <td

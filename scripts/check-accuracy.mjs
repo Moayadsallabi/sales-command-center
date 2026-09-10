@@ -15,11 +15,9 @@
 // logic. A copy of the matcher would pass its own test while the real one
 // failed, which is worse than having no test at all.
 
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { compileAppLibs } from "./lib/compile-app-libs.mjs";
+import { resolve } from "node:path";
 import { loadEnv } from "./lib/env-file.mjs";
 
 const DEFAULT_TRUTH = "fixtures/accuracy-truth.json";
@@ -55,46 +53,31 @@ if (calls.length === 0) fail("The answer key has no calls in it.");
 
 // Compiled to CommonJS in a temp folder purely so Node can require it: the
 // source imports without file extensions, which only a bundler resolves.
-const build = mkdtempSync(join(tmpdir(), "scc-accuracy-"));
+// Compiled and required through scripts/lib/compile-app-libs.mjs — see there
+// for why it mirrors the repo layout rather than flattening it.
+let build;
 try {
-  execFileSync(
-    "npx",
-    [
-      "tsc",
-      "src/lib/calendly.ts",
-      "src/lib/bookings.ts",
-      "src/lib/notion.ts",
-      "--outDir", build,
-      // Pinned so the output layout is predictable rather than derived from
-      // whichever files happen to be listed above.
-      "--rootDir", "src/lib",
-      "--module", "commonjs",
-      "--moduleResolution", "node",
-      "--target", "es2022",
-      "--esModuleInterop",
-      "--skipLibCheck",
-    ],
-    { stdio: ["ignore", "ignore", "pipe"] }
+  build = compileAppLibs(
+    ["src/lib/calendly.ts", "src/lib/bookings.ts", "src/lib/notion.ts"],
+    "accuracy"
   );
 } catch (err) {
   fail(
     "The app's own code did not compile, so there is nothing to test.",
-    String(err.stderr ?? err).slice(0, 600)
+    String(err.detail ?? err).slice(0, 600)
   );
 }
 
-const require = createRequire(import.meta.url);
-const { queryBookings } = require(join(build, "calendly.js"));
-const { linkBookings } = require(join(build, "bookings.js"));
-const { queryAllCalls } = require(join(build, "notion.js"));
-
+const { queryBookings } = build.load("calendly.js");
+const { linkBookings } = build.load("bookings.js");
+const { queryAllCalls } = build.load("notion.js");
 /* ------------------------------------------------------------------ inputs */
 
 let notionCalls;
 try {
   notionCalls = await queryAllCalls();
 } catch (err) {
-  rmSync(build, { recursive: true, force: true });
+  build.cleanup();
   fail(`Could not read the Notion tracker: ${err.message}`, "Run npm run check:notion first.");
 }
 
@@ -112,12 +95,12 @@ try {
   }
   bookings = result.bookings;
 } catch (err) {
-  rmSync(build, { recursive: true, force: true });
+  build.cleanup();
   fail(`Could not read Calendly: ${err.message}`, "Run npm run check:calendly first.");
 }
 
 const link = linkBookings(bookings, notionCalls);
-rmSync(build, { recursive: true, force: true });
+build.cleanup();
 
 /* ----------------------------------------------------------------- compare */
 

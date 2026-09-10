@@ -37,12 +37,12 @@ const NOW = new Date("2026-08-20T00:00:00Z");
 
 describe("a booking with no recording", () => {
   it("is reported as unknown, not as a no-show", () => {
-    const link = linkBookings([booking()], [], NOW);
+    const link = linkBookings([booking()], [], { now: NOW });
     expect(link.bookings[0].state).toBe("unrecorded");
   });
 
   it("is left out of the show rate rather than resolved either way", () => {
-    const stats = funnelStats(linkBookings([booking()], [], NOW).bookings, []);
+    const stats = funnelStats(linkBookings([booking()], [], { now: NOW }).bookings, []);
     expect(stats.unrecorded).toBe(1);
     expect(stats.kept).toBe(0);
     expect(stats.noShow).toBe(0);
@@ -53,7 +53,7 @@ describe("matching a booking to its recording", () => {
   it("joins on the prospect's address", () => {
     const c = call({ prospect_email: "p1@example.com", call_date: "2026-08-10" });
     const b = booking({ email: "p1@example.com", scheduled_at: "2026-08-10T15:00:00Z" });
-    const link = linkBookings([b], [c], NOW);
+    const link = linkBookings([b], [c], { now: NOW });
     expect(link.bookings[0].state).toBe("kept");
     expect(link.bookings[0].match_method).toBe("email");
     expect(link.bookings[0].call_id).toBe(c.id);
@@ -66,7 +66,7 @@ describe("matching a booking to its recording", () => {
       outcome: "No show",
     });
     const b = booking({ email: "p1@example.com", scheduled_at: "2026-08-10T15:00:00Z" });
-    expect(linkBookings([b], [c], NOW).bookings[0].state).toBe("no_show");
+    expect(linkBookings([b], [c], { now: NOW }).bookings[0].state).toBe("no_show");
   });
 
   it("ties each recording to at most one booking", () => {
@@ -75,7 +75,7 @@ describe("matching a booking to its recording", () => {
     const c = call({ prospect_email: "p@example.com", call_date: "2026-08-14" });
     const early = booking({ email: "p@example.com", scheduled_at: "2026-08-01T15:00:00Z" });
     const late = booking({ email: "p@example.com", scheduled_at: "2026-08-14T15:00:00Z" });
-    const link = linkBookings([early, late], [c], NOW);
+    const link = linkBookings([early, late], [c], { now: NOW });
     const matched = link.bookings.filter((b) => b.call_id !== null);
     expect(matched).toHaveLength(1);
     expect(matched[0].id).toBe(late.id);
@@ -85,7 +85,7 @@ describe("matching a booking to its recording", () => {
 describe("a cancelled booking", () => {
   it("is never counted as a show or a no-show", () => {
     const b = booking({ status: "canceled", canceled_at: "2026-08-09T10:00:00Z" });
-    const stats = funnelStats(linkBookings([b], [], NOW).bookings, []);
+    const stats = funnelStats(linkBookings([b], [], { now: NOW }).bookings, []);
     expect(stats.canceled).toBe(1);
     expect(stats.kept + stats.noShow + stats.unrecorded).toBe(0);
   });
@@ -94,7 +94,7 @@ describe("a cancelled booking", () => {
 describe("a booking still ahead of us", () => {
   it("counts as neither held nor missed", () => {
     const soon = booking({ scheduled_at: "2026-09-01T15:00:00Z" });
-    const stats = funnelStats(linkBookings([soon], [], NOW).bookings, []);
+    const stats = funnelStats(linkBookings([soon], [], { now: NOW }).bookings, []);
     expect(stats.upcoming).toBe(1);
     expect(stats.booked).toBe(0);
   });
@@ -123,7 +123,7 @@ describe("what a cancellation actually was", () => {
       cancelled({ rescheduled: true, scheduled_at: "2026-08-09T15:00:00Z" }),
       booking({ scheduled_at: "2026-08-10T15:00:00Z" }),
     ];
-    const stats = funnelStats(linkBookings(moved, [], NOW).bookings, []);
+    const stats = funnelStats(linkBookings(moved, [], { now: NOW }).bookings, []);
     expect(stats.rescheduledAway).toBe(2);
     expect(stats.booked).toBe(1);
     // Asserted as a strict inequality rather than against 3: with the count
@@ -142,9 +142,7 @@ describe("what a cancellation actually was", () => {
           cancelled({ canceled_by_side: "host" }),
           cancelled({ canceled_by_side: "invitee" }),
         ],
-        [],
-        NOW
-      ).bookings,
+        [], { now: NOW }).bookings,
       []
     );
     expect(stats.screened).toBe(2);
@@ -156,7 +154,7 @@ describe("what a cancellation actually was", () => {
     // a no-show off the calendar by cancelling it afterwards, so counting this
     // as screening would hide the no-show AND flatter the held rate.
     const stats = funnelStats(
-      linkBookings([cancelled({ cancel_notice_hours: -0.4 })], [], NOW).bookings,
+      linkBookings([cancelled({ cancel_notice_hours: -0.4 })], [], { now: NOW }).bookings,
       []
     );
     expect(stats.canceledAfterStart).toBe(1);
@@ -180,7 +178,7 @@ describe("what a cancellation actually was", () => {
       outcome: "Customer",
     } as unknown as Parameters<typeof funnelStats>[1][number];
     const stats = funnelStats(
-      linkBookings([held, cancelled({ canceled_by_side: "host" })], [call], NOW).bookings,
+      linkBookings([held, cancelled({ canceled_by_side: "host" })], [call], { now: NOW }).bookings,
       [call]
     );
     expect(stats.kept).toBe(1);
@@ -213,7 +211,7 @@ describe("the cancellation split", () => {
       booking({ status: "canceled", cancel_notice_hours: -0.4,
         canceled_at: "2026-08-10T15:24:00Z", canceled_by_side: "host" }),
     ];
-    const s = funnelStats(linkBookings(rows, [], NOW).bookings, []);
+    const s = funnelStats(linkBookings(rows, [], { now: NOW }).bookings, []);
     expect(s.canceled).toBe(5);
     expect(s.rescheduledAway + s.screened + s.pulledOut + s.clearedAfterStart).toBe(s.canceled);
     // And the wider field still counts both late ones, which is why it cannot

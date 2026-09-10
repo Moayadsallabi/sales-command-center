@@ -32,9 +32,21 @@ import {
   usableZone,
 } from "../src/lib/calendar";
 import { LinkedBooking } from "../src/lib/bookings";
+import { businessDay } from "../src/lib/business-day";
 
+/**
+ * A linked booking, STAMPED THE WAY PRODUCTION STAMPS IT.
+ *
+ * `business_day` is not decorative here. `groupByDay` no longer works out which
+ * day a booking falls on — `linkBookings` does it once, in the client's zone,
+ * and the matcher and the window filter read the same field. A fixture that
+ * left it unset would test a grid that cannot exist.
+ */
 let seq = 0;
-function booking(over: Partial<LinkedBooking> = {}): LinkedBooking {
+function booking(
+  over: Partial<LinkedBooking> = {},
+  zone: string = "UTC"
+): LinkedBooking {
   seq += 1;
   return {
     id: `inv-${seq}`,
@@ -60,6 +72,7 @@ function booking(over: Partial<LinkedBooking> = {}): LinkedBooking {
     state: "kept",
     call_id: null,
     match_method: null,
+    business_day: businessDay(over.scheduled_at ?? "2026-08-26T00:30:00Z", zone),
     ...over,
   } as LinkedBooking;
 }
@@ -84,7 +97,10 @@ describe("what day an evening call falls on", () => {
   });
 
   it("groups it onto the evening's cell", () => {
-    const { days } = groupByDay([booking({ scheduled_at: evening })], BUSINESS);
+    const { days } = groupByDay(
+      [booking({ scheduled_at: evening }, BUSINESS)],
+      BUSINESS
+    );
     expect([...days.keys()]).toEqual(["2026-08-25"]);
   });
 

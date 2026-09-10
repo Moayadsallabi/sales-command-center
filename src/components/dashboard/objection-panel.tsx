@@ -63,7 +63,8 @@ export function ObjectionPanel({
                   {result.callsShort} more scored{" "}
                   {result.callsShort === 1 ? "call" : "calls"}
                 </span>{" "}
-                before the pattern is worth reading. You have {result.assessed}.
+                before the pattern is worth reading. You have {result.assessed}{" "}
+                that were reviewed for objections.
               </>
             ) : (
               <>No objections have been recorded on these calls yet.</>

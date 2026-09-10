@@ -440,6 +440,24 @@ export function Dashboard({
   }, [calendly.link, calls, visibleWindow, selectedCloser]);
 
   /**
+   * THE ROWS LEFT OUT OF THE PERIOD ON SCREEN, not out of all time.
+   *
+   * Both lists arrive whole, because the page reads the whole tracker. Handing
+   * them to a table showing ten days of September then put "10 tracker rows are
+   * left out" under twenty September calls when six of the ten were September's
+   * and four were August's. A count that does not share its table's window
+   * reads as a claim about the table. Same rule as every other panel here.
+   */
+  const windowedExcluded = useMemo(
+    () => excluded.filter((e) => withinWindow(e.call_date, visibleWindow)),
+    [excluded, visibleWindow]
+  );
+  const windowedDuplicates = useMemo(
+    () => duplicates.filter((d) => withinWindow(d.call_date, visibleWindow)),
+    [duplicates, visibleWindow]
+  );
+
+  /**
    * THE SAME BOOKINGS, WITHOUT THE DATE WINDOW — what the calendar grid draws.
    *
    * It keeps the closer filter and drops the window, which is the only
@@ -921,8 +939,8 @@ export function Dashboard({
             order={7}
             calls={scoped}
             onSelect={setOpenCall}
-            excluded={excluded}
-            duplicates={duplicates}
+            excluded={windowedExcluded}
+            duplicates={windowedDuplicates}
           />
         </div>
 

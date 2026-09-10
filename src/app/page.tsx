@@ -46,7 +46,12 @@ type LoadResult =
 
 async function loadCalls(cfg: ClientConfig): Promise<LoadResult> {
   try {
-    return { ok: true, calls: await queryAllCalls(cfg.notion) };
+    // The client's zone travels with the credentials: a Call Date that carries
+    // a time is only a day once you say whose day. See lib/business-day.ts.
+    return {
+      ok: true,
+      calls: await queryAllCalls({ ...cfg.notion, timeZone: cfg.timeZone }),
+    };
   } catch (err) {
     if (err instanceof NotionError) {
       console.error(`Notion read failed (${err.failure.kind}):`, err.message);
@@ -83,7 +88,10 @@ async function loadBookings(calls: CallRecord[], cfg: ClientConfig): Promise<Cal
     // a few hundred bookings — and a single timer around both cannot say which.
     const result = await timed("calendly read", () => queryBookings(new Date(), cfg.calendly));
     const matchStarted = Date.now();
-    const link = linkBookings(result.bookings, calls);
+    // Stamps every booking with the client's own business day before matching,
+    // so the day a booking is JOINED on, the day it is COUNTED in and the day
+    // it is DRAWN on can no longer be three different answers.
+    const link = linkBookings(result.bookings, calls, { timeZone: cfg.timeZone });
     const matchTook = Date.now() - matchStarted;
     if (matchTook >= SLOW_MS) {
       console.log(
@@ -153,7 +161,10 @@ export default async function Home() {
     const link =
       process.env.DEMO_WITHOUT_CALENDLY === "1"
         ? null
-        : linkBookings(demoBookings(calls, today), calls);
+        : // The sample bookings are generated in UTC, so the demo links them in
+          // UTC — matching `timeZone={null}` on the Dashboard below. A zone
+          // invented here would slide every invented booking off its own call.
+          linkBookings(demoBookings(calls, today), calls);
     return (
       <Dashboard
         calls={calls}
@@ -300,6 +311,9 @@ export default async function Home() {
         name: e.call.name || "Unknown",
         call_date: e.call.call_date,
         reason: e.entry.reason ?? "",
+        // Carried so the page can count each reason rather than describing all
+        // of them as another offer's business. See lib/excluded-calls.ts.
+        kind: e.entry.kind,
       }))}
       duplicates={duplicates.map((d) => ({
         name: d.kept.name || "Unknown",

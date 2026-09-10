@@ -5,6 +5,10 @@ import {
   REFUND_CARRIES_CLOSE,
   MIN_DEPOSIT,
 } from "./sales-rules";
+// THE RULE ITSELF, shared with the check scripts. It is not restated here —
+// see scripts/lib/sale-rule.mjs for the week this dashboard and its own weekly
+// check disagreed about which customers owed money.
+import { countsAsWin, moneyMoved } from "../../scripts/lib/sale-rule.mjs";
 
 /**
  * Every money column in Notion holds the deal's own currency: a €3,000
@@ -162,14 +166,17 @@ export function carriesRevenue(call: CallRecord): boolean {
  * its agreed price. [STATED — Moayad, chat 2026-09-06] "yes agreed price stays".
  */
 export function isWin(call: CallRecord): boolean {
-  if (call.outcome == null || !WINNING_OUTCOMES.includes(call.outcome)) return false;
   // The greater of what the tracker recorded and what the processor actually
   // matched. paid_total is set by settleByPayment when a payment promotes a
   // call the closer typed as something else — that money is the strongest
   // evidence on the row, and ignoring it would refuse exactly the calls the
   // reconciliation exists to find.
-  const moved = Math.max(collectedToDate(call) ?? 0, call.paid_total ?? 0);
-  return moved >= MIN_DEPOSIT;
+  const moved = moneyMoved(collectedToDate(call), call.paid_total);
+  return countsAsWin(call.outcome, moved, {
+    winning: WINNING_OUTCOMES,
+    refund: REFUND_OUTCOME,
+    minDeposit: MIN_DEPOSIT,
+  });
 }
 
 /**
@@ -229,4 +236,40 @@ export function missingFxRate(call: CallRecord): boolean {
 
 export function callsMissingFxRate(calls: CallRecord[]): CallRecord[] {
   return calls.filter(missingFxRate);
+}
+
+/* ------------------------------------------------- what one row displays */
+
+/**
+ * A row the closer typed as a win that no money has arrived against.
+ *
+ * `isWin` refuses it, so every total already excludes it. This is only about
+ * saying so where the row is rendered.
+ */
+export function demotedByMoneyRule(call: CallRecord): boolean {
+  return WINNING_OUTCOMES.includes(call.outcome ?? "") && !isWin(call);
+}
+
+/**
+ * WHAT THE REVENUE CELL PRINTS, so that a test can add the column up.
+ *
+ * The rule is: the same figure the tile counts, or nothing. It printed
+ * `price_closed` alone, and revenue is `max(price_closed, paid_total)` — so a
+ * call settled by a payment and carrying no price rendered "—" while
+ * contributing to the total above it. Live on 2026-09-10 the column summed to
+ * $30,000 under a tile reading $30,500.
+ *
+ * `amount` is in the deal's OWN currency when the price supplies it, so the row
+ * matches the contract behind it; in the reporting currency when the payment
+ * does, because `paid_total` is already converted and printing it under the
+ * row's own symbol would label dollars as euros.
+ */
+export function revenueCell(
+  call: CallRecord
+): { amount: number; currency: string | null } | null {
+  if (!carriesRevenue(call)) return null;
+  const total = reportingRevenue(call);
+  if (total <= 0) return null;
+  if (call.price_closed) return { amount: call.price_closed, currency: call.currency };
+  return { amount: total, currency: REPORTING_CURRENCY };
 }

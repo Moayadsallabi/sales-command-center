@@ -1,8 +1,17 @@
 "use client";
 
 import { CallRecord, OUTCOME_COLORS, leadQualityScore, overallScore } from "@/lib/types";
+// From exclusion-note, not excluded-calls: this is a client component and that
+// file reads the list off disk. See the header there.
+import { ExclusionKind, exclusionNote } from "@/lib/exclusion-note";
 import { leadBandFor } from "@/lib/lead-quality";
-import { carriesRevenue, collectedToDate, formatMoney, formatReporting } from "@/lib/money";
+import {
+  collectedToDate,
+  demotedByMoneyRule,
+  formatMoney,
+  formatReporting,
+  revenueCell,
+} from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
 import { shortDate } from "@/lib/periods";
 import { ExternalLink } from "lucide-react";
@@ -14,7 +23,12 @@ export interface ExcludedNote {
   name: string;
   call_date: string | null;
   reason: string;
+  /** Absent means a person ruled on it by hand. See lib/excluded-calls.ts. */
+  kind?: ExclusionKind;
 }
+
+// The sentence those turn into lives in lib/excluded-calls.ts, beside the rule
+// that decides the kinds — and where a test can reach it.
 
 /** One recording the tracker holds more than once, and how many rows it has. */
 export interface DuplicateNote {
@@ -63,10 +77,7 @@ export function CallTable({
           title="All calls"
           subtitle={[
             "Click a row to open its scorecard.",
-            excluded.length > 0 &&
-              `${excluded.length} tracker ${
-                excluded.length === 1 ? "row is" : "rows are"
-              } left out as another offer's business.`,
+            exclusionNote(excluded),
             duplicates.length > 0 &&
               `${duplicates.length} ${
                 duplicates.length === 1 ? "recording was" : "recordings were"
@@ -212,6 +223,23 @@ export function CallTable({
                       was {call.recorded_outcome} · paid
                     </span>
                   )}
+                  {/* THE OTHER DIRECTION, AND IT HAD NO MARKER AT ALL.
+                      A row typed Customer with nothing banked is not a close
+                      [sales-rules.json, a_close_needs_money_to_have_moved], so
+                      it is out of revenue, out of the close rate, and on the
+                      follow-up list below. The badge still said Customer, in
+                      gold, with an empty Cash cell and no explanation — while
+                      the follow-ups panel three sections down called the same
+                      call open. Two panels, one screen, opposite answers.
+                      Found on ABandZz and one nameless row, 2026-09-10. */}
+                  {demotedByMoneyRule(call) && (
+                    <span
+                      className="ml-2 whitespace-nowrap text-[11px] text-amber-300/80"
+                      title={`Recorded as "${call.outcome}" on the day, but no money has been received against it, so it is counted as a follow-up rather than a close — not in revenue, not in the close rate. See the follow-up list below.`}
+                    >
+                      counted as a follow-up · no money in
+                    </span>
+                  )}
                 </td>
                 {/* Shown in the deal's own currency — never converted, so the
                     row always matches the contract. */}
@@ -230,22 +258,33 @@ export function CallTable({
                     <span className="text-zinc-500">—</span>
                   )}
                 </td>
-                {/* carriesRevenue, not price_closed alone. Every total on this
-                    dashboard asks whether the call was won before counting a
-                    price; this column did not, so a call recorded as "No deal"
-                    printed the price it was refused at under a heading that
-                    says Revenue. The scorer wrote that figure because nothing
-                    ever defined the field for it — fixed at the source and at
-                    the write, and guarded here too so the display cannot
-                    disagree with the totals above it whatever arrives. */}
+                {/* THE FIGURE THE TILE COUNTS, NOT THE ONE THE ROW HAPPENS TO
+                    CARRY.
+                    carriesRevenue first: every total on this dashboard asks
+                    whether the call was won before counting a price, and this
+                    column did not, so a call recorded as "No deal" printed the
+                    price it was refused at under a heading that says Revenue.
+                    Then the amount. This printed `price_closed` alone, and
+                    revenue is `max(price_closed, paid_total)` — a call settled
+                    by a payment often carries no price at all, so it rendered
+                    "—" while contributing to the tile. Live on 2026-09-10 the
+                    column summed to $30,000 under a tile reading $30,500, and
+                    the missing $500 was one row showing a dash.
+                    Shown converted when it is the payment that supplies it:
+                    `paid_total` is already in the reporting currency, so
+                    printing it beside the row's own currency symbol would label
+                    dollars as euros. */}
                 <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] tabular-nums">
-                  {carriesRevenue(call) && call.price_closed ? (
-                    <span className="text-gold-400/50">
-                      {formatMoney(call.price_closed, call.currency)}
-                    </span>
-                  ) : (
-                    <span className="text-zinc-500">—</span>
-                  )}
+                  {(() => {
+                    const cell = revenueCell(call);
+                    return cell ? (
+                      <span className="text-gold-400/50">
+                        {formatMoney(cell.amount, cell.currency)}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-500">—</span>
+                    );
+                  })()}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap text-[13px] text-zinc-400">
                   {call.lead_source ?? "—"}

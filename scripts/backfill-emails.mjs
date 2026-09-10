@@ -39,11 +39,8 @@
 //   - A row that already has an email is never touched, whoever typed it.
 //   - Anything unconfirmed is reported, not written.
 
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { compileAppLibs } from "./lib/compile-app-libs.mjs";
+import { clientZone } from "./lib/business-day.mjs";
 import { loadEnv } from "./lib/env-file.mjs";
 import { NOTION_VERSION } from "./lib/notion-env.mjs";
 
@@ -102,39 +99,23 @@ const fathomKeys = Object.entries(process.env)
 
 /* --------------------------------------------- the app's own code, compiled */
 
-// Compiled to CommonJS in a temp folder purely so Node can require it: the
-// source imports without file extensions, which only a bundler resolves.
-const build = mkdtempSync(join(tmpdir(), "scc-backfill-"));
+// See scripts/lib/compile-app-libs.mjs. This reads the tracker and the calendar
+// through the DASHBOARD'S OWN modules rather than a second copy that would
+// drift from them, which is the whole reason this script can be trusted to say
+// what the dashboard would do.
+let build;
 try {
-  execFileSync(
-    "npx",
-    [
-      "tsc",
-      "src/lib/calendly.ts",
-      "src/lib/bookings.ts",
-      "src/lib/notion.ts",
-      "--outDir", build,
-      "--rootDir", "src/lib",
-      "--module", "commonjs",
-      "--moduleResolution", "node",
-      "--target", "es2022",
-      "--esModuleInterop",
-      "--skipLibCheck",
-    ],
-    { stdio: ["ignore", "ignore", "pipe"] }
+  build = compileAppLibs(
+    ["src/lib/calendly.ts", "src/lib/bookings.ts", "src/lib/notion.ts"],
+    "backfill"
   );
 } catch (err) {
-  rmSync(build, { recursive: true, force: true });
-  fail(
-    "The app's own code did not compile, so there is nothing to run.",
-    String(err.stderr ?? err).slice(0, 600)
-  );
+  fail("The app's own code did not compile, so there is nothing to run.", String(err.detail ?? err).slice(0, 600));
 }
 
-const require = createRequire(import.meta.url);
-const { queryBookings } = require(join(build, "calendly.js"));
-const { linkBookings, closerDisagreements } = require(join(build, "bookings.js"));
-const { queryAllCalls } = require(join(build, "notion.js"));
+const { queryBookings } = build.load("calendly.js");
+const { linkBookings, closerDisagreements } = build.load("bookings.js");
+const { queryAllCalls } = build.load("notion.js");
 
 /* ------------------------------------------------------------------ inputs */
 
@@ -142,30 +123,69 @@ let calls;
 try {
   calls = await queryAllCalls();
 } catch (err) {
-  rmSync(build, { recursive: true, force: true });
+  build.cleanup();
   fail(`Could not read the Notion tracker: ${err.message}`, "Run `npm run check:notion` first.");
 }
+
+/*
+ * WAITING FOR THE CALENDAR, INCLUDING THE STATE WHERE NOTHING IS KNOWN YET.
+ *
+ * This waited on `pending`, which counts bookings still being fetched. It did
+ * not wait on `reading`, which is the FIRST state a cold process is in:
+ * lib/calendly.ts sets it when the event list has never been read for this
+ * account, and says in as many words that `bookings`, `total` and `pending` are
+ * then all zero "because NOTHING IS KNOWN YET — not because the calendar is
+ * empty. Those two must never render the same."
+ *
+ * They rendered the same here. On any cold run this script reported "no
+ * booking — nothing on this calendar matches" for 43 of 43 rows and finished
+ * with "Nothing to write", which reads as a measured answer and is a refusal.
+ * It is the tool that RECOVERS the addresses every join in this system runs on,
+ * so the one thing it must never do is quietly report that there is nothing to
+ * recover. Verified against an unmodified checkout on 2026-09-10 — the fault
+ * predates the day-matching work in this change and is not caused by it.
+ *
+ * A cap, because a wait with no end is its own kind of silence.
+ */
+const CALENDAR_WAIT_MS = 4000;
+const CALENDAR_WAIT_TRIES = 45;
 
 let read;
 try {
   read = await queryBookings();
-  if (read.pending > 0) {
-    process.stdout.write(`  reading the calendar (${read.total} bookings)`);
-    while (read.pending > 0) {
-      await new Promise((r) => setTimeout(r, 4000));
+  if (read.reading || read.pending > 0) {
+    process.stdout.write(
+      `  reading the calendar${read.total ? ` (${read.total} bookings)` : ""}`
+    );
+    let tries = 0;
+    while (read.reading || read.pending > 0) {
+      if (++tries > CALENDAR_WAIT_TRIES) {
+        process.stdout.write("\n");
+        build.cleanup();
+        fail(
+          "Calendly is still being read, so nothing here would be a measurement.",
+          `Gave up after ${Math.round((CALENDAR_WAIT_TRIES * CALENDAR_WAIT_MS) / 1000)}s with ` +
+            `${read.pending} booking(s) outstanding. Run \`npm run check:calendly\` and try again — ` +
+            "reporting now would say every row has no booking, which is a refusal wearing an answer's clothes."
+        );
+      }
+      await new Promise((r) => setTimeout(r, CALENDAR_WAIT_MS));
       read = await queryBookings();
       process.stdout.write(".");
     }
     process.stdout.write("\n");
   }
 } catch (err) {
-  rmSync(build, { recursive: true, force: true });
+  build.cleanup();
   fail(`Could not read Calendly: ${err.message}`, "Run `npm run check:calendly` first.");
 }
 
-const link = linkBookings(read.bookings, calls);
+// The client's own business day, the same one the dashboard links on — see
+// lib/business-day.ts. Without it an evening call and its own booking land on
+// different days and the recovery this script exists for cannot happen.
+const link = linkBookings(read.bookings, calls, { timeZone: clientZone() });
 const disagreements = closerDisagreements(link.bookings, calls);
-rmSync(build, { recursive: true, force: true });
+build.cleanup();
 
 const blank = calls.filter((c) => !c.prospect_email);
 

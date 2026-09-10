@@ -39,11 +39,7 @@ import { loadEnv } from "./lib/env-file.mjs";
 import { NOTION_VERSION } from "./lib/notion-env.mjs";
 loadEnv();
 import { readAllRecordings } from "./lib/fathom.mjs";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execFileSync } from "node:child_process";
-import { createRequire } from "node:module";
+import { compileAppLibs } from "./lib/compile-app-libs.mjs";
 
 const applying = process.argv.includes("--apply");
 const zoneArg = process.argv.indexOf("--timezone");
@@ -71,29 +67,24 @@ function stampIn(iso, zone) {
 }
 
 /* --------------------------------------------- the app's own code, compiled */
-// Compiled to CommonJS in a temp folder purely so Node can require it, the same
-// way backfill-emails does: the source imports without file extensions, which
-// only a bundler resolves. The point is that this reads the tracker through the
-// DASHBOARD'S OWN reader rather than a second copy that would drift from it.
-const build = mkdtempSync(join(tmpdir(), "scc-calldates-"));
+// Compiled and required through scripts/lib/compile-app-libs.mjs, the same way
+// backfill-emails and check-accuracy do. The point is that this reads the
+// tracker through the DASHBOARD'S OWN reader rather than a second copy that
+// would drift from it.
+let build;
 let queryAllCalls;
 try {
-  execFileSync("npx", [
-    "tsc", "src/lib/notion.ts",
-    "--outDir", build, "--rootDir", "src/lib",
-    "--module", "commonjs", "--moduleResolution", "node",
-    "--target", "es2022", "--esModuleInterop", "--skipLibCheck",
-  ], { stdio: ["ignore", "ignore", "pipe"] });
-  queryAllCalls = createRequire(import.meta.url)(join(build, "notion.js")).queryAllCalls;
+  build = compileAppLibs(["src/lib/notion.ts"], "calldates");
+  ({ queryAllCalls } = build.load("notion.js"));
 } catch (err) {
-  rmSync(build, { recursive: true, force: true });
+  build?.cleanup();
   console.error("\n✗ The app's own code did not compile, so there is nothing to run.");
-  console.error(String(err.stderr ?? err).slice(0, 600));
+  console.error(String(err.detail ?? err).slice(0, 600));
   process.exit(1);
 }
 
 const calls = await queryAllCalls();
-rmSync(build, { recursive: true, force: true });
+build.cleanup();
 
 const keys = Object.entries(process.env)
   .filter(([k, v]) => k.startsWith("FATHOM_KEY_") && v)

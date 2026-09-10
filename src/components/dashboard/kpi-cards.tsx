@@ -135,7 +135,11 @@ export function KPICards({
     // is deliberately absent; the KPI dashboard counts the business, so it
     // carries the same money under "revenue with no call". Saying so turns a
     // discrepancy into two figures that explain each other.
-    return `${people} first paid in this window with no call on the tracker — ${formatReporting(
+    // "could not be tied to" rather than "with no call", corrected 2026-09-10:
+    // two of Brey's fifteen had a call on the tracker and were unmatchable only
+    // because the row carried no Prospect Email. The panel at the bottom of the
+    // page carries the long version and the command that fixes it.
+    return `${people} first paid in this window whose money could not be tied to any call — ${formatReporting(
       bank.missedWorth
     )} so far, counted on the KPI dashboard as revenue with no call, not here`;
   })();

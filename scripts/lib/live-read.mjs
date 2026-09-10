@@ -23,6 +23,7 @@
  * dashboard's own libraries. This file fetches and shapes, and that is all.
  */
 import { NOTION_VERSION } from "./notion-env.mjs";
+import { businessDay, clientZone } from "./business-day.mjs";
 
 const WHOP_V2 = process.env.WHOP_API_V2_BASE ?? "https://api.whop.com/api/v2";
 
@@ -43,7 +44,7 @@ export class LiveReadError extends Error {
  * a claim about money taken DURING the call rather than a figure a person
  * reconciled afterwards.
  */
-export async function readTracker({ notionKey, databaseId }) {
+export async function readTracker({ notionKey, databaseId, timeZone = clientZone() }) {
   const rows = [];
   let cursor;
 
@@ -79,7 +80,23 @@ export async function readTracker({ notionKey, databaseId }) {
         id: row.id,
         name: (p.Name?.title ?? []).map((t) => t.plain_text ?? "").join(""),
         email: (p["Prospect Email"]?.email ?? "").trim().toLowerCase() || null,
-        date: p["Call Date"]?.date?.start ?? null,
+        /* THE CALENDAR DAY, NOT THE RAW STAMP.
+           Call Date holds a bare day until the automation writes a call's exact
+           start into it, which it now does on purpose — so every consumer of
+           this field was getting "2026-09-07" from some rows and
+           "2026-09-07T21:51:00.000+00:00" from others. They print it (which is
+           why check reports carried timestamps in a date column) and they
+           compare it with `slice(0, 10)`, which takes the day the stamp's own
+           offset names. Brey's tracker writes two different offsets, so that
+           slice is a latent day-out for any call late enough in the evening.
+           One rule, shared with the app: see business-day.mjs. */
+        date: businessDay(p["Call Date"]?.date?.start, timeZone),
+        /* The instant, kept for anything that needs the clock rather than the
+           day — the exact start is the only route back to a prospect on a call
+           booked without an email. Nothing reads it yet; it is here so the next
+           thing that needs it does not go back to the raw property and
+           reintroduce the two shapes above. */
+        startedAt: p["Call Date"]?.date?.start ?? null,
         closer: p.Closer?.select?.name ?? null,
         outcome: p.Outcome?.select?.name ?? null,
         priceClosed: p["Price Closed"]?.number ?? null,

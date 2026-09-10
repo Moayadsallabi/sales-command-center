@@ -10,7 +10,12 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { partitionCalls, isExcluded, loadExclusions } from "../src/lib/excluded-calls";
+import {
+  partitionCalls,
+  isExcluded,
+  loadExclusions,
+} from "../src/lib/excluded-calls";
+import { exclusionNote, ExclusionKind } from "../src/lib/exclusion-note";
 import { call } from "./helpers";
 
 function fileWith(contents: unknown): string {
@@ -150,5 +155,60 @@ describe("excluded calls", () => {
       expect(entry.reason, `${entry.prospect_name} needs a reason`).toBeTruthy();
       expect(entry.ruled_by, `${entry.prospect_name} needs who ruled it`).toBeTruthy();
     }
+  });
+});
+
+/**
+ * WHAT THE PAGE SAYS ABOUT THE ROWS IT LEFT OUT.
+ *
+ * The sentence under the call table read "N tracker rows are left out as
+ * another offer's business" for every exclusion, whatever the reason. On Brey's
+ * live account two of the ten were a team meeting and a recording that was not
+ * a sales conversation at all, so the screen was asserting something about rows
+ * it had not looked at. Found 2026-09-10.
+ */
+describe("the sentence naming the rows left out", () => {
+  const row = (kind?: ExclusionKind) => ({ call_date: "2026-09-04", kind });
+
+  it("says nothing when nothing was left out", () => {
+    expect(exclusionNote([])).toBeNull();
+  });
+
+  it("counts each reason separately rather than under one phrase", () => {
+    const note = exclusionNote([
+      row("other-offer"),
+      row("other-offer"),
+      row("not-a-sales-call"),
+    ]);
+    expect(note).toContain("3 tracker rows");
+    expect(note).toContain("2 another offer's business");
+    expect(note).toContain("1 not a sales call");
+  });
+
+  it("does not name a reason nothing was left out for", () => {
+    const note = exclusionNote([row("other-offer")]);
+    expect(note).toContain("1 another offer's business");
+    expect(note).not.toContain("not a sales call");
+    expect(note).not.toContain("ruled out by hand");
+  });
+
+  it("calls an entry with no verdict a hand ruling, never another offer", () => {
+    // The JSON list is written by a PERSON with a reason attached, and one of
+    // Brey's three is an internal team review. Guessing "another offer" from
+    // its prose is exactly the claim this sentence must not make.
+    const note = exclusionNote([row(undefined)]);
+    expect(note).toContain("1 ruled out by hand");
+    expect(note).not.toContain("another offer");
+  });
+
+  it("says the period, because the count is the period's", () => {
+    // It was handed the all-time list under a table showing ten days, so ten
+    // rows were named beneath twenty September calls when six were September's.
+    expect(exclusionNote([row("other-offer")])).toContain("this period");
+  });
+
+  it("agrees with itself about one row", () => {
+    expect(exclusionNote([row("other-offer")])).toContain("row is");
+    expect(exclusionNote([row("other-offer"), row("other-offer")])).toContain("rows are");
   });
 });

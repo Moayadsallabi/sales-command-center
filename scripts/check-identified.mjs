@@ -39,6 +39,7 @@
  * is 33% and means nothing. Below MIN_CALLS it reports the count and declines
  * to give a verdict, rather than producing a percentage that reads like one.
  */
+import { businessDay, clientZone } from "./lib/business-day.mjs";
 import { loadEnv } from "./lib/env-file.mjs";
 import { notionHeaders } from "./lib/notion-env.mjs";
 import { requireEnv } from "./lib/required-env.mjs";
@@ -103,7 +104,9 @@ for (const row of rows) {
   }
   calls.push({
     name: title(row.properties?.Name) || "Unknown",
-    date: row.properties?.["Call Date"]?.date?.start ?? null,
+    // The calendar day, so this list prints days rather than a mix of days
+    // and timestamps. One rule, shared with the app: see business-day.mjs.
+    date: businessDay(row.properties?.["Call Date"]?.date?.start, clientZone()),
     email: (row.properties?.["Prospect Email"]?.email ?? "").trim(),
   });
 }

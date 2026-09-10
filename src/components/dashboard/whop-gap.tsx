@@ -175,15 +175,33 @@ export function WhopGap({
           population than the date range — so the sentence says "first paid
           here" and states the total separately, rather than reading as though
           all of it landed inside these dates. */}
+      {/* IT IS A REFUSAL TO MATCH, NOT A MEASURED ABSENCE (corrected 2026-09-10).
+          This said "the coverage gap rather than a typing gap — those calls were
+          never recorded, never reached the automation, or never happened", which
+          is a positive claim about three different populations, and it was wrong
+          about some of them. On Brey's September two of these fifteen had a call
+          sitting on the tracker: a $1,200 payment against a nameless row
+          recording $1,200 taken on the call, and a $500 payment against Alfredo
+          Roque's row recording $500. Neither could be tied to its call because
+          `Prospect Email` was blank — which is a typing gap, and the loudest one
+          there is. Two more were membership sign-ups that never involved a call
+          at all.
+          So the sentence now says what was actually established (nothing matched)
+          and lists what that can mean, with the command that recovers the
+          recoverable part. Same rule as the `—` a refused figure renders as
+          rather than a zero. */}
       {untracked > 0 && (
         <p className="mt-4 max-w-[80ch] t-body text-zinc-300">
           <span className="font-medium text-zinc-100">
             {untracked} {untracked === 1 ? "buyer" : "buyers"} first paid in
-            this period with no call on this tracker at all.
+            this period and could not be tied to any call on this tracker.
           </span>{" "}
-          That is the coverage gap rather than a typing gap — those calls were
-          never recorded, never reached the automation, or never happened. They
-          have paid {formatReporting(untrackedWorth)} between them to date.
+          They have paid {formatReporting(untrackedWorth)} between them to date.
+          Some of those calls were never recorded and some never happened — but
+          a call whose row carries no <code>Prospect Email</code> cannot be
+          matched however well it went, so this is not yet a measure of the
+          coverage gap. Run <code>npm run backfill:emails</code> before reading
+          it as one.
         </p>
       )}
 

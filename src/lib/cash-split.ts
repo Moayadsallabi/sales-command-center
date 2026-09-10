@@ -19,7 +19,8 @@
  *              an older deal still paying
  *   DEPOSITS   the call behind it is not a win — money taken while booking a
  *              follow-up, which is in the bank whatever the row says
- *   NO CALL    no call could be tied to it at all — the coverage gap, in cash
+ *   UNMATCHED  no call on the tracker could be tied to it. NOT the same as "no
+ *              call happened" — see the field's own comment below
  *
  * ---------------------------------------------------------------------------
  * THE FOUR SUM TO THE TILE, AND THAT IS THE TEST
@@ -56,8 +57,25 @@ export interface CashSplit {
   remainder: number;
   /** Payments in the window against a call that is not a win. */
   deposits: number;
-  /** Everything left of the processor's total: payments with no call behind them. */
-  noCall: number;
+  /**
+   * EVERYTHING LEFT OF THE PROCESSOR'S TOTAL, AND IT IS A REFUSAL RATHER THAN
+   * A MEASUREMENT.
+   *
+   * It was called `no call` on screen, which reads as the coverage gap: money
+   * from calls nobody recorded. It is money the matcher could not tie to a
+   * call, and on Brey's September those are different populations by a wide
+   * margin. Of $24,044:
+   *
+   *   - at least $1,700 had a call ON the tracker, unmatchable only because
+   *     `Prospect Email` was blank ($1,200 against a nameless row recording
+   *     $1,200 taken on the call; $500 against Alfredo Roque's row);
+   *   - $1,996 was four membership renewals, which never had a call to record;
+   *   - the rest is the coverage gap the old label claimed all of it was.
+   *
+   * The arithmetic never changed — this is the residual either way. What
+   * changed is that the screen no longer asserts a cause for it.
+   */
+  unmatched: number;
 }
 
 /**
@@ -115,7 +133,8 @@ export function cashSplit(
     // NOT WIN-ONLY. A deposit taken while booking a follow-up is money that
     // moved, and lib/money.ts already counts it in the cash total for that
     // reason. Skipping non-wins here would leave it inside the total and
-    // outside every bucket, which reads as money with no call behind it.
+    // outside every bucket, which would read as money nothing could be matched
+    // to when in fact it was matched, to a call that did not win.
     //
     // A PARTLY-REFUNDED DEAL LANDS HERE TOO, and it is the one row this bucket
     // names imperfectly. The processor's total is net of refunds, so a fully
@@ -139,7 +158,7 @@ export function cashSplit(
     deposits,
     // Never negative by the guard above, and never counted independently —
     // see the header. This is the money the processor banked that no call on
-    // the tracker explains.
-    noCall: Math.max(0, collected - attributed),
+    // the tracker could be matched to.
+    unmatched: Math.max(0, collected - attributed),
   };
 }

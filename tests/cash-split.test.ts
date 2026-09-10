@@ -61,7 +61,7 @@ describe("the four parts of a month's cash", () => {
     expect(split!.newCash).toBe(3000);
     expect(split!.remainder).toBe(1000);
     expect(split!.deposits).toBe(500);
-    expect(split!.noCall).toBe(250);
+    expect(split!.unmatched).toBe(250);
   });
 
   it("adds up to the figure on the tile", () => {
@@ -69,7 +69,7 @@ describe("the four parts of a month's cash", () => {
     // where all four are different and none is zero, because on a month made
     // only of new deals it holds no matter how the code reads the split.
     const split = cashSplit(MIXED, MIXED_TOTAL, AUGUST)!;
-    expect(split.newCash + split.remainder + split.deposits + split.noCall).toBe(
+    expect(split.newCash + split.remainder + split.deposits + split.unmatched).toBe(
       MIXED_TOTAL
     );
   });
@@ -126,7 +126,7 @@ describe("what the window does to a lifetime total", () => {
 
     const split = cashSplit([spread], 3000, AUGUST)!;
     expect(split.newCash).toBe(3000);
-    expect(split.noCall).toBe(0);
+    expect(split.unmatched).toBe(0);
   });
 });
 
@@ -136,7 +136,7 @@ describe("money the tracker cannot explain", () => {
     // call accounts for. Derived by subtraction, so it cannot disagree with
     // the tile the way two independent counts would.
     const split = cashSplit([], 8200, AUGUST)!;
-    expect(split.noCall).toBe(8200);
+    expect(split.unmatched).toBe(8200);
     expect(split.newCash + split.remainder + split.deposits).toBe(0);
   });
 });
@@ -152,7 +152,7 @@ describe("a deposit on a call that never closed", () => {
     ]);
     const split = cashSplit([deposit], 500, AUGUST)!;
     expect(split.deposits).toBe(500);
-    expect(split.noCall).toBe(0);
+    expect(split.unmatched).toBe(0);
   });
 });
 

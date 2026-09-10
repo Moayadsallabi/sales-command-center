@@ -34,6 +34,7 @@
  */
 import { readFileSync } from "node:fs";
 import { readTracker, readPayments, LiveReadError } from "./lib/live-read.mjs";
+import { countsAsWin, moneyMoved } from "./lib/sale-rule.mjs";
 import { matchBuyers, normalise } from "./lib/buyer-match.mjs";
 import { requireEnv } from "./lib/required-env.mjs";
 
@@ -96,11 +97,39 @@ const matches = matchBuyers(NOT_NO_SHOW, [...buyers.values()], {
   nameOf: (r) => r.name,
 });
 
+/*
+ * A CLOSE NEEDS MONEY TO HAVE MOVED — and this check did not know that.
+ *
+ * [sales-rules.json, a_close_needs_money_to_have_moved, 2026-09-06] "a close is
+ * only counted if cash was collected, if a price was agreed but no cash was
+ * collected then its simply a follow up". `src/lib/money.ts` started enforcing
+ * it the same day. This function did not: it returned true on the word the
+ * closer typed, so it went on counting as won four calls the dashboard had
+ * already moved to the follow-up list.
+ *
+ * Measured on Brey, 2026-09-10, which is how it was found: this check reported
+ * 28 rows owing $63,648 where the panel it checks reported 24 owing $47,648.
+ * The four were ABandZz ($8,000, and the very call that produced the ruling),
+ * Danny Johnson ($4,000), Jevaun Crosdale ($2,000) and Kj ($2,000) — four
+ * people this check would have sent somebody to ring about money on a deal that
+ * never closed. It runs inside `check:weekly`, so it said so every week.
+ *
+ * The money read is the greater of the tracker's own figure and what the
+ * processor actually matched, exactly as the dashboard reads it. `r.cash` is
+ * Cash Collected falling back to Collected On Call — see readTracker.
+ */
+const SALE_RULES = { winning: WINNING, refund: REFUND, minDeposit: MIN_DEPOSIT };
+
 const isWin = (r) => {
-  if (r.outcome === REFUND) return false;
-  if (WINNING.includes(r.outcome ?? "")) return true;
   const m = matches.get(r);
-  return Boolean(m && m.buyer.paid >= MIN_DEPOSIT);
+  const moved = moneyMoved(r.cash, m?.buyer.paid);
+  // The row as the DASHBOARD counts it: a payment promotes a call the closer
+  // wrote up as something else (src/lib/settle.ts), so ask the shared rule
+  // about the settled outcome rather than the typed one.
+  const settled = !WINNING.includes(r.outcome ?? "") && m && moved >= MIN_DEPOSIT
+    ? WINNING[0]
+    : r.outcome;
+  return countsAsWin(settled, moved, SALE_RULES);
 };
 const wins = NOT_NO_SHOW.filter(isWin);
 

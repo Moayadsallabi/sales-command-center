@@ -76,7 +76,8 @@ export function DimensionImpact({
                   {result.callsShort} more scored{" "}
                   {result.callsShort === 1 ? "call" : "calls"}
                 </span>{" "}
-                before these numbers mean anything. You have {result.scored}.
+                before these numbers mean anything. You have {result.scored}{" "}
+                with enough of the call scored to judge.
               </>
             ) : (
               <>

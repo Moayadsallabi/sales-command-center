@@ -35,12 +35,13 @@ export interface CashBank {
   previousCollected: number | null;
   /**
    * What the total is made of: new selling, older deals paying off, deposits,
-   * and the part no call explains. Null when it could not be trusted — see
+   * and the part nothing could be matched to. Null when it could not be
+   * trusted — see
    * lib/cash-split.ts, which refuses rather than showing four figures that
    * do not add up to the one above them.
    */
   split: CashSplit | null;
-  /** Buyers who first paid inside this window with no call anywhere. */
+  /** Buyers who first paid inside this window whose money matched no call. */
   missedCount: number;
   /** What those buyers have paid to date — lifetime, not window. */
   missedWorth: number;
@@ -125,8 +126,8 @@ payments: boolean
      fault this file was written to end.
      They are not the same quantity. This gap is the processor's total against
      what closers TYPED into Cash Collected, so it includes matched calls whose
-     typed figure is simply low. The breakdown's `no call` is money no call row
-     could be tied to at all. So the sentence states what it actually measures
+     typed figure is simply low. The breakdown's `unmatched` is money no call
+     row could be tied to at all. So the sentence states what it actually measures
      and makes no claim about attribution, which the breakdown answers properly
      three lines below it. */
   return {
@@ -152,7 +153,7 @@ payments: boolean
  * `null` in, nothing out — a filtered view has no processor figure to split,
  * and a split that could not be trusted was already refused upstream.
  *
- * NO CALL IS SHOWN EVEN AT ZERO, unlike the other three. A zero there is a
+ * UNMATCHED IS SHOWN EVEN AT ZERO, unlike the other three. A zero there is a
  * real and welcome fact: every payment this period is accounted for by a call.
  * The other three at zero are equally real — no new deals, or nothing owed
  * from before — so all four always show, and the row always sums to the tile.
@@ -165,6 +166,10 @@ export function cashBreakdownFor(
     { label: "new", value: formatReporting(split.newCash) },
     { label: "remainder", value: formatReporting(split.remainder) },
     { label: "deposits", value: formatReporting(split.deposits) },
-    { label: "no call", value: formatReporting(split.noCall) },
+    // "unmatched", not "no call": the figure is a refusal to attribute, and a
+    // refusal and a measured absence must never render the same. Live on
+    // 2026-09-10 at least $1,700 of it had a call on the tracker with no email
+    // on the row. See CashSplit.unmatched.
+    { label: "unmatched", value: formatReporting(split.unmatched) },
   ];
 }

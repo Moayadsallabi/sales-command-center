@@ -498,23 +498,69 @@ if (belowBar.length) {
 }
 
 if (unbanked.length) {
-  const claimedTotal = unbanked.reduce((sum, m) => sum + m.row.onCall, 0);
-  console.log(
-    `✗ ${unbanked.length} row${unbanked.length === 1 ? " records" : "s record"} money taken on the call ` +
-      `that Whop does not hold — ${money(claimedTotal)} claimed:\n`
-  );
-  for (const m of unbanked) {
-    const held = m.buyer ? money(m.buyer.paid) : "nothing";
+  /*
+   * TWO DIFFERENT FACTS WORE ONE SENTENCE, AND ONLY ONE OF THEM WAS MEASURED.
+   *
+   * This said "N rows record money taken on the call that Whop does not hold —
+   * $X claimed", over a list that mixes two things:
+   *
+   *   a row WITH an address, looked up, and the processor has nothing. A real
+   *     absence, and worth someone's morning.
+   *   a row with NO address, which was never looked up at all. Nothing was
+   *     established about it. The bracket said so; the headline did not, and
+   *     the headline is what gets read and repeated.
+   *
+   * Live on 2026-09-10 that mattered: of the three September rows, "Unknown"
+   * ($1,200) and Alfredo Roque ($500) both HAD their money sitting in Whop —
+   * under chris melancon and "PO Naranjito" — and only Camden's $2,500 was
+   * genuinely missing. A refusal to match rendered identically to a measured
+   * zero, which is the fault CLAUDE.md names on 2026-08-25 and this is the
+   * fourth time it has been paid for.
+   *
+   * So the two are counted apart, and only the searched half is called a claim
+   * Whop cannot support.
+   */
+  const searched = unbanked.filter((m) => m.row.email);
+  const unsearchable = unbanked.filter((m) => !m.row.email);
+  const total = (list) => list.reduce((sum, m) => sum + m.row.onCall, 0);
+
+  if (searched.length) {
     console.log(
-      `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} row says ${money(m.row.onCall).padEnd(8)} ` +
-        `Whop holds ${held}${m.row.email ? "" : "  [no prospect email on the row]"}${m.buyer ? guess(m) : ""}`
+      `✗ ${searched.length} row${searched.length === 1 ? " records" : "s record"} money taken on the call ` +
+        `that Whop does not hold — ${money(total(searched))} claimed:\n`
     );
-    console.log(`      ${m.row.url}`);
+    for (const m of searched) {
+      const held = m.buyer ? money(m.buyer.paid) : "nothing";
+      console.log(
+        `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} row says ${money(m.row.onCall).padEnd(8)} ` +
+          `Whop holds ${held}${m.buyer ? guess(m) : ""}`
+      );
+      console.log(`      ${m.row.url}`);
+    }
+    console.log(
+      "\n  A card entered as the call ended is the usual cause, and it either cleared\n" +
+        "  later or it never did. Check the ones more than a day old first.\n"
+    );
   }
-  console.log(
-    "\n  A card entered as the call ended is the usual cause, and it either cleared\n" +
-      "  later or it never did. Check the ones more than a day old first.\n"
-  );
+
+  if (unsearchable.length) {
+    console.log(
+      `⚠ ${unsearchable.length} row${unsearchable.length === 1 ? " records" : "s record"} money taken on the call ` +
+        `and ${unsearchable.length === 1 ? "carries" : "carry"} no address, so NOTHING WAS LOOKED UP — ` +
+        `${money(total(unsearchable))} unchecked:\n`
+    );
+    for (const m of unsearchable) {
+      console.log(
+        `  ${m.row.date ?? "no date"}  ${m.row.name.padEnd(22)} row says ${money(m.row.onCall)}`
+      );
+      console.log(`      ${m.row.url}`);
+    }
+    console.log(
+      "\n  These are not missing money. They are money nobody could search for.\n" +
+        "  Run `npm run backfill:emails` to fill the addresses in from Calendly,\n" +
+        "  then re-run this — whatever is still here afterwards is a real gap.\n"
+    );
+  }
 }
 
 if (cashOff.length) {

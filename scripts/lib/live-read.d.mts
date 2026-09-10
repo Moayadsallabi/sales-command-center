@@ -35,7 +35,10 @@ export interface TrackerRow {
   id: string;
   name: string;
   email: string | null;
+  /** The calendar day the call belongs to, in the client's zone. Never a stamp. */
   date: string | null;
+  /** The exact start when the row carries one, for anything needing the clock. */
+  startedAt: string | null;
   closer: string | null;
   outcome: string | null;
   priceClosed: number | null;
@@ -44,7 +47,12 @@ export interface TrackerRow {
   url: string;
 }
 
-export function readTracker(opts: { notionKey: string; databaseId: string }): Promise<TrackerRow[]>;
+export function readTracker(opts: {
+  notionKey: string;
+  databaseId: string;
+  /** Defaults to the client zone from the environment. */
+  timeZone?: string | null;
+}): Promise<TrackerRow[]>;
 
 export interface ReadBuyer {
   email: string;
