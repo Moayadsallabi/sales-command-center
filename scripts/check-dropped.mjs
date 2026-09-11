@@ -238,6 +238,32 @@ let totalPassed = 0;
 let totalBlocked = 0;
 let rescued = 0;
 
+/* THE HABIT UNDERNEATH THE BACKLOG, COUNTED.
+ *
+ * Measured on Brey, 2026-09-11, across 102 recordings: NOT ONE ad-hoc Google
+ * Meet carried the prospect's email. Zero of 72. Of the 30 recordings joined
+ * from the booked meeting, 21 did.
+ *
+ * That single fact explains three separate problems this repo has been treating
+ * as unrelated. A meeting started on the spot has no calendar event behind it,
+ * so it has no invitee list (no address — and `Prospect Email` is the key every
+ * join in the system runs on), no prospect name (which is why so many rows read
+ * "Unknown"), and no title for the sales-call rule to read (which is this
+ * backlog). Join the meeting Calendly booked and all three arrive by
+ * themselves.
+ *
+ * So the numbers travel together. A backlog count on its own reads as work to
+ * do; beside the share that were ad-hoc it reads as a cause somebody can act
+ * on, and it is the leading indicator — it moves the day the habit changes,
+ * where the address rate takes a fortnight to show it. */
+let adHoc = 0;
+let adHocWithAddress = 0;
+let booked = 0;
+let bookedWithAddress = 0;
+const hasProspect = (m) =>
+  (m.calendar_invitees ?? []).some((i) => i && i.is_external && i.email);
+const isAdHoc = (m) => /impromptu/i.test(String(m.title ?? ""));
+
 const unread = [];
 for (const { who, key } of RECORDERS) {
   let items;
@@ -252,6 +278,14 @@ for (const { who, key } of RECORDERS) {
   let blocked = 0;
   let blockedAndRescued = 0;
   for (const m of items) {
+    if (isAdHoc(m)) {
+      adHoc += 1;
+      if (hasProspect(m)) adHocWithAddress += 1;
+    } else {
+      booked += 1;
+      if (hasProspect(m)) bookedWithAddress += 1;
+    }
+
     const shareId = String(m.share_url ?? "").split("/share/")[1];
     const onTracker = shareId ? tracked.has(shareId) : false;
 
@@ -292,6 +326,30 @@ console.log(
   `\n  ${totalPassed} passed the title rule, ${totalBlocked} were blocked, ` +
     `${rescued} of those were rescued.`
 );
+
+const recorded = adHoc + booked;
+if (recorded > 0) {
+  const pct = (n) => Math.round((n / recorded) * 100);
+  console.log(
+    `\n  ${adHoc} of ${recorded} (${pct(adHoc)}%) were started as an ad-hoc meeting rather than ` +
+      `joined from the booking.`
+  );
+  // Stated as a rate on each side rather than as one number, because the whole
+  // claim is the CONTRAST. "21% carry an address" invites a shrug; "none of the
+  // ad-hoc ones do and most of the booked ones do" names what to change.
+  console.log(
+    `    carrying the prospect's email — ad-hoc: ${adHocWithAddress} of ${adHoc}` +
+      `, joined from the booking: ${bookedWithAddress} of ${booked}.`
+  );
+  if (adHoc > 0 && adHocWithAddress === 0) {
+    console.log(
+      "    An ad-hoc meeting has no calendar event, so it carries no invitee, no\n" +
+        "    prospect name and no title. That is this backlog, the rows reading\n" +
+        "    \"Unknown\", and every join that silently does not happen — one habit.\n" +
+        "    Join the meeting Calendly booked and all three arrive on their own."
+    );
+  }
+}
 
 if (dropped.length === 0) {
   console.log("\nNothing is sitting in the gap. Every blocked recording was ruled on.\n");

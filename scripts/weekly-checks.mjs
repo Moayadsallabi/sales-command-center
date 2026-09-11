@@ -353,6 +353,31 @@ function arrivalSection(delivery, dropped) {
   } else if (Number(backlog) > 0) {
     lines.push(`• ${backlog} ad-hoc recording(s) are waiting on a human ruling. \`npm run check:dropped\` lists them with a link each.`);
   }
+
+  /* THE CAUSE, BESIDE THE SYMPTOM.
+     Measured on Brey 2026-09-11: of 142 recordings, 92 were started as an
+     ad-hoc meeting and NOT ONE carried the prospect's email; of the 50 joined
+     from the booking, 33 did. A meeting started on the spot has no calendar
+     event, so no invitee, no prospect name and no title — which is the backlog
+     above, the rows reading "Unknown", and the identification line below, all
+     from one habit. This is the leading indicator: it moves the day the habit
+     changes, where the address rate takes a fortnight to show it. */
+  const adHoc = dropped.output.match(
+    /(\d+) of (\d+) \((\d+)%\) were started as an ad-hoc meeting/
+  );
+  if (adHoc) {
+    const [, count, total, pct] = adHoc;
+    const carried = dropped.output.match(/ad-hoc: (\d+) of \d+, joined from the booking: (\d+) of (\d+)/);
+    lines.push(
+      `• ${count} of ${total} recordings (${pct}%) were started as an ad-hoc meeting rather than joined from the booking.`
+    );
+    if (carried && carried[1] === "0") {
+      lines.push(
+        `  None of those ${count} carried the prospect's email; ${carried[2]} of the ${carried[3]} joined from the booking did. ` +
+          "Same habit behind the backlog above and the identification line below."
+      );
+    }
+  }
   return lines;
 }
 
