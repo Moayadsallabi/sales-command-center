@@ -100,6 +100,26 @@ export interface Reconciliation {
   missedCloses: Disagreement[];
   /** Marked Customer, but the cash figure disagrees with the processor. */
   cashOff: Disagreement[];
+  /**
+   * ROWS THAT CLAIM CASH THE PROCESSOR HAS NEVER SEEN, AND WERE ACTUALLY ASKED.
+   *
+   * The shape that fell through every panel on this page. `missedCloses` needs a
+   * matched buyer; so does `cashOff`. A row that claims money and matches NO
+   * buyer at all is in neither, so the dashboard had nothing to say about it —
+   * and it is the one shape that inflates revenue and the close rate together,
+   * because `isWin` reads the typed figure as money moving.
+   *
+   * Found live on 2026-09-11: Camden, 7 September, $2,500 in Collected On Call.
+   * The recording ends "just send you a link for 2.5k, let me know once that's
+   * processed" — nothing moved on the call, and four days later Whop held
+   * nothing from him. It had been counted as a $5,000 close the whole time.
+   *
+   * ONLY ROWS CARRYING AN ADDRESS. A row with no email matched nothing because
+   * nothing could be looked up, which is a different fact and a much larger
+   * list; putting the two together would bury the measured one under the
+   * unmeasurable. `check-payments.mjs` splits them the same way and says why.
+   */
+  unbanked: Disagreement[];
   /** Buyers with no call on the tracker at all — the coverage gap, not a typo. */
   untracked: number;
   untrackedWorth: number;
@@ -166,11 +186,29 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
 
   const missedCloses: Disagreement[] = [];
   const cashOff: Disagreement[] = [];
+  const unbanked: Disagreement[] = [];
   const matched: MatchedPayment[] = [];
 
   for (const call of considered) {
     const match = matches.get(call);
-    if (!match) continue;
+    if (!match) {
+      /* NOTHING MATCHED. Worth saying so only when the row claimed money AND
+         carried an address — then the processor was genuinely asked and
+         genuinely has nothing. Without an address nothing was looked up, and
+         reporting that as an absence is the fault this dashboard has paid for
+         four times. See `unbanked` above. */
+      const claimed = collectedToDate(call) ?? 0;
+      if (claimed >= MIN_DEPOSIT && call.prospect_email) {
+        unbanked.push({
+          call,
+          paid: 0,
+          payments: 0,
+          certain: true,
+          corroboration: corroborationOf(true, call.price_closed, 0),
+        });
+      }
+      continue;
+    }
 
     matched.push({
       call,
@@ -208,12 +246,15 @@ export function reconcile(calls: CallRecord[], buyers: WhopBuyer[]): Reconciliat
 
   missedCloses.sort(byConfidence);
   cashOff.sort(byConfidence);
+  // Biggest claim first: this list is read to decide who to ask about money.
+  unbanked.sort((a, b) => (collectedToDate(b.call) ?? 0) - (collectedToDate(a.call) ?? 0));
 
   const untracked = buyers.filter((b) => !claimed.has(b.email));
 
   return {
     missedCloses,
     cashOff,
+    unbanked,
     untracked: untracked.length,
     untrackedWorth: untracked.reduce((sum, b) => sum + b.paid, 0),
     untrackedBuyers: untracked,
@@ -273,6 +314,7 @@ export function windowReconciliation(
     keep(d.call.call_date)
   );
   const cashOff = reconciliation.cashOff.filter((d) => keep(d.call.call_date));
+  const unbanked = reconciliation.unbanked.filter((d) => keep(d.call.call_date));
   // Narrowed with the rest, by its call date, so nothing handed a windowed
   // reconciliation can read a wider set out of it than the object claims to
   // hold. The collect list does not want it narrowed and therefore reads the
@@ -285,6 +327,7 @@ export function windowReconciliation(
   return {
     missedCloses,
     cashOff,
+    unbanked,
     untracked: untrackedBuyers.length,
     untrackedWorth: untrackedBuyers.reduce((sum, b) => sum + b.paid, 0),
     untrackedBuyers,

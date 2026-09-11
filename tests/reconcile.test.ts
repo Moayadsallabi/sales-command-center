@@ -132,3 +132,106 @@ describe("settling", () => {
     expect(settle(calls, reconcile(calls, []))).toBe(calls);
   });
 });
+
+/**
+ * A ROW THAT CLAIMS MONEY AND MATCHES NOBODY.
+ *
+ * The shape that fell through every panel on the page. `missedCloses` needs a
+ * matched buyer and so does `cashOff`, so a row claiming cash against an
+ * address the processor has nothing for was in neither — and it is the one
+ * shape that inflates revenue and the close rate together, because `isWin`
+ * reads the typed figure as money that moved.
+ *
+ * Live on 2026-09-11: Camden, 7 September, $2,500 typed into Collected On Call.
+ * The recording ends "just send you a link for 2.5k, let me know once that's
+ * processed"; nothing moved on the call and the processor still held nothing
+ * four days later. It had been counted as a $5,000 close throughout.
+ */
+describe("a row claiming cash the processor has never seen", () => {
+  const camden = () =>
+    call({
+      name: "Camden",
+      outcome: "Customer",
+      prospect_email: "dealcamden13@gmail.com",
+      price_closed: 5000,
+      collected_on_call: 2500,
+      call_date: "2026-09-07",
+    });
+
+  it("is named, when the processor was actually asked", () => {
+    const r = reconcile([camden()], []);
+    expect(r.unbanked).toHaveLength(1);
+    expect(r.unbanked[0].call.name).toBe("Camden");
+    // It is not a missed close and not a cash disagreement — both need a buyer.
+    expect(r.missedCloses).toHaveLength(0);
+    expect(r.cashOff).toHaveLength(0);
+  });
+
+  it("is NOT named when the row carries no address", () => {
+    // Nothing was looked up, so nothing was established. Reporting that as an
+    // absence is the fault this dashboard has paid for four times.
+    const nameless = call({
+      name: "Unknown",
+      outcome: "Customer",
+      prospect_email: null,
+      collected_on_call: 2500,
+    });
+    expect(reconcile([nameless], []).unbanked).toHaveLength(0);
+  });
+
+  it("ignores a token below the deposit floor", () => {
+    const token = call({
+      outcome: "Customer",
+      prospect_email: "someone@example.com",
+      collected_on_call: 50,
+    });
+    expect(reconcile([token], []).unbanked).toHaveLength(0);
+  });
+
+  it("says nothing about a row that claims nothing", () => {
+    const open = call({
+      outcome: "BAMFAM",
+      prospect_email: "someone@example.com",
+      collected_on_call: 0,
+    });
+    expect(reconcile([open], []).unbanked).toHaveLength(0);
+  });
+
+  it("goes quiet the moment the money actually arrives", () => {
+    // The promotion path this whole panel exists to leave room for: once the
+    // payment lands it is a matched buyer, so it leaves this list rather than
+    // needing anyone to clear it.
+    const buyer = {
+      email: "dealcamden13@gmail.com",
+      name: "camden",
+      billing: "Camden Deal",
+      paid: 2500,
+      refunded: 0,
+      payments: 1,
+      history: [{ day: "2026-09-12", amount: 2500 }],
+      first: "2026-09-12",
+      last: "2026-09-12",
+    };
+    const r = reconcile([camden()], [buyer]);
+    expect(r.unbanked).toHaveLength(0);
+  });
+
+  it("orders the biggest claim first, because it is a list of people to ask", () => {
+    const small = call({
+      name: "Small",
+      outcome: "Customer",
+      prospect_email: "small@example.com",
+      collected_on_call: 150,
+    });
+    const big = call({
+      name: "Big",
+      outcome: "Customer",
+      prospect_email: "big@example.com",
+      collected_on_call: 3000,
+    });
+    expect(reconcile([small, big], []).unbanked.map((d) => d.call.name)).toEqual([
+      "Big",
+      "Small",
+    ]);
+  });
+});

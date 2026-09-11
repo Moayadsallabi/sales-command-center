@@ -160,6 +160,20 @@ npm run backfill:emails            # what it would write
 npm run backfill:emails -- --apply # write it
 ```
 
+**It runs on the weekly schedule now, ahead of the payments sync** — see
+`scripts/payments-sync-weekly.sh`. It used to run only when somebody remembered,
+and the cost of that was measured on 2026-09-11: a $4,000 customer had been
+sitting as a follow-up with a $150 deposit for twelve days because his two
+payments could not reach his call, and six of the seven rows "claiming cash Whop
+does not hold" turned out to be real money nothing could join. The order matters:
+addresses first, so the reconciliation immediately after can match what was just
+filled in.
+
+Waiting for the calendar is part of the run. Calendly reports `reading` before
+its event list has been fetched at all, and a cold start that ignores it reports
+"no booking" for every row and exits saying there is nothing to write — which
+reads exactly like a clean bill of health. It now waits, and says so.
+
 It runs the dashboard's own matcher — not a copy of it — and then asks a second
 source before writing anything. Those rows have no email precisely because the
 invite was thin, so the matcher had to fall back to the prospect's name and the

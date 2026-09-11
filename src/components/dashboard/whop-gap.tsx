@@ -57,8 +57,9 @@ export function WhopGap({
   windowLabel: string | null;
   order?: number;
 }) {
-  const { missedCloses, cashOff, untracked, untrackedWorth } = reconciliation;
-  const clean = missedCloses.length === 0 && cashOff.length === 0;
+  const { missedCloses, cashOff, unbanked, untracked, untrackedWorth } = reconciliation;
+  const clean =
+    missedCloses.length === 0 && cashOff.length === 0 && unbanked.length === 0;
 
   return (
     <Panel order={order} tone={clean ? "default" : "alert"}>
@@ -100,9 +101,10 @@ export function WhopGap({
 
       {clean ? (
         <p className="t-body text-zinc-300">
-          Every prospect who paid in this period is marked Customer, and every
-          customer&apos;s cash figure matches what the processor banked. Nothing
-          in these dates is being counted differently from how it was recorded.
+          Every prospect who paid in this period is marked Customer, every
+          customer&apos;s cash figure matches what the processor banked, and no
+          row claims money the processor has never seen. Nothing in these dates
+          is being counted differently from how it was recorded.
         </p>
       ) : (
         <>
@@ -160,6 +162,52 @@ export function WhopGap({
                     m.call.currency
                   )}`}
                   right={`Whop ${formatReporting(m.paid)}`}
+                />
+              ))}
+            </Section>
+          )}
+
+          {/* THE SHAPE THAT USED TO FALL THROUGH EVERY PANEL HERE.
+              Both lists above need a MATCHED buyer. A row that claims money and
+              matches nobody was in neither, so this panel said nothing about it
+              — and it is the one shape that inflates revenue and the close rate
+              at the same time, because `isWin` reads the typed figure as money
+              that moved.
+              Camden, 7 September, $2,500: the recording ends "just send you a
+              link for 2.5k, let me know once that's processed", nothing moved
+              on the call, and the processor still held nothing four days later.
+              It had been counted as a $5,000 close throughout.
+              Only rows carrying an address reach here — see Reconciliation. */}
+          {unbanked.length > 0 && (
+            <Section
+              title={`${unbanked.length} ${
+                unbanked.length === 1 ? "row claims" : "rows claim"
+              } money the processor has never seen`}
+              note={`${formatReporting(
+                unbanked.reduce((s, m) => s + (collectedToDate(m.call) ?? 0), 0)
+              )} typed as taken on the call, against an address the processor was asked about and had nothing for. A card that never cleared, or a payment link recorded as if it were a receipt`}
+              more={
+                unbanked.length > SHOWN ? (
+                  <Rest count={unbanked.length - SHOWN} />
+                ) : null
+              }
+            >
+              {unbanked.slice(0, SHOWN).map((m) => (
+                <Row
+                  key={m.call.id}
+                  href={m.call.notion_url}
+                  date={m.call.call_date}
+                  name={m.call.name}
+                  /* The tie is the row's own address, which is what makes this
+                     an answer rather than a shrug — so it is never weaker than
+                     certain, and the grade says what the price could not
+                     corroborate. */
+                  corroboration={m.corroboration}
+                  left={`tracker ${formatMoney(
+                    collectedToDate(m.call),
+                    m.call.currency
+                  )}`}
+                  right="Whop has nothing"
                 />
               ))}
             </Section>
