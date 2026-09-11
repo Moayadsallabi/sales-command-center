@@ -114,8 +114,14 @@ describe("the declaration cannot drift from what actually runs", () => {
 
   it("preflights the same list it spawns, so the top of the report matches the body", () => {
     const spawned = new Set([...weekly.matchAll(/runScript\(\s*"([\w-]+\.mjs)"/g)].map((m) => m[1]));
+    /* ANY script name, not just `check-`. The pattern here read
+       `check-[\w-]+\.mjs`, which silently stopped matching the day the report
+       gained a step that is not a check — `backfill-emails.mjs`, the one thing
+       it runs that WRITES. A preflight that cannot see a step cannot say that
+       step was unconfigured, which is the exact hole this file exists to
+       close. */
     const declared = new Set(
-      [...weekly.matchAll(/^\s+"(check-[\w-]+\.mjs)",$/gm)].map((m) => m[1])
+      [...weekly.matchAll(/^\s+"([\w-]+\.mjs)",$/gm)].map((m) => m[1])
     );
     expect([...spawned].sort()).toEqual([...declared].sort());
   });
@@ -136,6 +142,10 @@ describe("every section of the report can say 'this did not run'", () => {
   it("finds the sections it means to check", () => {
     expect(sections.map((f) => f.name).sort()).toEqual([
       "arrivalSection",
+      // The only step in the report that writes, and it needs the same
+      // opinion about "not configured" as the rest: a run that could not fill
+      // an address in must not read like one that found none to fill.
+      "backfillSection",
       "collectSection",
       "identifiedSection",
       "paymentsSection",

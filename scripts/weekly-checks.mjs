@@ -98,6 +98,7 @@ const ALWAYS_REPORT = process.env.ALWAYS_REPORT === "1";
 loadEnv();
 
 const CHECKS_RUN = [
+  "backfill-emails.mjs",
   "check-payments.mjs",
   "check-collect.mjs",
   "check-claims.mjs",
@@ -373,6 +374,83 @@ function arrivalSection(delivery, dropped) {
  * A window too small to judge is reported as unknown rather than as clean: a
  * quiet week is not evidence of a habit taking.
  */
+/**
+ * FILLING IN THE ADDRESSES, AND THE RULE THIS DELIBERATELY REVERSES.
+ *
+ * ---------------------------------------------------------------------------
+ * THIS RUNNER USED TO READ AND REPORT AND NEVER WRITE
+ *
+ * That was decided on 2026-08-18, when a launchd job running
+ * `check-payments --apply` unattended was retired. Its reasoning is worth
+ * quoting, because this is a departure from it: "an unattended --apply puts its
+ * best guess into a client's tracker before anyone has seen it."
+ *
+ * True of the payments check, and not true of this one — which is the whole
+ * reason this is the single write allowed here:
+ *
+ *   - it writes ONE FIELD, an email address. Never an outcome, never a figure.
+ *   - it is not a guess. The confirmed path needs TWO independent systems to
+ *     agree that the booking and the recording are the same appointment —
+ *     Calendly's scheduled start against Fathom's. Anything they disagree
+ *     about is named and left alone.
+ *   - it never overwrites. A row already carrying an address is untouched, so
+ *     the worst case is a blank field staying blank.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY IT IS WORTH THE DEPARTURE
+ *
+ * `Prospect Email` is the key every join in this system runs on, and the
+ * identification check below has reported it missing on 60% of recent calls for
+ * weeks. Reporting changed nothing, because the fix was a command somebody had
+ * to remember. Measured on 2026-09-11, what that cost: a $4,000 customer sat as
+ * a follow-up with a $150 deposit for twelve days; six of seven rows "claiming
+ * cash Whop does not hold" were real money nothing could join; $3,850 of
+ * September's unattributed cash belonged to a call on the tracker all along.
+ *
+ * It runs FIRST, ahead of the payments reconciliation, so a payment that could
+ * not reach its call this morning reaches it this morning rather than tomorrow.
+ *
+ * `BACKFILL_EMAILS=0` goes back to reporting only.
+ */
+function backfillSection({ code, output }) {
+  if (code === NOT_CONFIGURED) {
+    return {
+      mustFix: [],
+      lines: ["🚨 *Addresses* — not configured here, so no missing prospect email was filled in."],
+    };
+  }
+  if (code === 2) {
+    // NOT a finding. A write that did not happen leaves every row exactly as it
+    // was, so this is a bad morning rather than something for a person to
+    // correct — and putting it in mustFix would make the daily post shout.
+    return {
+      mustFix: [],
+      lines: ["🚨 *Addresses* — the backfill could not run, so any missing prospect email is still missing."],
+    };
+  }
+
+  const wrote = (output.match(/(\d+) rows? filled in/) || [])[1];
+  const held = (output.match(/unconfirmed\s+(\d+) of/) || [])[1];
+  const lines = [];
+
+  if (Number(wrote) > 0) {
+    lines.push(
+      `✅ *Addresses* — filled in ${wrote} missing prospect email${wrote === "1" ? "" : "s"} ` +
+        "from Calendly, each confirmed against the recording's own slot. Notion's page history is the undo."
+    );
+  } else {
+    lines.push(
+      "✅ *Addresses* — nothing to fill in; every recent call that can be tied to a booking already carries one."
+    );
+  }
+  if (Number(held) > 0) {
+    lines.push(
+      `  • ${held} more matched on the name alone and were NOT written — \`npm run backfill:emails\` lists them.`
+    );
+  }
+  return { mustFix: [], lines };
+}
+
 function identifiedSection({ code, output }) {
   if (code === NOT_CONFIGURED) {
     return {
@@ -486,6 +564,25 @@ function collectSection({ code, output }) {
   }
   return { mustFix: refunds.length ? ["a refunded customer is on the collect list"] : [], lines };
 }
+
+/* THE ONE STEP HERE THAT WRITES, AND IT RUNS FIRST.
+   Filling the addresses in before the reconciliation below means a payment that
+   could not reach its call this morning reaches it this morning. See
+   backfillSection for why this runner writes at all. */
+const backfillOff = process.env.BACKFILL_EMAILS === "0";
+const addresses = backfillOff
+  ? /* SWITCHED OFF IS NOT "NOTHING TO DO". The first version of this handed the
+       section a fake clean result, which printed "nothing to fill in; every
+       recent call already carries one" on a run that had not looked. That is
+       the fault this whole file exists to prevent, reintroduced by its newest
+       step — see the exit-code header at the top. */
+    {
+      mustFix: [],
+      lines: [
+        "• *Addresses* — filling in is switched off here (`BACKFILL_EMAILS=0`), so any missing prospect email is still missing.",
+      ],
+    }
+  : backfillSection(await runScript("backfill-emails.mjs", ["--apply"]));
 
 const payments = await runScript("check-payments.mjs");
 const pay = paymentsSection(payments);
@@ -608,6 +705,11 @@ const report = [
   ...collect.lines,
   "",
   ...arrivalLines,
+  "",
+  // Directly above identification, because they are two halves of one subject:
+  // how many calls arrived without an address, and how many of those have since
+  // been given one. Read apart, the first looks like a problem nobody is on.
+  ...addresses.lines,
   "",
   ...identified.lines,
   "",

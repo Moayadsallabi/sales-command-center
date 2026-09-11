@@ -116,6 +116,18 @@ export const REQUIREMENTS = {
     prefixes: ["FATHOM_KEY_"],
     hint: "One key per closer, named FATHOM_KEY_<closer>.",
   },
+  /* The only entry here that WRITES. It needs Calendly for the address and a
+     Fathom key to confirm the booking and the recording are the same
+     appointment; without the second it writes nothing at all rather than
+     guessing, so a missing FATHOM_KEY_ is the difference between a run that
+     fixes rows and a run that only reports them. */
+  "backfill-emails.mjs": {
+    names: ["NOTION_API_KEY", "NOTION_DATABASE_ID", "CALENDLY_API_KEY"],
+    prefixes: ["FATHOM_KEY_"],
+    hint:
+      "Calendly supplies the address; a Fathom key per closer confirms the booking " +
+      "and the recording are the same appointment. Without one it writes nothing.",
+  },
 };
 
 /**

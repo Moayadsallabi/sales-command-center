@@ -160,14 +160,19 @@ npm run backfill:emails            # what it would write
 npm run backfill:emails -- --apply # write it
 ```
 
-**It runs on the weekly schedule now, ahead of the payments sync** — see
-`scripts/payments-sync-weekly.sh`. It used to run only when somebody remembered,
-and the cost of that was measured on 2026-09-11: a $4,000 customer had been
-sitting as a follow-up with a $150 deposit for twelve days because his two
-payments could not reach his call, and six of the seven rows "claiming cash Whop
-does not hold" turned out to be real money nothing could join. The order matters:
-addresses first, so the reconciliation immediately after can match what was just
-filled in.
+**It runs inside the daily scheduled check now, ahead of the payments
+reconciliation** — see [The scheduled check](#the-scheduled-check). It used to
+run only when somebody remembered, and the cost of that was measured on
+2026-09-11: a $4,000 customer had been sitting as a follow-up with a $150
+deposit for twelve days because his two payments could not reach his call, and
+six of the seven rows "claiming cash Whop does not hold" turned out to be real
+money nothing could join. The order matters: addresses first, so the
+reconciliation immediately after can match what was just filled in.
+
+It is **the only step in that report that writes**, which is a departure from
+the rule the scheduled check was built on. `scripts/weekly-checks.mjs` carries
+the reasoning above `backfillSection`. Set `BACKFILL_EMAILS=0` to go back to
+reporting only.
 
 Waiting for the calendar is part of the run. Calendly reports `reading` before
 its event list has been fetched at all, and a cold start that ignores it reports
@@ -511,9 +516,20 @@ code or the variables when an address is added or moved.
 
 ### The scheduled check
 
-`npm run check:scheduled` runs the payments reconciliation, the delivery
-checks and the identification check, and posts one plain-English summary to
-Slack. It is meant to run on a schedule, not by hand.
+`npm run check:scheduled` fills in missing prospect addresses, runs the payments
+reconciliation, the delivery checks and the identification check, and posts one
+plain-English summary to Slack. It is meant to run on a schedule, not by hand.
+
+**Addresses first, and it is the one step here that writes.** This report was
+built to read and report and never write — a launchd job running
+`check-payments --apply` unattended was retired on 2026-08-18 precisely because
+"an unattended `--apply` puts its best guess into a client's tracker before
+anyone has seen it". `backfill:emails` is the deliberate exception: it writes one
+field, an email address, never an outcome or a figure; it needs two independent
+systems to agree the booking and the recording are the same appointment; and it
+never overwrites, so the worst case is a blank field staying blank. It runs
+before the reconciliation so a payment that could not reach its call this
+morning reaches it this morning. `BACKFILL_EMAILS=0` turns it off.
 
 **Identification** is the newest of them, and the only one measuring a habit
 rather than the software. `Prospect Email` is the key every join runs on, and
