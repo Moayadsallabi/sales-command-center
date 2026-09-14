@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "_README": [
     "THE MONEY AND CALL RULES BOTH DASHBOARDS OBEY.",
     "",
@@ -51,7 +51,8 @@
     "the_deal_value_is_unchanged": "Once money HAS moved the deal is still worth its agreed price, not the cash. A $6,000 plan with $500 paid is a $6,000 close with $5,500 outstanding. This rule decides WHETHER a call closed, never what it was worth - see deal_value. [STATED - Moayad, chat 2026-09-06] 'yes agreed price stays'.",
     "why_this_is_not_a_reversal": "The 2026-08-18 rulings in min_deposit and deal_value both presuppose money moved - a deposit IS cash, and an instalment deal has a first payment. Neither covered a deal where nothing ever arrived, which is the case this settles.",
     "measured_when_it_was_written": "Brey, 2026-09-06: twelve deals across the account had never received a penny, worth $29,250 of recorded revenue. August close rate 57.4% -> 42.6% and revenue $78,758 -> $62,508; September 62.5% -> 50.0%. Each of the twelve was checked against Whop by name as well as by email first, in case the money had arrived under a different address. It had not.",
-    "the_call_that_produced_it": "ABandZz, 5 September, recorded as a customer at $8,000. The recording has him agreeing a $200 deposit and asking to send it by Zelle after a trip to the bank; Christian's closing words are 'let me know when that 200 is ready'. Nothing ever arrived."
+    "the_call_that_produced_it": "ABandZz, 5 September, recorded as a customer at $8,000. The recording has him agreeing a $200 deposit and asking to send it by Zelle after a trip to the bank; Christian's closing words are 'let me know when that 200 is ready'. Nothing ever arrived.",
+    "corrected_2026_09_14": "Version 1.7.0 changes no wording here. It moves because this rule was not actually HOLDING: calls-sync skipped null fields on a Calendly-born lead, so a Collected On Call figure emptied in the tracker survived on the sheet for ever. Camden, 7 September, carried $2,500 that Notion no longer recorded and Whop had never seen - above min_deposit, so a follow-up counted as a $5,000 close. Every period frozen before the fix was therefore taken while a close that this rule excludes was inside it, which is what the version bump re-takes. See services/period-snapshot.js stalePeriods, and perceptionismlabkpis/docs/week-audit-2026-09-07-to-13.md."
   },
   "data_starts": {
     "date": "2026-08-16",
