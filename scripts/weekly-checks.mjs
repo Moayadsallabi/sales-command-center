@@ -188,7 +188,40 @@ function runScript(file, args = []) {
     child.stderr.on("data", (d) => (out += d.toString()));
     child.on("error", (err) => { clearTimeout(timer); finish({ code: 2, output: `could not start ${file}: ${err.message}` }); });
     child.on("close", (code) => { clearTimeout(timer); finish({ code: code === null ? 2 : code, output: out }); });
+  }).then((result) => {
+    logRun(file, result);
+    return result;
   });
+}
+
+/**
+ * THE CHILD'S OWN WORDS, INTO THE SERVICE LOG.
+ *
+ * Only the finished report used to reach the log. On 2026-09-14 the delivery
+ * check failed on the server and ran cleanly on a laptop the next morning, and
+ * nothing anywhere recorded what it had said on the server — so the cause of a
+ * failure the report was built to surface could not be found afterwards. The
+ * tail of any non-clean run is kept, which is where each check prints its
+ * reason.
+ */
+function logRun(file, { code, output }) {
+  if (code === 0) {
+    console.log(`[${file}] exit 0`);
+    return;
+  }
+  const tail = output.trim().split("\n").filter((l) => l.trim()).slice(-6);
+  console.log(`[${file}] exit ${code}\n${tail.map((l) => `  | ${l}`).join("\n")}`);
+}
+
+/**
+ * The first line a check printed about why it could not finish, for a report
+ * that would otherwise say only "could not complete". Checks mark their own
+ * failures with ✗ or !, so those win; the last line is the fallback.
+ */
+function reasonFrom(output) {
+  const lines = output.split("\n").map((l) => l.trim()).filter(Boolean);
+  const marked = lines.find((l) => /^[✗!]/.test(l));
+  return firstSentences((marked ?? lines.at(-1) ?? "it printed nothing").replace(/^[✗!]\s*/, ""), 160).replace(/[.:]$/, "");
 }
 
 /**
@@ -328,18 +361,51 @@ function twoWeeksAgo() {
 function arrivalSection(delivery, dropped) {
   const missing = (delivery.output.match(/(\d+) sales recordings never reached the tracker/) || [])[1];
   const backlog = (dropped.output.match(/(\d+) recording\(s\) had a title that named nothing/) || [])[1];
+  /* THREE WAYS check-delivery EXITS 1, and this used to tell only one apart.
+     A closer Fathom would not finish returning, and a closer who recorded
+     nothing, both exit 1 with no "never reached" count — so both were printed
+     as "the check could not complete", with no reason, on 2026-09-14. The first
+     is an unknown, the second is a finding, and the report now says which. */
+  const unread = (delivery.output.match(/✗ (.+?) could not be read in full/) || [])[1];
+  const silent = (delivery.output.match(/⚠ (.+?) recorded NOTHING/) || [])[1];
   const lines = [];
+  const mustFix = [];
 
   if (delivery.code === NOT_CONFIGURED) {
     // Named at the top with the variable it wants, so this line says what is
     // not covered rather than repeating the cause.
     lines.push("🚨 *Delivery* — not configured here, so whether calls are reaching the tracker at all is unknown.");
-  } else if (delivery.code !== 0 && missing === undefined) {
-    lines.push("⚠ *Delivery* — the check could not complete, so whether calls are arriving is UNKNOWN. Run `npm run check:delivery` by hand.");
+  } else if (unread) {
+    lines.push(
+      `⚠ *Delivery* — Fathom stopped returning ${unread}'s recordings partway (it limits how fast it can be read), ` +
+        `so whether every call reached the tracker is UNKNOWN${Number(missing) > 0 ? `; at least ${missing} did not` : ""}. ` +
+        "Run `npm run check:delivery` by hand."
+    );
+    mustFix.push("the delivery check could not read every recording");
+  } else if (delivery.code !== 0 && missing === undefined && !silent) {
+    lines.push(
+      `⚠ *Delivery* — the check could not complete (${reasonFrom(delivery.output)}), so whether calls are arriving is UNKNOWN. ` +
+        "Run `npm run check:delivery` by hand."
+    );
+    mustFix.push("the delivery check could not complete");
   } else if (Number(missing) > 0) {
-    lines.push(`⚠️ *Delivery* — ${missing} recording(s) the automation should have scored never reached the tracker. Run \`npm run check:delivery\` for which.`);
-  } else {
+    lines.push(
+      `⚠️ *Delivery* — ${missing} sales call(s) from the last two weeks never reached the tracker, so nobody scored them. ` +
+        "Run `npm run check:delivery` for which."
+    );
+    // The count is in the identifier on purpose: a second call going missing is
+    // news, and so is the list clearing.
+    mustFix.push(`${missing} sales call(s) never reached the tracker`);
+  } else if (!silent) {
     lines.push("✅ *Delivery* — every sales recording of the last two weeks reached the tracker.");
+  }
+  // Not gated on `unread`: check-delivery already leaves an unread closer out of
+  // its silent list, so a different closer recording nothing is still news.
+  if (silent) {
+    lines.push(
+      `⚠️ *Delivery* — ${silent} recorded nothing in the last two weeks: either no calls were taken, or the recorder stopped joining them.`
+    );
+    mustFix.push(`${silent} recorded nothing`);
   }
 
   // THE BACKLOG USED TO DISAPPEAR RATHER THAN REPORT. This reads a count out of
@@ -349,7 +415,7 @@ function arrivalSection(delivery, dropped) {
   if (dropped.code === NOT_CONFIGURED) {
     lines.push("• The ad-hoc backlog was not counted — that check is not configured here either.");
   } else if (dropped.code !== 0 && backlog === undefined) {
-    lines.push("• The ad-hoc backlog could not be counted this run, so it is unknown rather than empty.");
+    lines.push(`• The ad-hoc backlog could not be counted this run (${reasonFrom(dropped.output)}), so it is unknown rather than empty.`);
   } else if (Number(backlog) > 0) {
     lines.push(`• ${backlog} ad-hoc recording(s) are waiting on a human ruling. \`npm run check:dropped\` lists them with a link each.`);
   }
@@ -378,7 +444,7 @@ function arrivalSection(delivery, dropped) {
       );
     }
   }
-  return lines;
+  return { mustFix, lines };
 }
 
 /**
@@ -441,7 +507,7 @@ function backfillSection({ code, output }) {
   if (code === NOT_CONFIGURED) {
     return {
       mustFix: [],
-      lines: ["🚨 *Addresses* — not configured here, so no missing prospect email was filled in."],
+      lines: ["🚨 *Prospect emails* — not configured here, so no missing prospect email was filled in."],
     };
   }
   if (code === 2) {
@@ -450,7 +516,7 @@ function backfillSection({ code, output }) {
     // correct — and putting it in mustFix would make the daily post shout.
     return {
       mustFix: [],
-      lines: ["🚨 *Addresses* — the backfill could not run, so any missing prospect email is still missing."],
+      lines: ["🚨 *Prospect emails* — the backfill could not run, so any missing prospect email is still missing."],
     };
   }
 
@@ -460,12 +526,12 @@ function backfillSection({ code, output }) {
 
   if (Number(wrote) > 0) {
     lines.push(
-      `✅ *Addresses* — filled in ${wrote} missing prospect email${wrote === "1" ? "" : "s"} ` +
+      `✅ *Prospect emails* — filled in ${wrote} missing prospect email${wrote === "1" ? "" : "s"} ` +
         "from Calendly, each confirmed against the recording's own slot. Notion's page history is the undo."
     );
   } else {
     lines.push(
-      "✅ *Addresses* — nothing to fill in; every recent call that can be tied to a booking already carries one."
+      "✅ *Prospect emails* — nothing to fill in: every recent call that can be tied to a Calendly booking already has one."
     );
   }
   if (Number(held) > 0) {
@@ -491,7 +557,7 @@ function identifiedSection({ code, output }) {
   }
 
   const missing = (output.match(/missing it\s+:\s+(\d+)/) || [])[1];
-  const total = (output.match(/Calls in the last \d+ days: (\d+)/) || [])[1];
+  const [, days, total] = output.match(/Calls in the last (\d+) days: (\d+)/) || [];
   const pct = (output.match(/\((\d+)%\)/) || [])[1];
   const anonymous = (output.match(/no name either\s+:\s+(\d+)/) || [])[1];
 
@@ -501,13 +567,13 @@ function identifiedSection({ code, output }) {
 
   if (code === 1) {
     const lines = [
-      `⚠️ *Identification* — ${missing} of ${total} recent calls (${pct}%) arrived with no prospect email, so nothing can tie them to a payment, a booking or an ad.`,
+      `⚠️ *Identification* — ${missing} of ${total} calls in the last ${days ?? 14} days (${pct}%) arrived with no prospect email, so nothing can tie them to a payment, a booking or an ad.`,
     ];
     if (Number(anonymous) > 0) {
       lines.push(`  • ${anonymous} of those carry no name either — nothing can recover who they were.`);
     }
     lines.push(
-      "  • The address comes from a guest on the calendar invite: book through the Calendly link, put the prospect on the invite, and reschedule rather than recreate."
+      "  • The prospect email comes from a guest on the calendar invite: book through the Calendly link, put the prospect on the invite, and reschedule rather than recreate."
     );
     // The identifier stays the same while the problem persists, on purpose —
     // that is what keeps this quiet between the day it starts and the day it
@@ -517,7 +583,7 @@ function identifiedSection({ code, output }) {
 
   return {
     mustFix: [],
-    lines: [`✅ *Identification* — ${total} recent call(s), ${100 - Number(pct || 0)}% carrying an address that ties them to their money.`],
+    lines: [`✅ *Identification* — ${total} call(s) in the last ${days ?? 14} days, ${100 - Number(pct || 0)}% carrying a prospect email that ties them to their money.`],
   };
 }
 
@@ -572,20 +638,37 @@ function collectSection({ code, output }) {
 
   const refunds = headlines(output, ["✗"]);
   const listed = (output.match(/(\d+) rows would be listed, (\$[\d,]+) owed/) || []);
-  const weak = (output.match(/(\d+) of them rest on less than an address match/) || [])[1];
+  const weak = (output.match(/(\d+) of them rest on less than an email match/) || [])[1];
+  /* PEOPLE, NOT HEADLINES. check-collect prints ONE ✗ headline however many
+     refunded customers it found, so counting headlines titled "a refunded
+     customer" above a line that said two (2026-09-14). The count is read out of
+     the headline itself. */
+  const refundedPeople = Number(
+    (output.match(/✗ (\d+) customers? (?:was|were) refunded/) || [])[1] ?? refunds.length
+  );
 
   const lines = [];
   if (refunds.length) {
-    lines.push(`⚠️ *To collect* — ${refunds.length === 1 ? "a refunded customer is" : `${refunds.length} refunded customers are`} still marked Customer on the tracker.`);
+    lines.push(
+      `⚠️ *To collect* — ${refundedPeople === 1 ? "1 refunded customer is" : `${refundedPeople} refunded customers are`} still marked Customer on the tracker.`
+    );
     lines.push(...cap(refunds).map((l) => `  • ${l}`));
-    lines.push("  • Mark the row REFUND: until then every money figure on the page counts it.");
+    lines.push(
+      `  • Mark ${refundedPeople === 1 ? "the row" : "each row"} REFUND: until then every money figure on the page counts ${refundedPeople === 1 ? "it" : "them"}. \`npm run check:collect\` names them.`
+    );
+    if (listed.length) lines.push(`  • The chase list itself: ${listed[1]} deals part paid, ${listed[2]} owed.`);
   } else if (listed.length) {
     lines.push(`✅ *To collect* — ${listed[1]} deals part paid, ${listed[2]} owed, no refunded row on the list.`);
   } else {
     lines.push("✅ *To collect* — nothing outstanding on a closed deal.");
   }
   if (weak && Number(weak) > 0) {
-    lines.push(`  • ${weak} of them rest on less than an address match — \`npm run check:collect\` names which.`);
+    // Names the list it counts. Under a refund heading, "N of them" read as N of
+    // the refunded customers.
+    const ofList = listed.length ? `of the ${listed[1]} deals on the chase list` : "of the deals on the chase list";
+    lines.push(
+      `  • ${weak} ${ofList} are tied to their payment by a name, or by nothing, rather than by email — \`npm run check:collect\` names which.`
+    );
   }
   return { mustFix: refunds.length ? ["a refunded customer is on the collect list"] : [], lines };
 }
@@ -604,7 +687,7 @@ const addresses = backfillOff
     {
       mustFix: [],
       lines: [
-        "• *Addresses* — filling in is switched off here (`BACKFILL_EMAILS=0`), so any missing prospect email is still missing.",
+        "• *Prospect emails* — filling in is switched off here (`BACKFILL_EMAILS=0`), so any missing prospect email is still missing.",
       ],
     }
   : backfillSection(await runScript("backfill-emails.mjs", ["--apply"]));
@@ -644,7 +727,9 @@ const claimLines = {
     "⚠ A claim that money was missing no longer holds — a figure somebody",
     "  corrected is now wrong. Run `npm run check:claims` for which one.",
   ],
-  [CLEAN]: ["Every claim about missing money still holds."],
+  // Plainly, because "every claim about missing money still holds" read as an
+  // alarm to the person it was sent to. It is the all-clear.
+  [CLEAN]: ["✅ *Claims* — every figure already corrected for missing money is still right: none of that money has arrived since."],
 }[claimsOutcome];
 
 /* ARE CALLS EVEN ARRIVING? Added 2026-08-25.
@@ -666,7 +751,7 @@ const claimLines = {
 // the caller, so the two can be read side by side.
 const delivery = await runScript("check-delivery.mjs", ["--client", HANDLE, "--since", twoWeeksAgo()]);
 const dropped = await runScript("check-dropped.mjs", ["--client", HANDLE, "--since", twoWeeksAgo()]);
-const arrivalLines = arrivalSection(delivery, dropped);
+const arrival = arrivalSection(delivery, dropped);
 
 const identified = identifiedSection(await runScript("check-identified.mjs"));
 
@@ -695,6 +780,9 @@ const verdict = decide({
     ...collect.mustFix,
     ...(claimsReopened ? ["a money claim has been reopened"] : []),
     ...(claimsRan ? [] : ["the claims check did not run"]),
+    // A call that never reached the tracker is a call nobody scored. Until
+    // 2026-09-15 it was reported only when something ELSE had changed.
+    ...arrival.mustFix,
     ...identified.mustFix,
   ],
   previous,
@@ -729,7 +817,7 @@ const report = [
   "",
   ...collect.lines,
   "",
-  ...arrivalLines,
+  ...arrival.lines,
   "",
   // Directly above identification, because they are two halves of one subject:
   // how many calls arrived without an address, and how many of those have since

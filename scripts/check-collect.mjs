@@ -185,7 +185,7 @@ const grade = (x) =>
 const weak = listed.filter((x) => grade(x) !== "email");
 console.log(
   `${listed.length} rows would be listed, ${money(listed.reduce((s, x) => s + x.owed, 0))} owed.` +
-    (weak.length ? ` ${weak.length} of them rest on less than an address match:` : " Every one is tied to a payment by email.")
+    (weak.length ? ` ${weak.length} of them rest on less than an email match:` : " Every one is tied to a payment by email.")
 );
 for (const x of weak) {
   console.log(

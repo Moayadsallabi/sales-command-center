@@ -268,7 +268,14 @@ for (const row of tracker) {
   // Runs over EVERY row, no-shows included: a claim of money taken on a call
   // nobody attended is exactly the kind of thing worth naming, and this check
   // is about the claim rather than about the outcome.
-  if (row.onCall > 0 && (match?.buyer.paid ?? 0) + CASH_TOLERANCE < row.onCall) {
+  //
+  // Measured against what Whop TOOK, not what it kept. A card charged on the
+  // call and refunded a day later was money Whop saw; reading the net figure
+  // listed a REFUND row as "money the processor has never seen" (Jhon, 28 Aug
+  // 2026, $500 in and $500 back) — a claim about a payment that happened, sent
+  // somebody to chase. The refund has its own section below.
+  const taken = match ? (match.buyer.gross ?? match.buyer.paid) : 0;
+  if (row.onCall > 0 && taken + CASH_TOLERANCE < row.onCall) {
     unbanked.push({ row, ...(match ?? {}) });
   }
 
@@ -546,7 +553,7 @@ if (unbanked.length) {
   if (unsearchable.length) {
     console.log(
       `⚠ ${unsearchable.length} row${unsearchable.length === 1 ? " records" : "s record"} money taken on the call ` +
-        `and ${unsearchable.length === 1 ? "carries" : "carry"} no address, so NOTHING WAS LOOKED UP — ` +
+        `and ${unsearchable.length === 1 ? "carries" : "carry"} no prospect email, so NOTHING WAS LOOKED UP — ` +
         `${money(total(unsearchable))} unchecked:\n`
     );
     for (const m of unsearchable) {
@@ -629,7 +636,8 @@ if (deposits.length) {
 if (untracked.length) {
   const worth = untracked.reduce((sum, b) => sum + b.paid, 0);
   console.log(
-    `⚠ ${untracked.length} buyers paid ${money(worth)} with no call on the tracker at all.\n` +
+    `⚠ ${untracked.length} buyers paid ${money(worth)} with no call on the tracker at all` +
+      `${DATA_STARTS ? `, counting buyers who first paid on or after ${DATA_STARTS}` : ""}.\n` +
       `  That is the coverage gap, not a data-entry gap — those calls either were never\n` +
       `  recorded, never reached the automation, or the customer never had a call.\n`
   );
