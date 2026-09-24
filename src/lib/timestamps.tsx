@@ -77,13 +77,13 @@ export function withTimestamps(
           rel="noopener noreferrer"
           // Tabular figures so a column of times does not jitter, and the
           // underline offset keeps the brackets legible at 11px.
-          className="font-mono text-[0.9em] tabular-nums text-[#d4af37]/80 underline decoration-[#d4af37]/30 underline-offset-2 transition-colors hover:text-[#d4af37] hover:decoration-[#d4af37]"
+          className="font-num text-[0.9em] tabular-nums text-[#d4af37]/80 underline decoration-[#d4af37]/30 underline-offset-2 transition-colors hover:text-[#d4af37] hover:decoration-[#d4af37]"
           title="Open the recording at this moment"
         >
           {stamp}
         </a>
       ) : (
-        <span key={key++} className="font-mono text-[0.9em] tabular-nums text-zinc-500">
+        <span key={key++} className="font-num text-[0.9em] tabular-nums text-zinc-500">
           {stamp}
         </span>
       )

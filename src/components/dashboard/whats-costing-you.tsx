@@ -140,7 +140,7 @@ export function WhatsCostingYou({
                 </div>
                 <div className="flex shrink-0 items-baseline gap-3 text-right sm:block">
                   <div
-                    className="font-mono text-2xl font-bold tabular-nums"
+                    className="font-num text-2xl font-semibold tabular-nums"
                     style={{ color: callScoreHex(cost.average) }}
                   >
                     {cost.average.toFixed(1)}

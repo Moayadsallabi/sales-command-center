@@ -452,7 +452,7 @@ function Legend({
           className="flex items-center gap-1.5 text-[12px] text-zinc-400"
         >
           <span className={cn("h-2 w-2 shrink-0 rounded-sm", SWATCH[s.state])} />
-          <span className="font-mono tabular-nums text-zinc-200">
+          <span className="font-num tabular-nums text-zinc-200">
             {counts[s.state]}
           </span>
           {s.label}
@@ -497,7 +497,7 @@ function DayCell({
       <div className="mb-1 flex items-center justify-between px-0.5">
         <span
           className={cn(
-            "font-mono text-[11px] tabular-nums",
+            "font-num text-[11px] tabular-nums",
             isToday
               ? "rounded bg-gold-500 px-1 font-semibold text-[var(--color-gold-ink)]"
               : outside
@@ -575,7 +575,7 @@ function Chip({
   const body = (
     <>
       {time && (
-        <span className="shrink-0 font-mono text-[10px] tabular-nums opacity-70">
+        <span className="shrink-0 font-num text-[10px] tabular-nums opacity-70">
           {time}
         </span>
       )}

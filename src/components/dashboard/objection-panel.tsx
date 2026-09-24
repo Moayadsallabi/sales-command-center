@@ -167,7 +167,7 @@ function ObjectionRow({ stat, base }: { stat: ObjectionStat; base: number }) {
           </span>
         ) : (
           <>
-            <span className="font-mono text-[15px] tabular-nums text-zinc-200 sm:block sm:text-[13px]">
+            <span className="font-num text-[15px] tabular-nums text-zinc-200 sm:block sm:text-[13px]">
               {rate}%
             </span>
             <span

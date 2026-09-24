@@ -362,7 +362,7 @@ function ScorecardBody({
             </span>
           )}
           {overall != null && (
-            <span className="font-mono text-[13px] tabular-nums" title="How the call was run">
+            <span className="font-num text-[13px] tabular-nums" title="How the call was run">
               <span
                 className="text-lg font-bold"
                 style={{ color: callScoreHex(overall) }}
@@ -396,7 +396,7 @@ function ScorecardBody({
               the same 5/10 means opposite things at 82 and at 31. */}
           {lead != null && (
             <span
-              className="font-mono text-[13px] tabular-nums"
+              className="font-num text-[13px] tabular-nums"
               title="How good the lead was, scored separately from the call"
             >
               <span className="text-lg font-bold" style={{ color: leadScoreHex(lead) }}>
@@ -479,7 +479,7 @@ function ScorecardBody({
                       className="flex items-start gap-3 px-1 py-2.5"
                     >
                       <span
-                        className="mt-px w-6 shrink-0 font-mono text-[15px] font-bold tabular-nums"
+                        className="mt-px w-6 shrink-0 font-num text-[15px] font-bold tabular-nums"
                         style={{ color: callScoreHex(score) }}
                       >
                         {score}
@@ -575,7 +575,7 @@ function ScorecardBody({
                               }}
                             />
                           </div>
-                          <span className="w-10 shrink-0 text-right font-mono text-[13px] tabular-nums text-zinc-400">
+                          <span className="w-10 shrink-0 text-right font-num text-[13px] tabular-nums text-zinc-400">
                             {score}
                             <span className="text-zinc-400">/{factor.max}</span>
                           </span>
@@ -663,7 +663,7 @@ function ScorecardBody({
                                         />
                                       )}
                                     </div>
-                                    <span className="w-10 shrink-0 text-right font-mono text-[13px] tabular-nums text-zinc-400">
+                                    <span className="w-10 shrink-0 text-right font-num text-[13px] tabular-nums text-zinc-400">
                                       {score ?? "—"}
                                       <span className="text-zinc-400">/{factor.max}</span>
                                     </span>
@@ -732,7 +732,7 @@ function ScorecardBody({
                               )}
                             </div>
                             <span
-                              className="w-6 shrink-0 text-right font-mono text-[13px] tabular-nums"
+                              className="w-6 shrink-0 text-right font-num text-[13px] tabular-nums"
                               style={{
                                 color:
                                   score == null ? "#52525b" : callScoreHex(score),

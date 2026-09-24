@@ -69,7 +69,7 @@ export function SetupNotice({ failure }: { failure: NotionFailure }) {
         <ol className="mt-6 space-y-3">
           {steps.map((step, i) => (
             <li key={step} className="flex gap-3 text-[13px] text-zinc-400">
-              <span className="mt-px font-mono text-[13px] tabular-nums text-gold-500/60">
+              <span className="mt-px font-num text-[13px] tabular-nums text-gold-500/60">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <span>{step}</span>

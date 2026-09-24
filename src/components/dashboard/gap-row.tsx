@@ -55,7 +55,7 @@ export function dotSize(calls: number): number {
 export function GapScale({ gridTemplate }: { gridTemplate: string }) {
   return (
     <div
-      className="grid grid-cols-1 items-center gap-3.5 px-3.5 pb-1.5 font-mono text-[10px] text-zinc-400 sm:grid-cols-[var(--gap-grid)]"
+      className="grid grid-cols-1 items-center gap-3.5 px-3.5 pb-1.5 font-num text-[10px] tabular-nums text-zinc-400 sm:grid-cols-[var(--gap-grid)]"
       style={{ "--gap-grid": gridTemplate } as React.CSSProperties}
     >
       {/* The spacer columns only exist to hold the ticks over the track on a
@@ -193,7 +193,7 @@ export function GapRow({
 
       <span className="col-start-2 row-start-1 text-right sm:col-start-3">
         <span
-          className={`block font-mono text-[16px] font-medium tabular-nums ${
+          className={`block font-num text-[16px] font-medium tabular-nums ${
             conclusive ? "text-[var(--color-positive)]" : "text-zinc-400"
           }`}
         >

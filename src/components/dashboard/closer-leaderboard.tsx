@@ -26,7 +26,7 @@ function Trend({ value }: { value: number | null }) {
   const Icon = better ? TrendingUp : TrendingDown;
   return (
     <span
-      className={`inline-flex items-center justify-end gap-1 font-mono ${
+      className={`inline-flex items-center justify-end gap-1 font-num tabular-nums ${
         better
         ? "text-[var(--color-positive)]"
         : "text-[var(--color-negative)]"
@@ -174,33 +174,33 @@ export function CloserLeaderboard({
                     <td className="px-5 py-3 whitespace-nowrap font-medium text-zinc-200">
                       {row.closer}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400">
+                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-400">
                       {row.calls}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400">
+                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-400">
                       {row.taken}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400">
+                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-400">
                       {row.customers}
                     </td>
-                    <td className="px-5 py-3 text-right font-mono tabular-nums text-zinc-200">
+                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-200">
                       {row.closeRate == null ? "—" : `${Math.round(row.closeRate)}%`}
                     </td>
                     <td
-                      className="px-5 py-3 text-right font-mono tabular-nums text-gold-400"
+                      className="px-5 py-3 text-right font-num tabular-nums text-gold-400"
                       title="From the tracker's own Cash Collected, typed by the closer. The tile at the top of the page is the processor's figure and counts money no closer can be credited with."
                     >
                       {currency(row.cashCollected)}
                     </td>
                     <td
-                      className={`px-5 py-3 text-right font-mono tabular-nums font-medium ${scoreColor(
+                      className={`px-5 py-3 text-right font-num tabular-nums font-medium ${scoreColor(
                         row.avgScore
                       )}`}
                     >
                       {row.avgScore == null ? "—" : row.avgScore.toFixed(1)}
                     </td>
                     <td
-                      className="px-5 py-3 text-right font-mono tabular-nums text-zinc-400"
+                      className="px-5 py-3 text-right font-num tabular-nums text-zinc-400"
                       title={
                         row.avgLeadScore == null
                           ? "None of these calls has a lead assessment yet"
@@ -229,7 +229,7 @@ export function CloserLeaderboard({
                       {row.weakest ? (
                         <>
                           {row.weakest.dimension.plainName}{" "}
-                          <span className="font-mono tabular-nums text-zinc-300">
+                          <span className="font-num tabular-nums text-zinc-300">
                             {row.weakest.score.toFixed(1)}
                           </span>
                         </>

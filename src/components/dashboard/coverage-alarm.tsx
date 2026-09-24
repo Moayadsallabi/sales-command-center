@@ -117,7 +117,7 @@ export function CoverageAlarm({
               const lastFull = i === weeks.length - 2;
               return (
                 <div key={w.week} className="flex w-9 flex-col items-center gap-1">
-                  <span className="font-mono text-[11px] tabular-nums text-zinc-300">
+                  <span className="font-num text-[11px] tabular-nums text-zinc-300">
                     {w.calls}
                   </span>
                   <div

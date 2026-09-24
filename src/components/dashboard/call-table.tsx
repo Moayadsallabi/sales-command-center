@@ -88,7 +88,7 @@ export function CallTable({
             .filter(Boolean)
             .join(" ")}
           right={
-            <span className="font-mono text-[13px] tabular-nums text-zinc-400">
+            <span className="font-num text-[13px] tabular-nums text-zinc-400">
               {sorted.length}
             </span>
           }
@@ -189,7 +189,7 @@ export function CallTable({
                 <td className="px-5 py-3 whitespace-nowrap text-[13px] text-zinc-400">
                   {call.closer ?? <span className="text-zinc-500">—</span>}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] text-zinc-400 tabular-nums">
+                <td className="px-5 py-3 whitespace-nowrap font-num text-[13px] text-zinc-400 tabular-nums">
                   {call.call_date ? shortDate(call.call_date) : "—"}
                 </td>
                 <td className="px-5 py-3 whitespace-nowrap">
@@ -243,7 +243,7 @@ export function CallTable({
                 </td>
                 {/* Shown in the deal's own currency — never converted, so the
                     row always matches the contract. */}
-                <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] tabular-nums">
+                <td className="px-5 py-3 whitespace-nowrap font-num text-[13px] tabular-nums">
                   {collectedToDate(call) ? (
                     <span className="text-gold-400">
                       {formatMoney(collectedToDate(call), call.currency)}
@@ -274,7 +274,7 @@ export function CallTable({
                     `paid_total` is already in the reporting currency, so
                     printing it beside the row's own currency symbol would label
                     dollars as euros. */}
-                <td className="px-5 py-3 whitespace-nowrap font-mono text-[13px] tabular-nums">
+                <td className="px-5 py-3 whitespace-nowrap font-num text-[13px] tabular-nums">
                   {(() => {
                     const cell = revenueCell(call);
                     return cell ? (
@@ -308,7 +308,7 @@ export function CallTable({
                             }}
                           />
                         </div>
-                        <span className="font-mono text-[13px] text-zinc-400 tabular-nums">
+                        <span className="font-num text-[13px] text-zinc-400 tabular-nums">
                           {lead}
                         </span>
                         <span className="text-[11px] text-zinc-400">{leadBandFor(lead)}</span>
@@ -340,7 +340,7 @@ export function CallTable({
                           }}
                         />
                       </div>
-                      <span className="font-mono text-[13px] text-zinc-400 tabular-nums">
+                      <span className="font-num text-[13px] text-zinc-400 tabular-nums">
                         {overall.toFixed(1)}
                       </span>
                     </div>

@@ -445,7 +445,7 @@ function Tile({
           value={value}
           format={format}
           className={cn(
-            "font-mono font-bold tracking-tight tabular-nums",
+            "font-num font-semibold tracking-tight tabular-nums",
             // The four small tiles were a step below Revenue beside them, which
             // left each one a 2xl number floating over an empty band. One size.
             hero ? "text-4xl lg:text-5xl" : "text-2xl lg:text-3xl",
@@ -483,7 +483,7 @@ function Tile({
           {breakdown.map((item) => (
             <div key={item.label}>
               <dt className="t-label text-zinc-400">{item.label}</dt>
-              <dd className="mt-0.5 font-mono text-[15px] tabular-nums text-zinc-200">
+              <dd className="mt-0.5 font-num text-[15px] tabular-nums text-zinc-200">
                 {item.value}
               </dd>
             </div>

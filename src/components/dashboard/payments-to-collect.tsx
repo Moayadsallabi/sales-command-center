@@ -150,7 +150,7 @@ export function PaymentsToCollect({
         }
         right={
           none ? null : (
-            <span className="font-mono text-[13px] tabular-nums text-gold-300">
+            <span className="font-num text-[13px] tabular-nums text-gold-300">
               {formatReporting(result.owed)}{" "}
               {/* A REAL SPACE, NOT A MARGIN — `ml-1.5` leaves none in the text
                   itself, so a screen reader and anyone copying the line both
@@ -294,10 +294,10 @@ export function PaymentsToCollect({
                     !item.lastPaid
                       ? "text-zinc-400"
                       : item.quiet >= COLLECT_COLD_DAYS
-                      ? "font-mono text-[var(--color-negative)]"
+                      ? "font-num text-[var(--color-negative)]"
                       : item.quiet >= COLLECT_QUIET_DAYS
-                      ? "font-mono text-amber-400"
-                      : "font-mono text-zinc-300"
+                      ? "font-num text-amber-400"
+                      : "font-num text-zinc-300"
                   }`}
                   title={
                     item.lastPaid
@@ -324,11 +324,11 @@ export function PaymentsToCollect({
                 <span className="min-w-0 truncate text-[13px] text-zinc-400 sm:col-start-3 sm:row-start-1">
                   {item.call.closer ?? "—"}
                 </span>
-                <span className="text-right font-mono text-[13px] tabular-nums text-gold-300 sm:col-start-4 sm:row-start-1">
+                <span className="text-right font-num text-[13px] tabular-nums text-gold-300 sm:col-start-4 sm:row-start-1">
                   {formatReporting(item.owed)}{" "}
                   <span className="font-sans text-[11px] text-zinc-400">
                     of{" "}
-                    <span className="font-mono tabular-nums">
+                    <span className="font-num tabular-nums">
                       {formatReporting(item.price)}
                     </span>
                   </span>

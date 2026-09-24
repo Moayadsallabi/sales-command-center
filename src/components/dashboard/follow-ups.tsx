@@ -58,7 +58,7 @@ export function FollowUps({
         }
         right={
           result.items.length > 0 ? (
-            <span className="font-mono text-[13px] tabular-nums text-gold-300">
+            <span className="font-num text-[13px] tabular-nums text-gold-300">
               {formatReporting(result.worth)}{" "}
               {/* A REAL SPACE, NOT JUST A MARGIN. `ml-1.5` separates the two
                   words on screen and leaves none in the text itself, so a
@@ -170,7 +170,7 @@ export function FollowUps({
                   {call.name || "Unknown"}
                 </span>
                 <span
-                  className={`font-mono text-[13px] tabular-nums sm:col-start-1 sm:row-start-1 ${
+                  className={`font-num text-[13px] tabular-nums sm:col-start-1 sm:row-start-1 ${
                     age >= FOLLOW_UP_COLD_DAYS
                       ? "text-[var(--color-negative)]"
                       : age >= FOLLOW_UP_STALE_DAYS
@@ -183,7 +183,7 @@ export function FollowUps({
                 <span className="min-w-0 truncate text-[13px] text-zinc-400 sm:col-start-3 sm:row-start-1">
                   {call.closer ?? "—"}
                 </span>
-                <span className="text-right font-mono text-[13px] tabular-nums text-zinc-300 sm:col-start-4 sm:row-start-1">
+                <span className="text-right font-num text-[13px] tabular-nums text-zinc-300 sm:col-start-4 sm:row-start-1">
                   {worth > 0 ? formatMoney(call.price_discussed, call.currency) : "—"}
                 </span>
                 <ExternalLink className="hidden h-3 w-3 text-zinc-500 sm:col-start-5 sm:row-start-1 sm:block" />
