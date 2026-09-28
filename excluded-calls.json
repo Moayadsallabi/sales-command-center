@@ -92,6 +92,56 @@
       "reason": "Not a sales call at all - an internal team meeting. Fathom's own summary gives the purpose as 'Review sales performance, lead quality, and team changes'. It is caught here rather than by the block list because that list reads TITLES, and this one was started in a bare Meet room so it has no title to read. It is the shape the widened gate cannot see: 8 minutes, two voices, no prospect.",
       "ruled_by": "Claude, 2026-08-25, backfilling the last two weeks on Moayad's instruction",
       "why_it_matters": "Scored as a sales call it would count as a call held that closed nobody, so it lowers the close rate while telling you nothing. One row is trivial; the shape is not, since every future team huddle started outside the booking link looks identical to the gate."
+    },
+    {
+      "call_date": "2026-09-10",
+      "prospect_name": "taya shtayn",
+      "recording_share_id": "6dv7TrDeas4jZyQzeJrb9SXjsbFr2saB",
+      "notion_page_id": "3dca6b94-d53c-81e1-bcdf-c3bbac62aac3",
+      "price_closed": 0,
+      "reason": "Not a sales call - a coaching session between a sales coach (Taya Shtayn) and one of her closers, recorded on Tpan A's Fathom. 71 minutes, outcome no offer made, no prospect email. The tracker's own lead read says there is no prospect on the recording.",
+      "ruled_by": "Claude, 2026-09-28, on Moayad's instruction to make all the necessary fixes from the September dashboard check",
+      "why_it_matters": "Counted as a call held with no email, so it sat in the red note saying calls are missing from every figure (13 in September, 5 of them these sessions) and in the show-rate range as a call that happened. None was scored, so call quality was never touched."
+    },
+    {
+      "call_date": "2026-09-14",
+      "prospect_name": "taya shtayn",
+      "recording_share_id": "fhU6WqbFEznjeg4Cks4R2H4DxY7gNegF",
+      "notion_page_id": "3dca6b94-d53c-81c8-9efd-ecc87fa42873",
+      "price_closed": 0,
+      "reason": "Not a sales call - a coaching session between a sales coach (Taya Shtayn) and one of her closers, recorded on Tpan A's Fathom. 107 minutes, outcome no offer made, no prospect email. The tracker's own lead read says there is no prospect on the recording.",
+      "ruled_by": "Claude, 2026-09-28, on Moayad's instruction to make all the necessary fixes from the September dashboard check",
+      "why_it_matters": "Counted as a call held with no email, so it sat in the red note saying calls are missing from every figure (13 in September, 5 of them these sessions) and in the show-rate range as a call that happened. None was scored, so call quality was never touched."
+    },
+    {
+      "call_date": "2026-09-14",
+      "prospect_name": "Unknown",
+      "recording_share_id": "cJPhq9Bz9GsPxP1v6DCS-2pexNyZyzep",
+      "notion_page_id": "3dba6b94-d53c-81f4-a38d-ce682c79d6d6",
+      "price_closed": 0,
+      "reason": "Not a sales call - a check-in and skills review between Tpan A and the sales manager. 50 minutes, outcome no offer made, no prospect email. The tracker's own lead read says there is no prospect on the recording.",
+      "ruled_by": "Claude, 2026-09-28, on Moayad's instruction to make all the necessary fixes from the September dashboard check",
+      "why_it_matters": "Counted as a call held with no email, so it sat in the red note saying calls are missing from every figure (13 in September, 5 of them these sessions) and in the show-rate range as a call that happened. None was scored, so call quality was never touched."
+    },
+    {
+      "call_date": "2026-09-25",
+      "prospect_name": "taya shtayn",
+      "recording_share_id": "y73xdszysnsiEZX58siQRZxNAnWwhxkW",
+      "notion_page_id": "3e7a6b94-d53c-8150-a816-f832ead698ae",
+      "price_closed": 0,
+      "reason": "Not a sales call - a coaching session between a sales coach (Taya Shtayn) and one of her closers, recorded on Tpan A's Fathom. 64 minutes, outcome no offer made, no prospect email. The tracker's own lead read says there is no prospect on the recording.",
+      "ruled_by": "Claude, 2026-09-28, on Moayad's instruction to make all the necessary fixes from the September dashboard check",
+      "why_it_matters": "Counted as a call held with no email, so it sat in the red note saying calls are missing from every figure (13 in September, 5 of them these sessions) and in the show-rate range as a call that happened. None was scored, so call quality was never touched."
+    },
+    {
+      "call_date": "2026-09-26",
+      "prospect_name": "taya shtayn",
+      "recording_share_id": "DJy6yKnMLyxzmr9CJeFakvvf526PTww5",
+      "notion_page_id": "3e7a6b94-d53c-81b6-92eb-e3c8bd94139b",
+      "price_closed": 0,
+      "reason": "Not a sales call - a coaching session between a sales coach (Taya Shtayn) and one of her closers, recorded on Tpan A's Fathom. 112 minutes, outcome no offer made, no prospect email. The tracker's own lead read says there is no prospect on the recording.",
+      "ruled_by": "Claude, 2026-09-28, on Moayad's instruction to make all the necessary fixes from the September dashboard check",
+      "why_it_matters": "Counted as a call held with no email, so it sat in the red note saying calls are missing from every figure (13 in September, 5 of them these sessions) and in the show-rate range as a call that happened. None was scored, so call quality was never touched."
     }
   ]
 }
