@@ -142,6 +142,56 @@
       "reason": "Not a sales call - a coaching session between a sales coach (Taya Shtayn) and one of her closers, recorded on Tpan A's Fathom. 112 minutes, outcome no offer made, no prospect email. The tracker's own lead read says there is no prospect on the recording.",
       "ruled_by": "Claude, 2026-09-28, on Moayad's instruction to make all the necessary fixes from the September dashboard check",
       "why_it_matters": "Counted as a call held with no email, so it sat in the red note saying calls are missing from every figure (13 in September, 5 of them these sessions) and in the show-rate range as a call that happened. None was scored, so call quality was never touched."
+    },
+    {
+      "call_date": "2026-09-28",
+      "prospect_name": "Heriberto Garcia",
+      "recording_share_id": "a7YBixs_s2FjJEMYzNyyh1wuYsUzBohP",
+      "notion_page_id": "3eaa6b94-d53c-8187-87f5-df6330cf347a",
+      "price_closed": 3800,
+      "reason": "Sold on Andre's 90-day mentorship, not Funded Blueprint. The scorer marked it 'unclear' rather than 'different offer', so it slipped past the automatic exclusion. The pitch is the one Christian Pinto ran on the four Andre calls around it (Kaden Travers, Steven Castillo, Natalie Smith, Deztany Lamb, all scored 'different offer'): a 20-person 90-day sprint with Andre, $5,000 dropped to a $3,800 early bird, and Andre's first roadmap call as the next step. Brey's Whop holds no payment from him (fladaboii352@gmail.com), and none from any of the other Andre buyers either, checked in the dashboard's payments tab on 2026-09-29.",
+      "ruled_by": "Claude, 2026-09-29, on Moayad's instruction to rule it from the evidence",
+      "what_it_corrects": "Removes a $3,800 close and $2,500 recorded as taken on the call from September, none of it Brey's money."
+    },
+    {
+      "call_date": "2026-09-29",
+      "prospect_name": "Brandon Coria",
+      "recording_share_id": "PWfNxz1kymTZm8yKNT3a2ib-fx9EN2yB",
+      "notion_page_id": "3eba6b94-d53c-81ea-8a89-c0863a78831c",
+      "price_closed": 3800,
+      "reason": "Sold on Andre's 90-day mentorship, not Funded Blueprint: the same pitch and the same $3,800 price as Heriberto Garcia the night before, by the same closer (Christian Pinto). The scorer's own evidence quotes the call: 'you're also going to be placed in Andre's private trading mentorship' [16:38], and names Andre as the coach throughout, never JP or Bray. Marked 'unclear', so it passed the automatic exclusion. Brey's Whop holds no payment from him (coriabrandon4@gmail.com), by email or by name, checked 2026-10-04.",
+      "ruled_by": "Claude, 2026-10-04, from the September dashboard check, on Moayad's instruction to fix our side",
+      "what_it_corrects": "Removes a $3,800 close and $2,000 recorded as taken on the call from September, none of it Brey's money."
+    },
+    {
+      "call_date": "2026-09-29",
+      "prospect_name": "Zae Victoria",
+      "recording_share_id": "iGa4x2Y17Lj_BhVK5by2PSDiWnJrzDSR",
+      "notion_page_id": "3eaa6b94-d53c-81d4-b6a0-cd91699b583f",
+      "price_closed": 0,
+      "reason": "Andre's mentorship, not Funded Blueprint. Christian Pinto opens with 'specifically using Andre's mentorship and strategy' [00:05] and calls himself a success coach; JP and Bray are never named. Outcome BAMFAM, so no sale. Scored 'unclear'.",
+      "ruled_by": "Claude, 2026-10-04, from the September dashboard check, on Moayad's instruction to fix our side",
+      "what_it_corrects": "Takes a call that did not close out of September's close rate and call count."
+    },
+    {
+      "call_date": "2026-09-29",
+      "prospect_name": "Quazi Johir",
+      "recording_share_id": "vH3CcGxYHoK-TGfyLQV2Xd3syQEq-Y47",
+      "notion_page_id": "3eaa6b94-d53c-81e9-8bc4-c84f6fde5ec1",
+      "price_closed": 0,
+      "reason": "Not a sales call - a job interview recorded on Tpan A's Fathom. The scorer read it as a hiring conversation with Quazi as the candidate. Outcome no offer made, no prospect email.",
+      "ruled_by": "Claude, 2026-10-04, from the September dashboard check, on Moayad's instruction to fix our side",
+      "what_it_corrects": "Takes a recording with no prospect out of September's call count."
+    },
+    {
+      "call_date": "2026-09-08",
+      "prospect_name": "George Pook",
+      "recording_share_id": "duPBs2V1XGuzwoDvUUz9hJcMdWj6BnAP",
+      "notion_page_id": "3d5a6b94-d53c-815a-ae8f-e8cf5fc8034f",
+      "price_closed": 0,
+      "reason": "Not a sales call - a manager (George) replaying Tpan's earlier sales calls and coaching him: 'This is why we review, right?' [02:58]. Outcome no offer made, no prospect email. Same kind of session as the Taya Shtayn reviews excluded on 2026-09-28.",
+      "ruled_by": "Claude, 2026-10-04, from the September dashboard check, on Moayad's instruction to fix our side",
+      "what_it_corrects": "Takes a recording with no prospect out of September's call count."
     }
   ]
 }
