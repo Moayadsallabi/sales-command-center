@@ -192,6 +192,46 @@
       "reason": "Not a sales call - a manager (George) replaying Tpan's earlier sales calls and coaching him: 'This is why we review, right?' [02:58]. Outcome no offer made, no prospect email. Same kind of session as the Taya Shtayn reviews excluded on 2026-09-28.",
       "ruled_by": "Claude, 2026-10-04, from the September dashboard check, on Moayad's instruction to fix our side",
       "what_it_corrects": "Takes a recording with no prospect out of September's call count."
+    },
+    {
+      "call_date": "2026-10-01",
+      "prospect_name": "Luis veloz",
+      "recording_share_id": "mjBm1uRexXPwzxp_kzHNAziX7N7zTAzz",
+      "notion_page_id": "3eca6b94-d53c-810d-847b-e51fd415b928",
+      "price_closed": 3800,
+      "reason": "Sold on Andre's 90-day mentorship, not Funded Blueprint. Christian Pinto opens with 'I am the head coach over here with Andre' [0:10] and prices it as 'the 90 day run', 'the full investment for what we're doing is 3,800', the same pitch and price as the excluded Heriberto Garcia and Brandon Coria calls. The transcript names Andre throughout and never JP, Bray or Funded Blueprint (counted across the whole Fathom transcript, read 2026-10-09). Brey's Whop holds no payment from him (veloz47@yahoo.com), by email or by name.",
+      "ruled_by": "Claude, 2026-10-09, from the October dashboard check, on Moayad's instruction to fix everything",
+      "what_it_corrects": "Removes a $3,800 close and $1,900 recorded as taken on the call from October, none of it Brey's money. It was October's only close on a call."
+    },
+    {
+      "call_date": "2026-10-01",
+      "prospect_name": "Johnny Mijares",
+      "recording_share_id": "CEGVrxrzwd-aEexfCEmGfEA_n-EhE847",
+      "notion_page_id": "3eca6b94-d53c-81c6-8be9-d98d9124d598",
+      "price_closed": 3500,
+      "reason": "Sold on Andre's 90-day mentorship, not Funded Blueprint. The bonuses are 'the onboarding call with Andre' and access to Andre [15:06], the price is '5000' cut to '3800' and then $3,500 on request [28:38], and onboarding is a call with Andre. The transcript names Andre throughout and never JP, Bray or Funded Blueprint (counted across the whole Fathom transcript, read 2026-10-09). The row has no prospect email; Brey's Whop holds no payment by his name.",
+      "ruled_by": "Claude, 2026-10-09, from the October dashboard check, on Moayad's instruction to fix everything",
+      "what_it_corrects": "Stops a $3,500 close and $1,500 taken on the call being reported as a Funded Blueprint sale the dashboard could not reach. check:live and check:money listed it as Brey's."
+    },
+    {
+      "call_date": "2026-10-01",
+      "prospect_name": "Wilian Ortiz",
+      "recording_share_id": "esUMmc8iZ-1f-GnYg8n_-_nY6nrJHSBq",
+      "notion_page_id": "3eca6b94-d53c-8159-a1fd-f35f6a7dd1d8",
+      "price_closed": 0,
+      "reason": "Andre's mentorship, not Funded Blueprint. Christian Pinto pitches the 20-person intake ('we're bringing on 20 people, right? So we have two more spots left' [41:07]) after a call from Andre. The transcript names Andre throughout and never JP, Bray or Funded Blueprint (counted across the whole Fathom transcript, read 2026-10-09). Outcome no offer made, so no sale.",
+      "ruled_by": "Claude, 2026-10-09, from the October dashboard check, on Moayad's instruction to fix everything",
+      "what_it_corrects": "Takes a call that did not close out of October's call count and call scores."
+    },
+    {
+      "call_date": "2026-10-02",
+      "prospect_name": "Shawn James",
+      "recording_share_id": "3j2j5WDEw_xxGu9ymGDVjNU3ZjU5trSU",
+      "notion_page_id": "3eda6b94-d53c-813a-b50c-e2b2971e8a4c",
+      "price_closed": 0,
+      "reason": "Andre's mentorship, not Funded Blueprint. Christian Pinto: 'you're going to be meeting with Andre one-on-one' [9:05]; the prospect came from 'watching Andre' [17:07]. The transcript names Andre throughout and never JP, Bray or Funded Blueprint (counted across the whole Fathom transcript, read 2026-10-09). Outcome no offer made, so no sale.",
+      "ruled_by": "Claude, 2026-10-09, from the October dashboard check, on Moayad's instruction to fix everything",
+      "what_it_corrects": "Takes a no-close out of October's close rate, call count and call scores."
     }
   ]
 }
