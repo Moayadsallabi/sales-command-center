@@ -155,10 +155,41 @@
   }
 }
 
-/* Dot grid background texture */
-.bg-dot-grid {
-  background-image: radial-gradient(circle, #ffffff08 1px, transparent 1px);
-  background-size: 24px 24px;
+/* THE PAGE'S LIGHT.
+   Two fixed layers behind everything, both painted by pseudo-elements on the
+   body so no component has to know they exist:
+
+   - ::before is a wash of gold light falling from above the header, with a
+     much fainter cool counterweight on the right. It is fixed to the viewport,
+     so it reads as a light source the page scrolls under rather than a stain
+     at the top of the document.
+   - ::after is the dot grid, now masked so it is strongest under the header
+     and dissolves towards the foot of the screen. A uniform grid at one
+     opacity reads as wallpaper; one that fades reads as depth.
+
+   `z-index: -1` puts both under every in-flow element and above the canvas,
+   which carries the body's background. `pointer-events: none` so neither can
+   ever take a click. Neither can widen the page: `inset: 0` on a fixed box is
+   the viewport, never the document. */
+.bg-dot-grid::before,
+.bg-dot-grid::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.bg-dot-grid::before {
+  background:
+    radial-gradient(70% 55% at 38% -12%, #d4af371c 0%, #d4af3708 45%, transparent 75%),
+    radial-gradient(45% 40% at 100% 0%, #818cf80d 0%, transparent 70%),
+    radial-gradient(60% 50% at 50% 115%, #d4af3707 0%, transparent 70%);
+}
+.bg-dot-grid::after {
+  background-image: radial-gradient(circle, #ffffff0d 1px, transparent 1.2px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(120% 75% at 50% 0%, #000 0%, #0009 40%, transparent 85%);
+  mask-image: radial-gradient(120% 75% at 50% 0%, #000 0%, #0009 40%, transparent 85%);
 }
 
 /* THE GRAIN OVERLAY IS GONE.
@@ -190,11 +221,6 @@
   }
 }
 
-/* Glow effect for key metrics */
-.glow-gold {
-  box-shadow: 0 0 20px #d4af3715, 0 0 40px #d4af3708;
-}
-
 /* CARD SURFACE.
    This was a "glass" card: a white gradient plus `backdrop-filter: blur(12px)`.
    The page behind it is opaque #09090b, so the blur had nothing to blur — it
@@ -203,11 +229,106 @@
    rather than clean.
    One flat fill, one hairline, one soft shadow to lift it off the page. */
 .glass-card {
-  background: var(--card);
+  /* The flat fill is still --card underneath; the layer above it is a sheen
+     that only exists in the top 140px, so a tall panel and a short tile both
+     catch the same light on their top edge and the rest of each is the token. */
+  background:
+    linear-gradient(180deg, #ffffff07 0%, #ffffff00 140px),
+    var(--card);
   border: 1px solid var(--edge);
   box-shadow:
-    0 1px 2px #00000040,
-    0 12px 32px -16px #000000cc;
+    /* A one-pixel bevel along the top edge: the cheapest way to make a dark
+       surface read as raised rather than as a hole cut in the page. */
+    inset 0 1px 0 0 #ffffff0f,
+    0 1px 2px #00000052,
+    0 18px 40px -20px #000000e6;
+}
+
+/* THE TWO MONEY TILES.
+   Same card underneath, lit from the top-left corner in the brand's gold.
+   These used to paint a 7% gold gradient straight over the PAGE background,
+   which on #09090b came out as a muddy brown rather than as gold — the card
+   surface was missing from under it. The light now sits on the card, so the
+   tile is a card first and gold second. */
+.money-card {
+  background:
+    radial-gradient(120% 130% at 0% 0%, #d4af371f 0%, #d4af3708 38%, transparent 62%),
+    radial-gradient(70% 90% at 100% 100%, #d4af370a 0%, transparent 60%),
+    linear-gradient(180deg, #ffffff07 0%, #ffffff00 140px),
+    var(--card);
+  border: 1px solid #d4af3726;
+  box-shadow:
+    inset 0 1px 0 0 #f0d98a1a,
+    0 1px 2px #00000052,
+    0 24px 56px -28px #000000f2,
+    0 0 48px -24px #d4af3738;
+}
+/* A filament of light along the top edge, brightest in the middle. */
+.money-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #f0d98a8c, transparent);
+  pointer-events: none;
+}
+
+/* The same filament, shown on an ordinary tile only while it is hovered — the
+   tile answers the pointer without moving anything around it. */
+.hover-filament::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 18%;
+  right: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ffffff40, transparent);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.hover-filament:hover::before {
+  opacity: 1;
+}
+/* Written here rather than as a `hover:border-*` utility on the tile, because
+   .glass-card is unlayered CSS and Tailwind's utilities live in a layer, so a
+   utility border loses to it at any specificity. The old one never fired. */
+.hover-filament:hover {
+  border-color: #ffffff1f;
+}
+
+/* GOLD THAT LOOKS LIKE GOLD.
+   A flat #e5c158 figure reads as yellow text. A vertical ramp from the pale
+   end of the brand's own scale down to its deep end reads as metal — the
+   light catching the top of each figure. Every stop is a shade already on the
+   gold ramp, so nothing new enters the palette. The glow is a drop-shadow
+   FILTER rather than a text-shadow: with the glyphs filled by the clipped
+   background, a text-shadow would paint over them. */
+.text-gold-metal {
+  background: linear-gradient(180deg, #faf3dc 0%, #f0d98a 30%, #e5c158 62%, #b8942c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 22px #d4af372e);
+}
+
+/* The live dot's halo. One slow ring, so the page says it is listening
+   without anything on it blinking. Stilled by the reduced-motion block. */
+@keyframes live-halo {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  80%,
+  100% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+.live-halo {
+  animation: live-halo 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
 /* Animated number tabular alignment */

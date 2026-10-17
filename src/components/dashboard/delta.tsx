@@ -82,10 +82,10 @@ export function Delta({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums",
+        "inline-flex items-center gap-0.5 rounded-full py-0.5 pl-1 pr-1.5 text-[11px] font-medium tabular-nums",
         better
-          ? "bg-[var(--color-positive-dim)] text-[var(--color-positive)]"
-          : "bg-[var(--color-negative-dim)] text-[var(--color-negative)]",
+          ? "bg-[var(--color-positive-dim)] text-[var(--color-positive)] shadow-[inset_0_0_0_1px_#6ee7a82e]"
+          : "bg-[var(--color-negative-dim)] text-[var(--color-negative)] shadow-[inset_0_0_0_1px_#f4776b2e]",
         className
       )}
       title={`${better ? "Up" : "Down"} ${amount} ${label}`}

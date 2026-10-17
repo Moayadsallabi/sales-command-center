@@ -69,7 +69,7 @@ export function CloserLeaderboard({
 
   return (
     <Panel order={order} padded={false} className="overflow-hidden">
-      <div className="p-5 pb-0">
+      <div className="p-5 pb-0 lg:px-6 lg:pt-6">
         <PanelHeader
           icon={Trophy}
           title="Closers"
@@ -109,12 +109,12 @@ export function CloserLeaderboard({
       </div>
 
       {rows.length === 0 ? (
-        <div className="px-5 pb-6 t-body text-zinc-300">No calls in this range.</div>
+        <div className="px-5 pb-6 lg:px-6 t-body text-zinc-300">No calls in this range.</div>
       ) : (
         <div className="scroll-x">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="border-y border-white/[0.06] bg-white/[0.02]">
                 {/* Alignment is declared per column rather than by index, so
                     adding one does not silently shift another's alignment. */}
                 {[
@@ -151,7 +151,7 @@ export function CloserLeaderboard({
                   <th
                     key={label}
                     title={note}
-                    className={`text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 px-5 py-3 whitespace-nowrap ${
+                    className={`text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap ${
                       align === "left" ? "text-left" : "text-right"
                     }`}
                   >
@@ -167,40 +167,45 @@ export function CloserLeaderboard({
                   <tr
                     key={row.closer}
                     onClick={() => onSelect(isSelected ? null : row.closer)}
-                    className={`border-b border-white/[0.03] cursor-pointer transition-colors ${
-                      isSelected ? "bg-gold-500/[0.06]" : "hover:bg-white/[0.02]"
+                    className={`border-b border-white/[0.04] last:border-b-0 cursor-pointer transition-[background-color,box-shadow] duration-150 ${
+                      isSelected
+                        ? "bg-gradient-to-r from-gold-500/[0.10] to-gold-500/[0.02] shadow-[inset_2px_0_0_#e5c158]"
+                        : "hover:bg-white/[0.025] hover:shadow-[inset_2px_0_0_#ffffff26]"
                     }`}
                   >
-                    <td className="px-5 py-3 whitespace-nowrap font-medium text-zinc-200">
-                      {row.closer}
+                    <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap font-medium text-zinc-100">
+                      <span className="flex items-center gap-2.5">
+                        <Initials name={row.closer} lit={isSelected} />
+                        {row.closer}
+                      </span>
                     </td>
-                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-400">
+                    <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums text-zinc-400">
                       {row.calls}
                     </td>
-                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-400">
+                    <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums text-zinc-400">
                       {row.taken}
                     </td>
-                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-400">
+                    <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums text-zinc-400">
                       {row.customers}
                     </td>
-                    <td className="px-5 py-3 text-right font-num tabular-nums text-zinc-200">
+                    <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums text-zinc-200">
                       {row.closeRate == null ? "—" : `${Math.round(row.closeRate)}%`}
                     </td>
                     <td
-                      className="px-5 py-3 text-right font-num tabular-nums text-gold-400"
+                      className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums text-gold-400"
                       title="From the tracker's own Cash Collected, typed by the closer. The tile at the top of the page is the processor's figure and counts money no closer can be credited with."
                     >
                       {currency(row.cashCollected)}
                     </td>
                     <td
-                      className={`px-5 py-3 text-right font-num tabular-nums font-medium ${scoreColor(
+                      className={`px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums font-medium ${scoreColor(
                         row.avgScore
                       )}`}
                     >
                       {row.avgScore == null ? "—" : row.avgScore.toFixed(1)}
                     </td>
                     <td
-                      className="px-5 py-3 text-right font-num tabular-nums text-zinc-400"
+                      className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right font-num tabular-nums text-zinc-400"
                       title={
                         row.avgLeadScore == null
                           ? "None of these calls has a lead assessment yet"
@@ -221,11 +226,11 @@ export function CloserLeaderboard({
                         in the figure typeface is what gives a dashboard its
                         terminal look. The number inside carries its own. */}
                     {showTrend && (
-                      <td className="px-5 py-3 text-right text-[13px] tabular-nums">
+                      <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-right text-[13px] tabular-nums">
                         <Trend value={row.trend} />
                       </td>
                     )}
-                    <td className="px-5 py-3 whitespace-nowrap text-zinc-400 text-[13px]">
+                    <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap text-zinc-400 text-[13px]">
                       {row.weakest ? (
                         <>
                           {row.weakest.dimension.plainName}{" "}
@@ -252,5 +257,33 @@ export function CloserLeaderboard({
         </div>
       )}
     </Panel>
+  );
+}
+
+/**
+ * A closer's initials in a small disc, so a row is found by its shape as well
+ * as by reading — the eye lands on the disc before the name. No colour per
+ * person: a hue each would be a legend nobody was given, so every disc is the
+ * same neutral metal, and only the selected closer's lights up gold.
+ */
+function Initials({ name, lit }: { name: string; lit: boolean }) {
+  const letters =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  return (
+    <span
+      aria-hidden
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold tracking-wide transition-colors ${
+        lit
+          ? "border-gold-500/40 bg-gradient-to-b from-gold-400/30 to-gold-600/15 text-gold-100"
+          : "border-white/[0.10] bg-gradient-to-b from-white/[0.09] to-white/[0.02] text-zinc-300"
+      }`}
+    >
+      {letters}
+    </span>
   );
 }

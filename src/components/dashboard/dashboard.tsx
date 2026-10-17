@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
 import { callsMissingFxRate, carriesCash, reportingCollected } from "@/lib/money";
@@ -608,6 +608,7 @@ export function Dashboard({
     return found;
   }, [calendly.failure, calendly.reading, unrated]);
 
+  const still = useReducedMotion();
   const titleMotion = usePanelMotion(0);
   const controlsMotion = usePanelMotion(1);
 
@@ -643,7 +644,7 @@ export function Dashboard({
           title wrapped to three lines and the range buttons landed on top of
           it. Identity and period on the first row, filtering on the second,
           and each row is allowed to scroll sideways rather than wrap. */}
-      <header className="shell-offset-top sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/85 backdrop-blur-xl">
+      <header className="shell-offset-top sticky top-0 z-40 border-b border-white/[0.06] bg-[#09090b]/75 backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6">
           {/* THE TITLE BLOCK KEEPS A REAL MINIMUM WIDTH.
               At 170px it could be squeezed until the inner block — which is
@@ -656,8 +657,11 @@ export function Dashboard({
             {...titleMotion}
             className="flex min-w-[240px] flex-1 items-center gap-3"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gold-500/20 bg-gold-500/10">
-              <SalesCommandMark size={24} className="text-gold-500" />
+            {/* The mark lives at the top of the section rail from `lg` up,
+                where the rail is on screen; here it stands in for the rail on
+                a screen too narrow to show one. */}
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-gold-500/25 bg-gradient-to-b from-gold-500/[0.18] to-gold-500/[0.05] shadow-[inset_0_1px_0_#f0d98a26,0_0_20px_-6px_#d4af3780] lg:hidden">
+              <SalesCommandMark size={24} className="text-gold-400" />
             </div>
             <div className="min-w-0">
               {brandName && (
@@ -666,7 +670,7 @@ export function Dashboard({
                 </div>
               )}
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-[15px] font-semibold tracking-tight text-zinc-100">
+                <h1 className="truncate text-[15px] font-semibold tracking-[-0.02em] text-zinc-50 sm:text-[17px]">
                   {brandName ?? "Sales Command Center"}
                 </h1>
                 {/* Invented data has to be unmistakable, and it used to say so
@@ -753,29 +757,45 @@ export function Dashboard({
                     live indicator off the edge — without it a flex child
                     refuses to shrink below its content and the whole header
                     overflows rather than the button strip scrolling. */}
-                <div className="scroll-x flex min-w-0 items-center rounded-lg border border-white/[0.06] bg-white/[0.02] p-0.5">
-                  {DATE_RANGES.map((r) => (
-                    <button
-                      key={r.value}
-                      onClick={() => {
-                        // Custom opens on whatever is already on screen rather
-                        // than jumping somewhere else, so the switch shows the
-                        // same numbers until a date is actually moved.
-                        if (r.value === "custom" && dateRange !== "custom") {
-                          if (visibleWindow.from) setCustomFrom(visibleWindow.from);
-                          if (visibleWindow.to) setCustomTo(visibleWindow.to);
-                        }
-                        setDateRange(r.value);
-                      }}
-                      className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                        dateRange === r.value
-                          ? "bg-gold-500/15 text-gold-400"
-                          : "text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
+                <div className="scroll-x flex min-w-0 items-center rounded-[10px] border border-white/[0.07] bg-white/[0.025] p-[3px] shadow-[inset_0_1px_2px_#00000066]">
+                  {DATE_RANGES.map((r) => {
+                    const on = dateRange === r.value;
+                    return (
+                      <button
+                        key={r.value}
+                        aria-pressed={on}
+                        onClick={() => {
+                          // Custom opens on whatever is already on screen rather
+                          // than jumping somewhere else, so the switch shows the
+                          // same numbers until a date is actually moved.
+                          if (r.value === "custom" && dateRange !== "custom") {
+                            if (visibleWindow.from) setCustomFrom(visibleWindow.from);
+                            if (visibleWindow.to) setCustomTo(visibleWindow.to);
+                          }
+                          setDateRange(r.value);
+                        }}
+                        className={`relative shrink-0 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                          on ? "text-gold-200" : "text-zinc-400 hover:text-zinc-100"
+                        }`}
+                      >
+                        {/* ONE HIGHLIGHT THAT TRAVELS. Framer matches it by
+                            `layoutId` from the old button to the new one, so a
+                            change of period slides across the strip rather
+                            than blinking off one button and on at another. The
+                            header is rendered once, so the id cannot collide —
+                            see the section rail for what happens when it can. */}
+                        {on && (
+                          <motion.span
+                            aria-hidden
+                            layoutId={still ? undefined : "period-highlight"}
+                            className="absolute inset-0 rounded-[7px] border border-gold-500/30 bg-gradient-to-b from-gold-500/[0.22] to-gold-500/[0.10] shadow-[inset_0_1px_0_#f0d98a26,0_0_16px_-4px_#d4af3766]"
+                            transition={{ type: "spring", stiffness: 480, damping: 38 }}
+                          />
+                        )}
+                        <span className="relative">{r.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1124,15 +1144,16 @@ function FilterPill({
 }) {
   const on =
     tone === "gold"
-      ? "border-gold-500/30 bg-gold-500/10 text-gold-400"
-      : "border-indigo-500/30 bg-indigo-500/10 text-indigo-300";
+      ? "border-gold-500/35 bg-gold-500/[0.12] text-gold-200 shadow-[0_0_14px_-6px_#d4af37]"
+      : "border-indigo-400/35 bg-indigo-500/[0.12] text-indigo-200 shadow-[0_0_14px_-6px_#818cf8]";
+  const dot = tone === "gold" ? "bg-gold-400" : "bg-indigo-300";
 
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium transition-[color,background-color,border-color,box-shadow] duration-150 ${
         active
           ? on
           : dimmed
@@ -1142,9 +1163,12 @@ function FilterPill({
             // a pill carrying a word. Held apart from an available pill by its
             // border and fill now rather than by unreadable text.
             "border-white/[0.05] bg-transparent text-zinc-400 hover:text-zinc-200"
-          : "border-white/[0.08] bg-white/[0.02] text-zinc-300 hover:text-zinc-100"
+          : "border-white/[0.08] bg-white/[0.025] text-zinc-300 hover:border-white/[0.16] hover:bg-white/[0.05] hover:text-zinc-50"
       }`}
     >
+      {/* A lit dot on a pill that is on, so "on" is a shape as well as a
+          colour — two tints of one hue are easy to confuse at a glance. */}
+      {active && <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />}
       {children}
     </button>
   );

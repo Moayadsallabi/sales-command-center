@@ -3,7 +3,7 @@
 import { CallRecord } from "@/lib/types";
 import { ObjectionStat, objectionStats } from "@/lib/stats";
 import { MessageSquareWarning } from "lucide-react";
-import { Panel, PanelHeader } from "./panel";
+import { Panel, PanelHeader, SampleGate } from "./panel";
 
 /**
  * How often each objection comes up, and what the close rate does when it does.
@@ -54,23 +54,21 @@ export function ObjectionPanel({
       />
 
       {!result.ready ? (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
-          <p className="text-[13px] text-zinc-400">
-            {result.callsShort > 0 ? (
-              <>
-                Needs{" "}
-                <span className="font-medium text-zinc-200">
-                  {result.callsShort} more scored{" "}
-                  {result.callsShort === 1 ? "call" : "calls"}
-                </span>{" "}
-                before the pattern is worth reading. You have {result.assessed}{" "}
-                that were reviewed for objections.
-              </>
-            ) : (
-              <>No objections have been recorded on these calls yet.</>
-            )}
-          </p>
-        </div>
+        <SampleGate have={result.assessed} short={result.callsShort}>
+          {result.callsShort > 0 ? (
+            <>
+              Needs{" "}
+              <span className="font-medium text-zinc-200">
+                {result.callsShort} more scored{" "}
+                {result.callsShort === 1 ? "call" : "calls"}
+              </span>{" "}
+              before the pattern is worth reading. You have {result.assessed}{" "}
+              that were reviewed for objections.
+            </>
+          ) : (
+            <>No objections have been recorded on these calls yet.</>
+          )}
+        </SampleGate>
       ) : (
         <div>
           {/* HAIRLINES, NOT SEVEN BOXES. Each row used to be its own bordered,

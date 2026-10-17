@@ -83,16 +83,106 @@ export function Panel({
     <motion.section
       {...motionProps}
       className={cn(
-        "rounded-xl border",
-        padded && "p-5",
+        "rounded-2xl border",
+        padded && "p-5 lg:p-6",
         tone === "alert"
-          ? "border-amber-500/25 bg-amber-500/[0.04]"
+          ? "border-amber-500/25 bg-gradient-to-br from-amber-500/[0.07] to-amber-500/[0.02] shadow-[inset_0_1px_0_#fcd34d14]"
           : "border-white/[0.06] glass-card",
         className
       )}
     >
       {children}
     </motion.section>
+  );
+}
+
+/* ------------------------------------------------------------- icon chip */
+
+/**
+ * The small square every section label starts with — panel headings and KPI
+ * tiles alike, so the two read as one family down the page.
+ *
+ * Gold for the panels and the money tiles, which is the brand marking what is
+ * ours; quiet zinc for the activity tiles, so the money still leads the row.
+ */
+export function IconChip({
+  icon: Icon,
+  gold = true,
+}: {
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  gold?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] border",
+        gold
+          ? "border-gold-500/25 bg-gradient-to-b from-gold-500/[0.16] to-gold-500/[0.04] text-gold-400 shadow-[inset_0_1px_0_#f0d98a1f]"
+          : "border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-white/[0.015] text-zinc-400 shadow-[inset_0_1px_0_#ffffff12]"
+      )}
+    >
+      <Icon className="h-3 w-3" strokeWidth={1.75} />
+    </span>
+  );
+}
+
+/* ----------------------------------------------------------- sample gate */
+
+/**
+ * What a panel shows while it has too few calls to say anything.
+ *
+ * Three panels said this in three hand-copied grey boxes of text, which read as
+ * three empty panels in a row. The count was already in the sentence; drawn
+ * as a bar it shows how close the panel is to switching on, which is the one
+ * thing someone reading an empty panel wants to know.
+ *
+ * `have` and `short` are the panel's own figures, never re-derived here, so the
+ * bar and the sentence beside it cannot disagree.
+ */
+export function SampleGate({
+  have,
+  short,
+  children,
+  note,
+}: {
+  /** Calls counted so far. */
+  have: number;
+  /** Calls still missing. Zero or less means the gate is not about volume. */
+  short: number;
+  /** The panel's own sentence. */
+  children: React.ReactNode;
+  /** One smaller line under it, when the panel has a caveat to add. */
+  note?: React.ReactNode;
+}) {
+  const need = have + Math.max(short, 0);
+  const share = need > 0 ? Math.min(1, have / need) : 0;
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-gradient-to-b from-white/[0.025] to-white/[0.01] p-4 shadow-[inset_0_1px_0_#ffffff08]">
+      {short > 0 && (
+        <div className="mb-3 flex items-center gap-3">
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={need}
+            aria-valuenow={have}
+            aria-label={`${have} of ${need} calls needed`}
+            className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]"
+          >
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-gold-600 to-gold-300 shadow-[0_0_10px_#d4af3780]"
+              style={{ width: `${share * 100}%` }}
+            />
+          </div>
+          <span className="shrink-0 font-num text-[11px] tabular-nums text-zinc-400">
+            <span className="text-zinc-100">{have}</span> / {need}
+          </span>
+        </div>
+      )}
+      <p className="text-[13px] leading-relaxed text-zinc-400">{children}</p>
+      {note && <p className="mt-1.5 text-[11px] text-zinc-400">{note}</p>}
+    </div>
   );
 }
 
@@ -130,19 +220,38 @@ export function PanelHeader({
   className?: string;
 }) {
   return (
-    <div className={cn("mb-4", className)}>
+    <div className={cn("mb-5", className)}>
       <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2">
-          {Icon && (
-            <Icon className="h-3.5 w-3.5 shrink-0 text-gold-500" strokeWidth={1.5} />
-          )}
-          <h3 className="t-label truncate text-zinc-300">{title}</h3>
+        {/* A REAL HEADING. Panel titles were the 11px uppercase label — the
+            same style as every table's column headers — so "Closers" and the
+            "CLOSER" column under it were the same size, weight and colour, and
+            nothing on the page read as a heading at all. The title is the
+            15px step of the type scale now, in sentence case, and the small
+            caps are left to the things that are labels. */}
+        <div className="flex min-w-0 items-center gap-2.5">
+          {Icon && <IconChip icon={Icon} />}
+          {/* Wraps rather than truncating: at 15px a long title such as
+              "Which parts of the call move your close rate" no longer fits a
+              phone on one line, and a heading cut off mid-word is a heading
+              you cannot read. */}
+          <h3 className="t-lead min-w-0 text-balance font-semibold tracking-[-0.01em] text-zinc-50">
+            {title}
+          </h3>
           {info && <InfoButton title={title}>{info}</InfoButton>}
         </div>
         {right && <div className="shrink-0 text-right">{right}</div>}
       </div>
       {subtitle && (
-        <p className="mt-1.5 max-w-[80ch] t-body text-zinc-400">{subtitle}</p>
+        <p
+          className={cn(
+            "mt-1.5 max-w-[80ch] t-body text-zinc-400",
+            // Starts under the title rather than under the chip, so the
+            // heading and its one line read as a single block.
+            Icon && "sm:pl-[34px]"
+          )}
+        >
+          {subtitle}
+        </p>
       )}
     </div>
   );

@@ -66,11 +66,18 @@ export function LiveIndicator() {
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <div
-        className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
-          syncing ? "bg-gold-300 animate-pulse" : "bg-gold-500"
-        }`}
-      />
+      {/* A slow halo behind the dot while the page is idle and listening,
+          and a faster pulse while it is actually fetching. */}
+      <span className="relative flex h-1.5 w-1.5 shrink-0">
+        {!syncing && (
+          <span className="live-halo absolute inset-0 rounded-full bg-gold-400" />
+        )}
+        <span
+          className={`relative h-1.5 w-1.5 rounded-full transition-colors ${
+            syncing ? "bg-gold-200 animate-pulse" : "bg-gold-400 shadow-[0_0_6px_#d4af37]"
+          }`}
+        />
+      </span>
       {/* Never wraps. "54S AGO" breaking across two lines was pushing the
           header a row taller on a phone for a label nobody reads twice. */}
       <span

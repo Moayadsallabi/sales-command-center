@@ -11,6 +11,7 @@ import {
   CashBank,
 } from "@/lib/tile-notes";
 import { Delta } from "./delta";
+import { IconChip } from "./panel";
 import { CallRecord } from "@/lib/types";
 import { FunnelStats } from "@/lib/bookings";
 import { SeriesPoint } from "@/lib/series";
@@ -392,26 +393,21 @@ function Tile({
       {...motionProps}
       whileHover={hover}
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border border-white/[0.06] p-4 transition-colors duration-200 hover:border-white/[0.12]",
+        "group relative flex flex-col overflow-hidden rounded-2xl p-4 transition-[border-color] duration-200",
         span,
-        accent
-          ? "bg-gradient-to-br from-gold-500/[0.07] to-transparent glow-gold"
-          : "glass-card",
-        hero ? "lg:p-6" : "lg:p-5"
+        // The two money tiles are lit; the four activity tiles are plain cards
+        // that catch a filament of light when pointed at. See globals.css.
+        accent ? "money-card" : "glass-card hover-filament",
+        hero ? "lg:p-7" : "lg:p-5"
       )}
     >
       {/* ICON FIRST, THEN THE LABEL — the same order as every PanelHeader on
           the page. It sat top-RIGHT here and top-left everywhere else, so a row
           of tiles and the panels under them started on two different alignments
-          for no reason a reader could name. */}
-      <div className="mb-3 flex items-center gap-2">
-        <Icon
-          className={cn(
-            "h-3.5 w-3.5 shrink-0",
-            accent ? "text-gold-500" : "text-zinc-500"
-          )}
-          strokeWidth={1.5}
-        />
+          for no reason a reader could name. The icon sits in a small chip, the
+          same chip every panel heading uses, so the two read as one family. */}
+      <div className={cn("flex items-center gap-2.5", hero ? "mb-4" : "mb-3.5")}>
+        <IconChip icon={Icon} gold={accent} />
         <span className="t-label text-zinc-400">{label}</span>
         {/* A MARK, NOT A PARAGRAPH. This was the full FX sentence printed under
             the number on BOTH money tiles, and again in full in the data-health
@@ -432,32 +428,39 @@ function Tile({
         )}
       </div>
 
-      {/* The hero's delta is pushed to the far edge rather than trailing the
-          number: at this size the figure uses a third of the card and the rest
-          was empty. Only above `sm`, where there is a width to push it across. */}
-      <div
-        className={cn(
-          "flex flex-wrap items-baseline gap-x-3 gap-y-1.5",
-          hero && "sm:flex-nowrap sm:justify-between"
-        )}
-      >
+      {/* The delta trails the figure on every tile, the hero included. It used
+          to be pushed to the hero's far edge to fill the width, which left it
+          floating halfway across the card with no figure near it; the chart
+          under the number fills that width now. The hero alone says what it
+          is measured against, because it has the room to. */}
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
         <AnimatedNumber
           value={value}
           format={format}
           className={cn(
-            "font-num font-semibold tracking-tight tabular-nums",
+            "font-num font-semibold tabular-nums leading-none",
             // The four small tiles were a step below Revenue beside them, which
-            // left each one a 2xl number floating over an empty band. One size.
-            hero ? "text-4xl lg:text-5xl" : "text-2xl lg:text-3xl",
-            accent ? "text-gold-400" : "text-zinc-100"
+            // left each one a 2xl number floating over an empty band. One size
+            // for those four; the money is a step up, the hero a step again.
+            hero
+              ? "text-[44px] tracking-[-0.035em] lg:text-[60px]"
+              : accent
+              ? "text-[32px] tracking-[-0.03em] lg:text-[40px]"
+              : "text-[28px] tracking-[-0.025em] lg:text-[32px]",
+            accent ? "text-gold-metal" : "text-zinc-50"
           )}
         />
-        <Delta
-          current={value}
-          previous={previous}
-          unit={deltaUnit}
-          label={comparisonLabel}
-        />
+        <span className="inline-flex items-baseline gap-2">
+          <Delta
+            current={value}
+            previous={previous}
+            unit={deltaUnit}
+            label={comparisonLabel}
+          />
+          {hero && previous !== null && comparisonLabel && (
+            <span className="text-[11px] text-zinc-400">{comparisonLabel}</span>
+          )}
+        </span>
       </div>
 
       {/* The hero tile's window, drawn. It sits between the number and the
@@ -466,8 +469,8 @@ function Tile({
       {hero && series && series.length > 1 && (
         <Sparkline
           points={series}
-          height={64}
-          className="mt-4"
+          height={92}
+          className="mt-5"
           // The label now names a real period ("vs 1–19 Jul"), so the swap is
           // on the leading "vs " rather than on the old "vs prev" wording,
           // which stopped matching and left "…window, vs 1–19 Jul".
@@ -478,12 +481,15 @@ function Tile({
         />
       )}
 
+      {/* Each figure in the breakdown is its own small well — label over value,
+          divided by a hairline — so the row reads as a set of measured parts
+          rather than as loose words under the total. */}
       {breakdown && breakdown.length > 0 && (
-        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+        <dl className="mt-5 flex flex-wrap gap-y-3 divide-x divide-white/[0.07]">
           {breakdown.map((item) => (
-            <div key={item.label}>
+            <div key={item.label} className="pr-5 pl-5 first:pl-0 last:pr-0">
               <dt className="t-label text-zinc-400">{item.label}</dt>
-              <dd className="mt-0.5 font-num text-[15px] tabular-nums text-zinc-200">
+              <dd className="mt-1 font-num text-[15px] font-medium tracking-tight tabular-nums text-zinc-100">
                 {item.value}
               </dd>
             </div>

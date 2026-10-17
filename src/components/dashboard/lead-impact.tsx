@@ -4,7 +4,7 @@ import { CallRecord } from "@/lib/types";
 import { leadImpact, roundedGap } from "@/lib/stats";
 import { LEAD_MAX } from "@/lib/lead-quality";
 import { UserSearch } from "lucide-react";
-import { Panel, PanelHeader } from "./panel";
+import { Panel, PanelHeader, SampleGate } from "./panel";
 import { GapRow, GapScale } from "./gap-row";
 
 /**
@@ -79,30 +79,28 @@ export function LeadImpact({
       />
 
       {!result.ready ? (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
-          <p className="text-[13px] text-zinc-400">
-            {result.callsShort > 0 ? (
-              <>
-                Needs{" "}
-                <span className="font-medium text-zinc-200">
-                  {result.callsShort} more scored{" "}
-                  {result.callsShort === 1 ? "call" : "calls"}
-                </span>{" "}
-                before this means anything. You have {result.assessed} with a lead
-                score behind them.
-              </>
-            ) : (
-              <>
-                Your leads are all scoring within a few points of each other, so
-                there are not two halves to compare yet.
-              </>
-            )}
-          </p>
-          <p className="mt-1.5 text-[11px] text-zinc-400">
-            Calls scored before lead quality was added do not count here — they
-            were never assessed, which is different from scoring badly.
-          </p>
-        </div>
+        <SampleGate
+          have={result.assessed}
+          short={result.callsShort}
+          note="Calls scored before lead quality was added do not count here — they were never assessed, which is different from scoring badly."
+        >
+          {result.callsShort > 0 ? (
+            <>
+              Needs{" "}
+              <span className="font-medium text-zinc-200">
+                {result.callsShort} more scored{" "}
+                {result.callsShort === 1 ? "call" : "calls"}
+              </span>{" "}
+              before this means anything. You have {result.assessed} with a lead
+              score behind them.
+            </>
+          ) : (
+            <>
+              Your leads are all scoring within a few points of each other, so
+              there are not two halves to compare yet.
+            </>
+          )}
+        </SampleGate>
       ) : (
         <div className="space-y-4">
           <p className="max-w-[74ch] t-body text-zinc-300">

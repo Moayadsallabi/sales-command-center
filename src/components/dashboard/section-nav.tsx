@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SalesCommandMark } from "@/components/brand/logo";
 
 /**
  * ONE ENTRY IN THE RAIL. `id` is the id of the element on the page, so the
@@ -212,13 +213,13 @@ export function SectionNav({
               aria-current={on ? "true" : undefined}
               title={collapsed ? s.label : undefined}
               className={cn(
-                "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[12px] font-medium transition-colors",
+                "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors",
                 // Collapsed, the label is REMOVED rather than faded: a
                 // zero-opacity span still takes its width, which pushed the
                 // icons off-centre in a 3.5rem rail and overflowed it.
                 collapsed && "lg:justify-center lg:px-0",
                 on
-                  ? "bg-gold-500/10 text-gold-400"
+                  ? "bg-gradient-to-r from-gold-500/[0.14] via-gold-500/[0.06] to-transparent text-gold-200 shadow-[inset_0_0_0_1px_#d4af371a]"
                   : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100"
               )}
             >
@@ -240,20 +241,26 @@ export function SectionNav({
                 (still ? (
                   <span
                     aria-hidden
-                    className="absolute left-0 top-[calc(50%-0.5rem)] h-4 w-[2px] rounded-r-full bg-gold-500"
+                    className="absolute left-0 top-[calc(50%-0.5rem)] h-4 w-[2px] rounded-r-full bg-gold-400 shadow-[0_0_10px_1px_#d4af37b3]"
                   />
                 ) : (
                   <motion.span
                     aria-hidden
                     layoutId={`${scope}-section-marker`}
-                    className="absolute left-0 top-[calc(50%-0.5rem)] h-4 w-[2px] rounded-r-full bg-gold-500"
+                    className="absolute left-0 top-[calc(50%-0.5rem)] h-4 w-[2px] rounded-r-full bg-gold-400 shadow-[0_0_10px_1px_#d4af37b3]"
                     // Stiff and well damped: it arrives with the scroll rather
                     // than trailing it, and never overshoots into the link
                     // above or below.
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
                   />
                 ))}
-              <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+              <Icon
+                className={cn(
+                  "h-[15px] w-[15px] shrink-0 transition-colors",
+                  on ? "text-gold-400" : "text-zinc-500 group-hover:text-zinc-300"
+                )}
+                strokeWidth={1.6}
+              />
               <span className={cn("truncate", collapsed && "lg:hidden")}>
                 {s.label}
               </span>
@@ -270,16 +277,30 @@ export function SectionNav({
       <nav
         aria-label="Sections"
         style={{ width: collapsed ? NAV_WIDTH.closed : NAV_WIDTH.open }}
-        className="shell-offset-top fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-white/[0.06] bg-[#0b0b0e] transition-[width] duration-200 lg:flex"
+        className="shell-offset-top fixed inset-y-0 left-0 z-50 hidden flex-col border-r border-white/[0.06] bg-gradient-to-b from-[#0e0e11] to-[#0a0a0c] transition-[width] duration-200 lg:flex"
       >
         {/* Its own row, the same height as the page header beside it, so the
             rail and the page start on the same line. */}
         <div
           className={cn(
             "flex h-[57px] shrink-0 items-center border-b border-white/[0.06]",
-            collapsed ? "justify-center px-0" : "px-2.5"
+            collapsed ? "justify-center px-0" : "justify-between pl-4 pr-2.5"
           )}
         >
+          {/* THE PRODUCT'S MARK, where a SaaS app keeps it. The header stops
+              drawing its own copy from `lg` up, where this rail is on screen,
+              so the page carries one mark rather than two side by side. */}
+          {!collapsed && (
+            <div className="flex min-w-0 items-center gap-2.5">
+              <SalesCommandMark
+                size={22}
+                className="shrink-0 text-gold-400 drop-shadow-[0_0_8px_#d4af3766]"
+              />
+              <span className="truncate text-[13px] font-semibold tracking-[-0.01em] text-zinc-100">
+                Perceptionism Lab
+              </span>
+            </div>
+          )}
           <button
             type="button"
             onClick={onToggle}
@@ -355,7 +376,7 @@ export function SectionNav({
                     ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
                   },
                 })}
-            className="shell-offset-top absolute inset-y-0 left-0 flex w-[15rem] flex-col border-r border-white/[0.06] bg-[#0b0b0e]"
+            className="shell-offset-top absolute inset-y-0 left-0 flex w-[15rem] flex-col border-r border-white/[0.06] bg-gradient-to-b from-[#0e0e11] to-[#0a0a0c]"
           >
             <div className="flex h-[57px] shrink-0 items-center justify-between border-b border-white/[0.06] px-3">
               <span className="t-label text-zinc-400">Sections</span>

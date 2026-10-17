@@ -14,7 +14,7 @@ import {
 } from "@/lib/money";
 import { wasSettledByPayment } from "@/lib/settle";
 import { shortDate } from "@/lib/periods";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, List } from "lucide-react";
 import { Panel, PanelHeader } from "./panel";
 import { callScoreHex, leadScoreHex } from "@/lib/score-tone";
 
@@ -72,8 +72,9 @@ export function CallTable({
 
   return (
     <Panel order={order} padded={false} className="overflow-hidden">
-      <div className="p-5 pb-0">
+      <div className="p-5 pb-0 lg:px-6 lg:pt-6">
         <PanelHeader
+          icon={List}
           title="All calls"
           subtitle={[
             "Click a row to open its scorecard.",
@@ -136,7 +137,7 @@ export function CallTable({
       <div className="scroll-x">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/[0.06]">
+            <tr className="border-y border-white/[0.06]">
               {[
                 "Name",
                 "Closer",
@@ -154,7 +155,7 @@ export function CallTable({
               ].map((h) => (
                 <th
                   key={h}
-                  className="t-label sticky top-0 z-10 whitespace-nowrap bg-card px-5 py-3 text-left text-zinc-400"
+                  className="t-label sticky top-0 z-10 whitespace-nowrap bg-card bg-[linear-gradient(#ffffff05,#ffffff05)] px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 text-left text-zinc-400"
                 >
                   {h}
                 </th>
@@ -166,9 +167,9 @@ export function CallTable({
               <tr
                 key={call.id}
                 onClick={() => onSelect(call)}
-                className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors cursor-pointer"
+                className="border-b border-white/[0.04] last:border-b-0 cursor-pointer transition-[background-color,box-shadow] duration-150 hover:bg-white/[0.025] hover:shadow-[inset_2px_0_0_#e5c15899]"
               >
-                <td className="px-5 py-3 whitespace-nowrap">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-zinc-200">
                       {call.name || "Unknown"}
@@ -186,18 +187,21 @@ export function CallTable({
                     )}
                   </div>
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap text-[13px] text-zinc-400">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap text-[13px] text-zinc-400">
                   {call.closer ?? <span className="text-zinc-500">—</span>}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap font-num text-[13px] text-zinc-400 tabular-nums">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap font-num text-[13px] text-zinc-400 tabular-nums">
                   {call.call_date ? shortDate(call.call_date) : "—"}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap">
                   <span
-                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-medium"
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] font-medium"
                     style={{
                       color: OUTCOME_COLORS[call.outcome ?? ""] ?? "#9ca3af",
-                      background: `${OUTCOME_COLORS[call.outcome ?? ""] ?? "#9ca3af"}15`,
+                      background: `${OUTCOME_COLORS[call.outcome ?? ""] ?? "#9ca3af"}17`,
+                      // A hairline of the same hue, so the badge has an edge
+                      // rather than being a tint that fades into the row.
+                      boxShadow: `inset 0 0 0 1px ${OUTCOME_COLORS[call.outcome ?? ""] ?? "#9ca3af"}33`,
                     }}
                   >
                     <span
@@ -243,7 +247,7 @@ export function CallTable({
                 </td>
                 {/* Shown in the deal's own currency — never converted, so the
                     row always matches the contract. */}
-                <td className="px-5 py-3 whitespace-nowrap font-num text-[13px] tabular-nums">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap font-num text-[13px] tabular-nums">
                   {collectedToDate(call) ? (
                     <span className="text-gold-400">
                       {formatMoney(collectedToDate(call), call.currency)}
@@ -274,7 +278,7 @@ export function CallTable({
                     `paid_total` is already in the reporting currency, so
                     printing it beside the row's own currency symbol would label
                     dollars as euros. */}
-                <td className="px-5 py-3 whitespace-nowrap font-num text-[13px] tabular-nums">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap font-num text-[13px] tabular-nums">
                   {(() => {
                     const cell = revenueCell(call);
                     return cell ? (
@@ -286,14 +290,14 @@ export function CallTable({
                     );
                   })()}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap text-[13px] text-zinc-400">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap text-[13px] text-zinc-400">
                   {call.lead_source ?? "—"}
                 </td>
                 {/* The lead, out of 100. Blank rather than zero when too few
                     factors were assessed to score it — leadQualityScore returns
                     null there, and a 0 would read as a terrible prospect
                     instead of one nobody judged. */}
-                <td className="px-5 py-3 whitespace-nowrap">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap">
                   {(() => {
                     const lead = leadQualityScore(call);
                     if (lead == null) return <span className="text-zinc-500">—</span>;
@@ -316,7 +320,7 @@ export function CallTable({
                     );
                   })()}
                 </td>
-                <td className="px-5 py-3 whitespace-nowrap">
+                <td className="px-3.5 py-3 first:pl-5 last:pr-5 lg:first:pl-6 lg:last:pr-6 whitespace-nowrap">
                   {/* Computed from the dimension columns, not read from the
                       tracker's Quality Score cell: rows scored before the
                       overall-score floor existed still carry an average over

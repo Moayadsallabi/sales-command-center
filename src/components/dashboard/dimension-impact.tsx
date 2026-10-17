@@ -9,7 +9,7 @@ import {
 } from "@/lib/stats";
 import { GOOD_SCORE } from "@/lib/dimensions";
 import { Coins } from "lucide-react";
-import { Panel, PanelHeader } from "./panel";
+import { Panel, PanelHeader, SampleGate } from "./panel";
 import { GapLegend, GapRow, GapScale } from "./gap-row";
 
 /**
@@ -67,30 +67,28 @@ export function DimensionImpact({
       />
 
       {!result.ready ? (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-4">
-          <p className="text-[13px] text-zinc-400">
-            {result.callsShort > 0 ? (
-              <>
-                Needs{" "}
-                <span className="font-medium text-zinc-200">
-                  {result.callsShort} more scored{" "}
-                  {result.callsShort === 1 ? "call" : "calls"}
-                </span>{" "}
-                before these numbers mean anything. You have {result.scored}{" "}
-                with enough of the call scored to judge.
-              </>
-            ) : (
-              <>
-                Not enough spread yet — a comparison needs calls on both sides of
-                each score, and right now they are bunched together.
-              </>
-            )}
-          </p>
-          <p className="mt-1.5 text-[11px] text-zinc-400">
-            Close rates on a handful of calls swing wildly, so this stays hidden
-            rather than showing you noise.
-          </p>
-        </div>
+        <SampleGate
+          have={result.scored}
+          short={result.callsShort}
+          note="Close rates on a handful of calls swing wildly, so this stays hidden rather than showing you noise."
+        >
+          {result.callsShort > 0 ? (
+            <>
+              Needs{" "}
+              <span className="font-medium text-zinc-200">
+                {result.callsShort} more scored{" "}
+                {result.callsShort === 1 ? "call" : "calls"}
+              </span>{" "}
+              before these numbers mean anything. You have {result.scored}{" "}
+              with enough of the call scored to judge.
+            </>
+          ) : (
+            <>
+              Not enough spread yet — a comparison needs calls on both sides of
+              each score, and right now they are bunched together.
+            </>
+          )}
+        </SampleGate>
       ) : (
         <div className="space-y-4">
           <Answer best={best} />
