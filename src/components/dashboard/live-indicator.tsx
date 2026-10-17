@@ -66,6 +66,10 @@ export function LiveIndicator() {
 
   return (
     <div className="flex shrink-0 items-center gap-2">
+      {/* Fixed, so it is placed by the header's box: the header's
+          backdrop-filter makes it the containing block for anything fixed
+          inside it, and its top edge is where the run of light belongs. */}
+      {syncing && <span aria-hidden className="sync-sweep" />}
       {/* A slow halo behind the dot while the page is idle and listening,
           and a faster pulse while it is actually fetching. */}
       <span className="relative flex h-1.5 w-1.5 shrink-0">

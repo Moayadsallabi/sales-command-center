@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { AnimatedNumber } from "./animated-number";
-import { Sparkline } from "./sparkline";
+import { PaceChart } from "./pace-chart";
 import { SourceNote, SourceLegend, Source } from "./source-note";
 import {
   recordedNoteFor,
@@ -59,6 +59,8 @@ interface KPICardsProps {
   bank?: CashBank | null;
   /** Day-by-day cash for the visible window, from whichever source the tile uses. */
   cashSeries?: SeriesPoint[];
+  /** The same for the comparison window, from the same source. Null when there is none. */
+  previousCashSeries?: SeriesPoint[] | null;
   /** Calls in view priced in another currency with no FX rate set. */
   unratedCount?: number;
 }
@@ -71,6 +73,7 @@ export function KPICards({
   bank = null,
   payments = false,
   cashSeries = [],
+  previousCashSeries = null,
   unratedCount = 0,
 }: KPICardsProps) {
   const now = summarise(calls);
@@ -187,6 +190,7 @@ export function KPICards({
           note={cash.note}
           warning={fxWarning}
           series={cashSeries}
+          previousSeries={previousCashSeries}
           /* WHAT THE MONEY IS MADE OF, under the number it adds up to.
              One cash figure answers "how much arrived" and gets read as "how
              much did we sell", and on an account running payment plans those
@@ -334,6 +338,7 @@ function Tile({
   note,
   warning = null,
   series,
+  previousSeries = null,
   breakdown,
   accent = false,
   hero = false,
@@ -351,6 +356,7 @@ function Tile({
   note: string;
   warning?: string | null;
   series?: SeriesPoint[];
+  previousSeries?: SeriesPoint[] | null;
   /** What the headline is made of, for a tile with room to say it. */
   breakdown?: { label: string; value: string }[];
   accent?: boolean;
@@ -401,6 +407,8 @@ function Tile({
         hero ? "lg:p-7" : "lg:p-5"
       )}
     >
+      {hero && <span aria-hidden className="beam" />}
+
       {/* ICON FIRST, THEN THE LABEL — the same order as every PanelHeader on
           the page. It sat top-RIGHT here and top-left everywhere else, so a row
           of tiles and the panels under them started on two different alignments
@@ -447,8 +455,9 @@ function Tile({
               : accent
               ? "text-[32px] tracking-[-0.03em] lg:text-[40px]"
               : "text-[28px] tracking-[-0.025em] lg:text-[32px]",
-            accent ? "text-gold-metal" : "text-zinc-50"
+            accent ? "gold-glow" : "text-zinc-50"
           )}
+          glyphClassName={accent ? "gold-metal-glyph" : undefined}
         />
         <span className="inline-flex items-baseline gap-2">
           <Delta
@@ -467,17 +476,19 @@ function Tile({
           note so the eye goes total, then shape, then caveat — and it takes
           the vertical space these cards were padding with nothing. */}
       {hero && series && series.length > 1 && (
-        <Sparkline
+        <PaceChart
           points={series}
-          height={92}
+          // Only drawn against a period that exists. With no previous window
+          // the delta is hidden too, so the two always appear together.
+          previous={previous !== null ? previousSeries : null}
+          previousName={periodName(comparisonLabel)}
+          height={110}
           className="mt-5"
-          // The label now names a real period ("vs 1–19 Jul"), so the swap is
-          // on the leading "vs " rather than on the old "vs prev" wording,
-          // which stopped matching and left "…window, vs 1–19 Jul".
-          label={`Cash collected per day across the window, ${comparisonLabel.replace(
-            /^vs (prev )?/,
-            (_m, prev) => (prev ? "compared with the previous " : "compared with ")
-          )}`}
+          label={`Cash collected so far through the window, as a running total${
+            previous !== null && previousSeries
+              ? `, against the same running total for ${periodName(comparisonLabel)}`
+              : ""
+          }`}
         />
       )}
 
@@ -504,4 +515,14 @@ function Tile({
       </div>
     </motion.div>
   );
+}
+
+/**
+ * The comparison period as a name: "vs 1–17 Sept" becomes "1–17 Sept", and the
+ * count a custom range carries, "vs prev 17 days", becomes "Previous 17 days".
+ */
+function periodName(comparisonLabel: string): string {
+  const prev = comparisonLabel.match(/^vs prev (.+)$/);
+  if (prev) return `Previous ${prev[1]}`;
+  return comparisonLabel.replace(/^vs /, "") || "Last period";
 }

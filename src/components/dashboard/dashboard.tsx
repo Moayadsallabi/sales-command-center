@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { CallRecord, OUTCOMES } from "@/lib/types";
 import { UNASSIGNED } from "@/lib/stats";
@@ -44,6 +44,8 @@ import { ScorecardPanel } from "./scorecard-panel";
 import { BookingCalendar } from "./booking-calendar";
 import { LiveIndicator } from "./live-indicator";
 import { NavSection, SectionNav, useSectionNav } from "./section-nav";
+import { useSpotlight } from "./use-spotlight";
+import { CommandPalette } from "./command-palette";
 import { SalesCommandMark } from "@/components/brand/logo";
 import {
   Activity,
@@ -160,6 +162,7 @@ export function Dashboard({
   const [selectedCloser, setSelectedCloser] = useState<string | null>(null);
   const [openCall, setOpenCall] = useState<CallRecord | null>(null);
   const nav = useSectionNav();
+  useSpotlight();
 
   const allSources = useMemo(() => {
     const sources = new Set<string>();
@@ -375,6 +378,22 @@ export function Dashboard({
   );
 
   /**
+   * THE SAME LINE FOR THE COMPARISON PERIOD, under the same condition: the
+   * processor's money when the tile shows the processor's total, the closers'
+   * rows when a filter has moved it onto theirs. Its running total therefore
+   * ends on exactly the figure the cash delta is measured against — `bank.
+   * previousCollected` or the tracker's previous total — so the dashed line on
+   * the chart and the percentage beside the number are one comparison.
+   */
+  const previousSeries = useMemo(
+    () =>
+      priorWindow === null
+        ? null
+        : cashSeries(priorWindow, bank ? payments : null, previousScoped),
+    [priorWindow, bank, payments, previousScoped]
+  );
+
+  /**
    * THE DATES THE PAGE IS ACTUALLY SHOWING, SPELLED OUT. A button reading
    * "This month" cannot show an off-by-one; two real dates can, which is how
    * the eight-day week was caught.
@@ -518,6 +537,37 @@ export function Dashboard({
       selectedSources,
     ]
   );
+
+  /**
+   * Changing the period, from the buttons or from the search box. Custom opens
+   * on whatever is already on screen rather than jumping somewhere else, so
+   * the switch shows the same numbers until a date is actually moved.
+   */
+  const pickRange = useCallback(
+    (range: DateRange) => {
+      if (range === "custom" && dateRange !== "custom") {
+        if (visibleWindow.from) setCustomFrom(visibleWindow.from);
+        if (visibleWindow.to) setCustomTo(visibleWindow.to);
+      }
+      setDateRange(range);
+    },
+    [dateRange, visibleWindow]
+  );
+
+  /** Scrolls a section into view — the same move the section rail makes. */
+  const jumpTo = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+  }, []);
+
+  /** Every closer on the tracker, for the search box. */
+  const allClosers = useMemo(() => {
+    const names = new Set<string>();
+    calls.forEach((c) => c.closer && names.add(c.closer));
+    return [...names].sort();
+  }, [calls]);
 
   const toggleOutcome = (outcome: string) => {
     setSelectedOutcomes((prev) => {
@@ -703,15 +753,32 @@ export function Dashboard({
                 It rides with the TITLE rather than with the date controls: on
                 a phone those controls already fill their row, and a chip
                 squeezed in beside them landed on top of the range buttons. */}
-            {issues.length > 0 && (
-              <a
-                href="#data-health"
-                className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/25 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] font-medium text-amber-300 transition-colors hover:bg-amber-500/[0.14]"
-              >
-                <AlertTriangle className="h-3 w-3" strokeWidth={2} />
-                {issues.length} to check
-              </a>
-            )}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <CommandPalette
+                sections={sections}
+                calls={calls}
+                closers={allClosers}
+                dateRange={dateRange}
+                selectedCloser={selectedCloser}
+                onJump={jumpTo}
+                onPeriod={pickRange}
+                onCloser={setSelectedCloser}
+                onOpenCall={setOpenCall}
+              />
+              {issues.length > 0 && (
+                <a
+                  href="#data-health"
+                  aria-label={`${issues.length} to check`}
+                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/25 bg-amber-500/[0.08] px-2.5 py-1 text-[11px] font-medium text-amber-300 transition-colors hover:bg-amber-500/[0.14]"
+                >
+                  <AlertTriangle className="h-3 w-3" strokeWidth={2} />
+                  {issues.length}
+                  {/* The words go on a phone, where the title beside this chip
+                      needs the room more; the count and the triangle stay. */}
+                  <span className="hidden sm:inline">to check</span>
+                </a>
+              )}
+            </div>
           </motion.div>
 
           {/* AND THE CONTROLS TAKE THEIR OWN ROW UNTIL THERE IS ROOM FOR BOTH.
@@ -764,16 +831,7 @@ export function Dashboard({
                       <button
                         key={r.value}
                         aria-pressed={on}
-                        onClick={() => {
-                          // Custom opens on whatever is already on screen rather
-                          // than jumping somewhere else, so the switch shows the
-                          // same numbers until a date is actually moved.
-                          if (r.value === "custom" && dateRange !== "custom") {
-                            if (visibleWindow.from) setCustomFrom(visibleWindow.from);
-                            if (visibleWindow.to) setCustomTo(visibleWindow.to);
-                          }
-                          setDateRange(r.value);
-                        }}
+                        onClick={() => pickRange(r.value)}
                         className={`relative shrink-0 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-[11px] font-medium transition-colors ${
                           on ? "text-gold-200" : "text-zinc-400 hover:text-zinc-100"
                         }`}
@@ -915,6 +973,7 @@ export function Dashboard({
             bank={bank}
             payments={payments !== null}
             cashSeries={series}
+            previousCashSeries={previousSeries}
             unratedCount={unrated.length}
           />
         </div>

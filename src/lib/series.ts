@@ -113,3 +113,13 @@ export function cashSeries(
 
   return dailyTotals(from, to, totals);
 }
+
+/**
+ * Each point's running total: everything from the start of the window up to
+ * and including it. The last one is the window's total, which is what lets the
+ * pace chart end exactly on the figure printed above it.
+ */
+export function runningTotals(points: SeriesPoint[]): number[] {
+  let sum = 0;
+  return points.map((p) => (sum += p.value));
+}
